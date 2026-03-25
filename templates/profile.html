@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Profile - Cat Adoption</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- HAMBURGER BUTTON -->
+<button id="menu-toggle" class="hamburger">☰</button>
+
+<!-- SIDEBAR -->
+<div id="sidebar" class="sidebar">
+    <h2>Cat Adoption</h2>
+    <p class="panel-text">User Panel</p>
+
+    <a href="{{ url_for('dashboard') }}">Available Cats</a>
+
+    <a href="{{ url_for('history') }}"
+       style="background:#e07a5f; color:white; border-radius:10px; text-decoration:none; padding:12px;">
+        View Adoption History
+    </a>
+
+    <a href="{{ url_for('profile') }}" class="active">My Profile</a>
+
+    <div class="logout">
+        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="main-content" class="main-content">
+    <div class="container">
+
+        <div class="profile-card">
+
+            <div class="profile-avatar">👤</div>
+            <h2>My Profile</h2>
+            <p class="sub-text">{{ session['email'] }}</p>
+
+            {% if success %}
+                <p class="success-msg">{{ success }}</p>
+            {% endif %}
+
+            <!-- EDIT FORM -->
+            <form method="POST" action="{{ url_for('profile') }}">
+                <label>Email</label>
+                <input type="email" name="email" value="{{ user[1] }}" required>
+
+                <label>New Password</label>
+                <input type="password" name="password" placeholder="Enter new password" required>
+
+                <button type="submit" class="save-btn">Save Changes</button>
+            </form>
+
+            <hr class="divider">
+
+            <!-- DELETE ACCOUNT -->
+            <p class="danger-text">Danger Zone</p>
+            <p class="sub-text">Deleting your account is permanent and cannot be undone.</p>
+
+            <form method="POST" action="{{ url_for('delete_account') }}"
+                  onsubmit="return confirm('Are you sure you want to delete your account? This cannot be undone.')">
+                <button type="submit" class="delete-btn">Delete My Account</button>
+            </form>
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.getElementById("menu-toggle").addEventListener("click", function() {
+    document.getElementById("sidebar").classList.toggle("active");
+    document.getElementById("main-content").classList.toggle("shift");
+});
+</script>
+
+</body>
+</html>

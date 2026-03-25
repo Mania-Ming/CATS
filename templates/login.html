@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cat Adoption Login</title>
+   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="login-container">
+    <div class="login-card">
+
+        <div class="logo">🐾</div>
+
+        <h2>Cat Adoption</h2>
+        <p class="subtitle">Sign in to manage cat adoptions</p>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+       <form method="POST">
+
+    <label>Email</label>
+    <input type="email" name="email" required>
+
+    <label>Password</label>
+    <input type="password" name="password" required>
+
+    <p class="signup-text">
+        No account yet? 
+        <a href="{{ url_for('register') }}">Click here to Register</a>
+    </p>
+
+    <button type="submit">Login</button>
+
+</form>
+
+
+    </div>
+</div>
+
+</body>
+</html>
