@@ -4,15 +4,8 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return "Hello from Vercel!"
 
-@app.route("/shop")
-def shop():
-    return "<h1>Shop Page</h1>"
-
-@app.route("/contact")
-def contact():
-    return "<h1>Contact Page</h1>"
-
-if __name__ == "__main__":
-    app.run(debug=True)
+# VERY IMPORTANT FOR VERCEL
+def handler(request):
+    return app(request.environ, lambda *args: None)

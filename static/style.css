@@ -1,0 +1,78 @@
+/* ===== GENERAL ===== */
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* ===== HERO SECTION ===== */
+.hero-section {
+    height: 80vh;
+    background: url("../images/hero.jpg") center/cover no-repeat;
+    position: relative;
+}
+
+/* Dark overlay */
+.hero-section::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.hero-section div {
+    position: relative;
+    z-index: 2;
+}
+
+/* ===== PRODUCTS SECTION ===== */
+.product-section {
+    margin-top: 50px;
+}
+
+/* ===== PRODUCT CARD ===== */
+.product-card {
+    background: white;
+    padding: 15px;
+    border-radius: 12px;
+    transition: 0.3s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* Hover effect */
+.product-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+/* Product images */
+.product-card img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+/* Product title */
+.product-card h5 {
+    margin-top: 10px;
+    font-weight: 600;
+}
+
+/* ===== BUTTON ===== */
+.btn-light {
+    font-weight: bold;
+    border-radius: 25px;
+}
+
+/* ===== NAVBAR ===== */
+.navbar-brand {
+    font-size: 1.4rem;
+}
+
+/* ===== FOOTER ===== */
+footer {
+    margin-top: 60px;
+}
