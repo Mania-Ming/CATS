@@ -1,36 +1,32 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-import pymysql
-import os
+from flask_mysqldb import MySQL
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "secretkey")
+app.secret_key = "secretkey"
 
-def get_db():
-    return pymysql.connect(
-        host=os.environ.get("MYSQL_HOST", "127.0.0.1"),
-        user=os.environ.get("MYSQL_USER", "root"),
-        password=os.environ.get("MYSQL_PASSWORD", ""),
-        database=os.environ.get("MYSQL_DB", "cat_adoption"),
-        port=int(os.environ.get("MYSQL_PORT", 3308)),
-        cursorclass=pymysql.cursors.Cursor
-    )
+app.config["MYSQL_HOST"] = "127.0.0.1"
+app.config["MYSQL_USER"] = "root"
+app.config["MYSQL_PASSWORD"] = ""
+app.config["MYSQL_DB"] = "cat_adoption"
+app.config["MYSQL_PORT"] = 3308
+
+mysql = MySQL(app)
 
 # ================= USER LOGIN =================
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+
         email = request.form.get("email")
         password = request.form.get("password")
 
         if not email or not password:
             return render_template("login.html", error="Please fill all fields")
 
-        db = get_db()
-        cur = db.cursor()
+        cur = mysql.connection.cursor()
         cur.execute("SELECT * FROM users WHERE email=%s AND password=%s", (email, password))
         user = cur.fetchone()
         cur.close()
-        db.close()
 
         if user:
             session.clear()
@@ -77,21 +73,18 @@ def register():
         email = request.form["email"]
         password = request.form["password"]
 
-        db = get_db()
-        cur = db.cursor()
+        cur = mysql.connection.cursor()
 
         cur.execute("SELECT * FROM users WHERE email=%s", (email,))
         existing = cur.fetchone()
 
         if existing:
             cur.close()
-            db.close()
             return render_template("register.html", error="Email already registered")
 
         cur.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (email, password))
-        db.commit()
+        mysql.connection.commit()
         cur.close()
-        db.close()
 
         return redirect(url_for("login"))
 
@@ -107,8 +100,7 @@ def dashboard():
     search = request.args.get("search")
     breed = request.args.get("breed")
 
-    db = get_db()
-    cur = db.cursor()
+    cur = mysql.connection.cursor()
 
     query = "SELECT * FROM cats WHERE 1=1"
     values = []
@@ -124,7 +116,6 @@ def dashboard():
     cur.execute(query, values)
     cats = cur.fetchall()
     cur.close()
-    db.close()
 
     return render_template("dashboard.html", cats=cats)
 
@@ -140,8 +131,7 @@ def adopt_request():
     contact = request.form.get("contact")
     address = request.form.get("address")
 
-    db = get_db()
-    cur = db.cursor()
+    cur = mysql.connection.cursor()
 
     cur.execute("""
         INSERT INTO adoption_requests
@@ -149,9 +139,8 @@ def adopt_request():
         VALUES (%s, %s, %s, %s, 'Pending', NOW())
     """, (cat_id, fullname, contact, address))
 
-    db.commit()
+    mysql.connection.commit()
     cur.close()
-    db.close()
 
     return redirect(url_for("dashboard"))
 
@@ -162,8 +151,7 @@ def history():
     if "user_id" not in session:
         return redirect(url_for("login"))
 
-    db = get_db()
-    cur = db.cursor()
+    cur = mysql.connection.cursor()
 
     cur.execute("""
         SELECT cats.name,
@@ -178,7 +166,6 @@ def history():
 
     requests = cur.fetchall()
     cur.close()
-    db.close()
 
     return render_template("history.html", requests=requests)
 
@@ -189,8 +176,7 @@ def profile():
     if "user_id" not in session:
         return redirect(url_for("login"))
 
-    db = get_db()
-    cur = db.cursor()
+    cur = mysql.connection.cursor()
 
     if request.method == "POST":
         email = request.form.get("email")
@@ -198,16 +184,14 @@ def profile():
 
         cur.execute("UPDATE users SET email=%s, password=%s WHERE id=%s",
                     (email, password, session["user_id"]))
-        db.commit()
+        mysql.connection.commit()
         session["email"] = email
         cur.close()
-        db.close()
         return redirect(url_for("profile"))
 
     cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
     user = cur.fetchone()
     cur.close()
-    db.close()
     return render_template("profile.html", user=user)
 
 
@@ -217,12 +201,10 @@ def delete_account():
     if "user_id" not in session:
         return redirect(url_for("login"))
 
-    db = get_db()
-    cur = db.cursor()
+    cur = mysql.connection.cursor()
     cur.execute("DELETE FROM users WHERE id=%s", (session["user_id"],))
-    db.commit()
+    mysql.connection.commit()
     cur.close()
-    db.close()
     session.clear()
     return redirect(url_for("login"))
 
