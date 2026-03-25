@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- HERO SECTION -->
+<div class="hero-section d-flex align-items-center justify-content-center text-center text-white">
+    <div>
+        <h1 class="display-4 fw-bold">New Collection</h1>
+        <p class="lead">Discover the latest trends in tech & fashion</p>
+        <a href="/shop" class="btn btn-light px-4 py-2 mt-2">Shop Now</a>
+    </div>
+</div>
+
+<!-- PRODUCTS SECTION -->
+<div class="container product-section">
+    <div class="row text-center">
+
+        <div class="col-md-3">
+            <div class="product-card">
+                <img src="{{ url_for('static', filename='images/laptop.jpg') }}">
+                <h5>Laptop</h5>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="product-card">
+                <img src="{{ url_for('static', filename='images/phone.jpg') }}">
+                <h5>Phone</h5>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="product-card">
+                <img src="{{ url_for('static', filename='images/shoes.jpg') }}">
+                <h5>Shoes</h5>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="product-card">
+                <img src="{{ url_for('static', filename='images/watch.jpg') }}">
+                <h5>Watch</h5>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
