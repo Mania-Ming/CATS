@@ -1,9 +1,18 @@
 import os
+import logging
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase_client import supabase as _supabase_client
+
+# Vercel captures stdout/stderr — logging.WARNING and above appear in
+# the function logs tab of your Vercel dashboard.
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+log = logging.getLogger(__name__)
 
 # If env vars were missing at boot, supabase_client sets the value to None.
 # We re-export it here so all existing code continues to work unchanged.
@@ -67,7 +76,8 @@ def get_user_profile(user_id):
             return None
         return (u.get("id"), u.get("email"), u.get("password"), u.get("full_name"),
                 u.get("phone"), u.get("address"), u.get("valid_id_url"))
-    except Exception:
+    except Exception as e:
+        log.error("get_user_profile(%s) failed: %s", user_id, e)
         return None
 
 
@@ -76,13 +86,13 @@ def upload_valid_id(file, user_id):
     try:
         filename = secure_filename(f"uid_{user_id}_{file.filename}")
         file_bytes = file.read()
-        # upsert=true replaces an existing file with the same name
         supabase.storage.from_(STORAGE_BUCKET).upload(
             filename, file_bytes,
             {"content-type": file.content_type, "upsert": "true"}
         )
         return supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
-    except Exception:
+    except Exception as e:
+        log.error("upload_valid_id(%s) failed: %s", user_id, e)
         return None
 
 
@@ -114,7 +124,8 @@ def browse():
              c.get("image", "cat1.jpg"), c["status"])
             for c in (res.data or [])
         ]
-    except Exception:
+    except Exception as e:
+        log.error("browse — cats fetch failed: %s", e)
         cats = []
     return render_template("browse.html", cats=cats, logged_in="user_id" in session)
 
@@ -133,7 +144,8 @@ def login():
         try:
             res = supabase.table("users").select("*").eq("email", email).execute()
             user = res.data[0] if res.data else None
-        except Exception:
+        except Exception as e:
+            log.error("login — users fetch failed: %s", e)
             return render_template("login.html", error="Something went wrong. Please try again.")
 
         if user and check_password_hash(user.get("password", ""), password):
@@ -201,7 +213,8 @@ def admin_dashboard():
         total_cats    = len(supabase.table("cats").select("id", count="exact").execute().data or [])
         pending_count = len(supabase.table("adoption_requests").select("id").eq("status", "Pending").execute().data or [])
         total_users   = len(supabase.table("users").select("id", count="exact").execute().data or [])
-    except Exception:
+    except Exception as e:
+        log.error("admin_dashboard failed: %s", e)
         requests_list = []
         total_cats = pending_count = total_users = 0
 
@@ -222,7 +235,8 @@ def update_status(req_id):
     try:
         supabase.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
         flash(f"Request #{req_id} updated to {new_status}", "success")
-    except Exception:
+    except Exception as e:
+        log.error("update_status(%s) failed: %s", req_id, e)
         flash("Failed to update status. Please try again.", "error")
     return redirect(url_for("admin_dashboard"))
 
@@ -241,13 +255,22 @@ def register():
             existing = supabase.table("users").select("id").eq("email", email).execute()
             if existing.data:
                 return render_template("register.html", error="Email already registered")
+        except Exception as e:
+            log.error("register — duplicate-check failed: %s", e)
+            return render_template("register.html", error="Registration failed. Please try again.")
+
+        try:
             supabase.table("users").insert({
                 "email": email,
                 "password": generate_password_hash(password),
                 "full_name": fullname,
             }).execute()
-        except Exception:
+        except Exception as e:
+            # The real Supabase error (e.g. RLS violation, unique constraint)
+            # is now visible in Vercel → Functions → Logs.
+            log.error("register — insert failed for %s: %s", email, e)
             return render_template("register.html", error="Registration failed. Please try again.")
+
         flash("Account created! Please login.", "success")
         return redirect(url_for("login"))
     return render_template("register.html")
@@ -277,7 +300,8 @@ def dashboard():
             .eq("user_id", session["user_id"]).eq("status", "Pending")
             .execute().data or []
         )
-    except Exception:
+    except Exception as e:
+        log.error("dashboard failed: %s", e)
         cats = []
         pending_count = 0
 
@@ -314,7 +338,8 @@ def adopt_request():
             "status":           "Pending",
         }).execute()
         flash("Adoption request submitted! We will review it shortly.", "success")
-    except Exception:
+    except Exception as e:
+        log.error("adopt_request failed for user %s: %s", session.get("user_id"), e)
         flash("Failed to submit request. Please try again.", "error")
     return redirect(url_for("dashboard"))
 
@@ -339,7 +364,8 @@ def history():
             )
             for ar in (ar_res.data or [])
         ]
-    except Exception:
+    except Exception as e:
+        log.error("history failed: %s", e)
         requests = []
 
     user = get_user_profile(session["user_id"])
@@ -369,7 +395,8 @@ def profile():
         try:
             supabase.table("users").update(update_data).eq("id", session["user_id"]).execute()
             flash("Profile updated successfully!", "success")
-        except Exception:
+        except Exception as e:
+            log.error("profile update failed for %s: %s", session.get("user_id"), e)
             flash("Failed to save profile. Please try again.", "error")
         return redirect(url_for("profile"))
 
@@ -383,7 +410,8 @@ def profile():
             (ar["id"], (ar.get("cats") or {}).get("name"), ar["status"], parse_dt(ar.get("created_at")))
             for ar in (ar_res.data or [])
         ]
-    except Exception:
+    except Exception as e:
+        log.error("profile — recent requests failed: %s", e)
         recent = []
 
     return render_template("profile.html", user=user, recent=recent)
@@ -397,7 +425,8 @@ def delete_account():
         return redirect(url_for("login"))
     try:
         supabase.table("users").delete().eq("id", session["user_id"]).execute()
-    except Exception:
+    except Exception as e:
+        log.error("delete_account failed for %s: %s", session.get("user_id"), e)
         flash("Failed to delete account.", "error")
         return redirect(url_for("profile"))
     session.clear()
