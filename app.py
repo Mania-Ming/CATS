@@ -1,106 +1,137 @@
 import os
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-from flask_mysqldb import MySQL
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from supabase_client import supabase
 
 app = Flask(__name__)
-app.secret_key = "cat_adoption_secret_2026"
+app.secret_key = os.environ.get("SECRET_KEY", "cat_adoption_secret_2026")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-app.config["MYSQL_HOST"] = "127.0.0.1"
-app.config["MYSQL_USER"] = "root"
-app.config["MYSQL_PASSWORD"] = ""
-app.config["MYSQL_DB"] = "cat_adoption"
-app.config["MYSQL_PORT"] = 3308
-
-UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+STORAGE_BUCKET = "valid-ids"
 
-mysql = MySQL(app)
+# Admin credentials from environment (fallback for local dev only)
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
+
+# ------------------------------------------------------------------ helpers --
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def ensure_columns():
-    alterations = [
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS fullname VARCHAR(150) DEFAULT NULL",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS contact VARCHAR(20) DEFAULT NULL",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT DEFAULT NULL",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS valid_id VARCHAR(255) DEFAULT NULL",
-        "ALTER TABLE adoption_requests ADD COLUMN IF NOT EXISTS user_id INT DEFAULT NULL",
-        "ALTER TABLE adoption_requests ADD COLUMN IF NOT EXISTS living_situation VARCHAR(100) DEFAULT NULL",
-        "ALTER TABLE adoption_requests ADD COLUMN IF NOT EXISTS has_other_pets VARCHAR(100) DEFAULT NULL",
-        "ALTER TABLE adoption_requests ADD COLUMN IF NOT EXISTS experience VARCHAR(100) DEFAULT NULL",
-        "ALTER TABLE adoption_requests ADD COLUMN IF NOT EXISTS reason TEXT DEFAULT NULL",
-    ]
-    cur = mysql.connection.cursor()
-    for sql in alterations:
-        try:
-            cur.execute(sql)
-        except Exception:
-            pass
-    mysql.connection.commit()
-    cur.close()
+def parse_dt(val):
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val
+    try:
+        return datetime.fromisoformat(val.replace("Z", "+00:00"))
+    except Exception:
+        return None
 
 
 def get_user_profile(user_id):
-    cur = mysql.connection.cursor()
-    cur.execute(
-        "SELECT id, email, password, fullname, contact, address, valid_id FROM users WHERE id=%s",
-        (user_id,)
-    )
-    user = cur.fetchone()
-    cur.close()
-    return user
+    """Return user as tuple (id, email, password, full_name, phone, address, valid_id_url)."""
+    try:
+        res = supabase.table("users").select("*").eq("id", user_id).single().execute()
+        u = res.data
+        if not u:
+            return None
+        return (u.get("id"), u.get("email"), u.get("password"), u.get("full_name"),
+                u.get("phone"), u.get("address"), u.get("valid_id_url"))
+    except Exception:
+        return None
 
 
-# ================= BROWSE (guest view) =================
+def upload_valid_id(file, user_id):
+    """Upload file to Supabase Storage and return its public URL, or None on failure."""
+    try:
+        filename = secure_filename(f"uid_{user_id}_{file.filename}")
+        file_bytes = file.read()
+        # upsert=true replaces an existing file with the same name
+        supabase.storage.from_(STORAGE_BUCKET).upload(
+            filename, file_bytes,
+            {"content-type": file.content_type, "upsert": "true"}
+        )
+        return supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
+    except Exception:
+        return None
+
+
+def db_query(table, filters=None, columns="*", order=None, limit=None, single=False):
+    """Generic safe SELECT helper. Returns list (or dict if single=True), or [] / None on error."""
+    try:
+        q = supabase.table(table).select(columns)
+        for col, val in (filters or {}).items():
+            q = q.eq(col, val)
+        if order:
+            q = q.order(order, desc=True)
+        if limit:
+            q = q.limit(limit)
+        if single:
+            return (q.single().execute().data) or None
+        return (q.execute().data) or []
+    except Exception:
+        return None if single else []
+
+
+# ------------------------------------------------------------------ browse --
+
 @app.route("/browse")
 def browse():
-    ensure_columns()
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM cats")
-    cats = cur.fetchall()
-    cur.close()
+    try:
+        res = supabase.table("cats").select("*").execute()
+        cats = [
+            (c["id"], c["name"], c["breed"], c["age"], c["gender"],
+             c.get("image", "cat1.jpg"), c["status"])
+            for c in (res.data or [])
+        ]
+    except Exception:
+        cats = []
     return render_template("browse.html", cats=cats, logged_in="user_id" in session)
 
 
-# ================= USER LOGIN =================
+# ------------------------------------------------------------------ login --
+
 @app.route("/", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
-    ensure_columns()
     if request.method == "POST":
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
         if not email or not password:
             return render_template("login.html", error="Please fill all fields")
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT * FROM users WHERE email=%s AND password=%s", (email, password))
-        user = cur.fetchone()
-        cur.close()
-        if user:
+        try:
+            res = supabase.table("users").select("*").eq("email", email).execute()
+            user = res.data[0] if res.data else None
+        except Exception:
+            return render_template("login.html", error="Something went wrong. Please try again.")
+
+        if user and check_password_hash(user.get("password", ""), password):
             session.clear()
-            session["user_id"] = user[0]
-            session["email"] = user[1]
+            session["user_id"] = user["id"]
+            session["email"] = user["email"]
             return redirect(url_for("dashboard"))
         return render_template("login.html", error="Invalid email or password")
     return render_template("login.html")
 
 
-# ================= ADMIN LOGIN =================
+# ------------------------------------------------------------------ admin login --
+
 @app.route("/admin_login", methods=["GET", "POST"])
 def admin_login():
     if "admin_logged_in" in session:
         return redirect(url_for("admin_dashboard"))
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if username == "admin" and password == "admin123":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session.clear()
             session["admin_logged_in"] = True
             return redirect(url_for("admin_dashboard"))
@@ -108,30 +139,49 @@ def admin_login():
     return render_template("admin_login.html")
 
 
-# ================= ADMIN DASHBOARD =================
+# ------------------------------------------------------------------ admin dashboard --
+
 @app.route("/admin_dashboard")
 def admin_dashboard():
     if "admin_logged_in" not in session:
         return redirect(url_for("admin_login"))
-    ensure_columns()
-    cur = mysql.connection.cursor()
-    cur.execute("""
-        SELECT ar.id, c.name, c.breed, ar.fullname, ar.contact, ar.address,
-               ar.status, ar.created_at, u.valid_id, u.email,
-               ar.living_situation, ar.has_other_pets, ar.experience, ar.reason
-        FROM adoption_requests ar
-        JOIN cats c ON ar.cat_id = c.id
-        JOIN users u ON ar.user_id = u.id
-        ORDER BY ar.created_at DESC
-    """)
-    requests_list = cur.fetchall()
-    cur.execute("SELECT COUNT(*) FROM cats")
-    total_cats = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM adoption_requests WHERE status='Pending'")
-    pending_count = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM users")
-    total_users = cur.fetchone()[0]
-    cur.close()
+    try:
+        # Fetch all adoption requests with related cat and user data in one call
+        ar_res = supabase.table("adoption_requests").select(
+            "id, status, created_at, living_situation, has_other_pets, experience_level, reason,"
+            "user_id, cat_id,"
+            "cats(name, breed),"
+            "users(full_name, phone, address, valid_id_url, email)"
+        ).order("created_at", desc=True).execute()
+
+        requests_list = []
+        for ar in (ar_res.data or []):
+            cat  = ar.get("cats")  or {}
+            user = ar.get("users") or {}
+            requests_list.append((
+                ar["id"],                        # r[0]
+                cat.get("name"),                 # r[1]
+                cat.get("breed"),                # r[2]
+                user.get("full_name"),           # r[3]
+                user.get("phone"),               # r[4]
+                user.get("address"),             # r[5]
+                ar["status"],                    # r[6]
+                parse_dt(ar.get("created_at")),  # r[7]
+                user.get("valid_id_url"),        # r[8]
+                user.get("email"),               # r[9]
+                ar.get("living_situation"),      # r[10]
+                ar.get("has_other_pets"),        # r[11]
+                ar.get("experience_level"),      # r[12]
+                ar.get("reason"),                # r[13]
+            ))
+
+        total_cats    = len(supabase.table("cats").select("id", count="exact").execute().data or [])
+        pending_count = len(supabase.table("adoption_requests").select("id").eq("status", "Pending").execute().data or [])
+        total_users   = len(supabase.table("users").select("id", count="exact").execute().data or [])
+    except Exception:
+        requests_list = []
+        total_cats = pending_count = total_users = 0
+
     return render_template("admin_dashboard.html",
                            requests=requests_list,
                            total_cats=total_cats,
@@ -139,182 +189,200 @@ def admin_dashboard():
                            total_users=total_users)
 
 
-# ================= ADMIN UPDATE STATUS =================
+# ------------------------------------------------------------------ admin update status --
+
 @app.route("/admin/update_status/<int:req_id>", methods=["POST"])
 def update_status(req_id):
     if "admin_logged_in" not in session:
         return redirect(url_for("admin_login"))
     new_status = request.form.get("status")
-    cur = mysql.connection.cursor()
-    cur.execute("UPDATE adoption_requests SET status=%s WHERE id=%s", (new_status, req_id))
-    mysql.connection.commit()
-    cur.close()
-    flash(f"Request #{req_id} updated to {new_status}", "success")
+    try:
+        supabase.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
+        flash(f"Request #{req_id} updated to {new_status}", "success")
+    except Exception:
+        flash("Failed to update status. Please try again.", "error")
     return redirect(url_for("admin_dashboard"))
 
 
-# ================= REGISTER =================
+# ------------------------------------------------------------------ register --
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
+        email    = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
         fullname = request.form.get("fullname", "").strip()
         if not email or not password or not fullname:
             return render_template("register.html", error="Please fill all fields")
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT id FROM users WHERE email=%s", (email,))
-        if cur.fetchone():
-            cur.close()
-            return render_template("register.html", error="Email already registered")
-        cur.execute(
-            "INSERT INTO users (email, password, fullname) VALUES (%s, %s, %s)",
-            (email, password, fullname)
-        )
-        mysql.connection.commit()
-        cur.close()
+        try:
+            existing = supabase.table("users").select("id").eq("email", email).execute()
+            if existing.data:
+                return render_template("register.html", error="Email already registered")
+            supabase.table("users").insert({
+                "email": email,
+                "password": generate_password_hash(password),
+                "full_name": fullname,
+            }).execute()
+        except Exception:
+            return render_template("register.html", error="Registration failed. Please try again.")
         flash("Account created! Please login.", "success")
         return redirect(url_for("login"))
     return render_template("register.html")
 
 
-# ================= USER DASHBOARD =================
+# ------------------------------------------------------------------ dashboard --
+
 @app.route("/dashboard")
 def dashboard():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    ensure_columns()
     search = request.args.get("search", "")
-    breed = request.args.get("breed", "")
-    cur = mysql.connection.cursor()
-    query = "SELECT * FROM cats WHERE 1=1"
-    values = []
-    if search:
-        query += " AND name LIKE %s"
-        values.append(f"%{search}%")
-    if breed and breed != "All Breeds":
-        query += " AND breed = %s"
-        values.append(breed)
-    cur.execute(query, values)
-    cats = cur.fetchall()
-    cur.execute("SELECT COUNT(*) FROM adoption_requests WHERE user_id=%s AND status='Pending'",
-                (session["user_id"],))
-    pending_count = cur.fetchone()[0]
-    cur.close()
+    breed  = request.args.get("breed", "")
+    try:
+        q = supabase.table("cats").select("*").eq("status", "available")
+        if search:
+            q = q.ilike("name", f"%{search}%")
+        if breed and breed != "All Breeds":
+            q = q.eq("breed", breed)
+        cats = [
+            (c["id"], c["name"], c["breed"], c["age"], c["gender"],
+             c.get("image", "cat1.jpg"), c["status"])
+            for c in (q.execute().data or [])
+        ]
+        pending_count = len(
+            supabase.table("adoption_requests").select("id")
+            .eq("user_id", session["user_id"]).eq("status", "Pending")
+            .execute().data or []
+        )
+    except Exception:
+        cats = []
+        pending_count = 0
+
     user = get_user_profile(session["user_id"])
     return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count)
 
 
-# ================= ADOPT REQUEST =================
+# ------------------------------------------------------------------ adopt request --
+
 @app.route("/adopt_request", methods=["POST"])
 def adopt_request():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    ensure_columns()
     user = get_user_profile(session["user_id"])
-    if not user[3] or not user[4] or not user[5]:
+    if not user or not user[3] or not user[4] or not user[5]:
         flash("Please complete your profile (name, contact, address) before adopting.", "error")
         return redirect(url_for("profile"))
-    cat_id = request.form.get("cat_id")
+    cat_id           = request.form.get("cat_id")
     living_situation = request.form.get("living_situation", "").strip()
-    has_other_pets = request.form.get("has_other_pets", "").strip()
-    experience = request.form.get("experience", "").strip()
-    reason = request.form.get("reason", "").strip()
+    has_other_pets   = request.form.get("has_other_pets", "").strip()
+    experience       = request.form.get("experience", "").strip()
+    reason           = request.form.get("reason", "").strip()
     if not living_situation or not has_other_pets or not reason:
         flash("Please answer all required questions.", "error")
         return redirect(url_for("dashboard"))
-    cur = mysql.connection.cursor()
-    cur.execute("""
-        INSERT INTO adoption_requests
-            (user_id, cat_id, fullname, contact, address, living_situation, has_other_pets, experience, reason, status, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pending', NOW())
-    """, (session["user_id"], cat_id, user[3], user[4], user[5],
-          living_situation, has_other_pets, experience, reason))
-    mysql.connection.commit()
-    cur.close()
-    flash("Adoption request submitted! We will review it shortly.", "success")
+    try:
+        supabase.table("adoption_requests").insert({
+            "user_id":          session["user_id"],
+            "cat_id":           int(cat_id),
+            "living_situation": living_situation,
+            "has_other_pets":   has_other_pets,
+            "experience_level": experience,
+            "reason":           reason,
+            "status":           "Pending",
+        }).execute()
+        flash("Adoption request submitted! We will review it shortly.", "success")
+    except Exception:
+        flash("Failed to submit request. Please try again.", "error")
     return redirect(url_for("dashboard"))
 
 
-# ================= USER HISTORY =================
+# ------------------------------------------------------------------ history --
+
 @app.route("/history")
 def history():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    ensure_columns()
-    cur = mysql.connection.cursor()
-    cur.execute("""
-        SELECT c.name, c.breed, ar.status, ar.created_at
-        FROM adoption_requests ar
-        JOIN cats c ON ar.cat_id = c.id
-        WHERE ar.user_id = %s
-        ORDER BY ar.created_at DESC
-    """, (session["user_id"],))
-    requests = cur.fetchall()
-    cur.close()
+    try:
+        ar_res = supabase.table("adoption_requests").select(
+            "status, created_at, cats(name, breed)"
+        ).eq("user_id", session["user_id"]).order("created_at", desc=True).execute()
+
+        requests = [
+            (
+                (ar.get("cats") or {}).get("name"),
+                (ar.get("cats") or {}).get("breed"),
+                ar["status"],
+                parse_dt(ar.get("created_at")),
+            )
+            for ar in (ar_res.data or [])
+        ]
+    except Exception:
+        requests = []
+
     user = get_user_profile(session["user_id"])
     return render_template("history.html", requests=requests, user=user)
 
 
-# ================= PROFILE =================
+# ------------------------------------------------------------------ profile --
+
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    ensure_columns()
     if request.method == "POST":
         fullname = request.form.get("fullname", "").strip()
-        contact = request.form.get("contact", "").strip()
-        address = request.form.get("address", "").strip()
-        valid_id_filename = None
-        if "valid_id" in request.files:
-            file = request.files["valid_id"]
-            if file and file.filename and allowed_file(file.filename):
-                filename = secure_filename(f"uid_{session['user_id']}_{file.filename}")
-                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-                valid_id_filename = filename
-        cur = mysql.connection.cursor()
-        if valid_id_filename:
-            cur.execute(
-                "UPDATE users SET fullname=%s, contact=%s, address=%s, valid_id=%s WHERE id=%s",
-                (fullname, contact, address, valid_id_filename, session["user_id"])
-            )
-        else:
-            cur.execute(
-                "UPDATE users SET fullname=%s, contact=%s, address=%s WHERE id=%s",
-                (fullname, contact, address, session["user_id"])
-            )
-        mysql.connection.commit()
-        cur.close()
-        flash("Profile updated successfully!", "success")
+        contact  = request.form.get("contact", "").strip()
+        address  = request.form.get("address", "").strip()
+        update_data = {"full_name": fullname, "phone": contact, "address": address}
+
+        file = request.files.get("valid_id")
+        if file and file.filename and allowed_file(file.filename):
+            public_url = upload_valid_id(file, session["user_id"])
+            if public_url:
+                update_data["valid_id_url"] = public_url
+            else:
+                flash("ID upload failed — profile info was still saved.", "error")
+
+        try:
+            supabase.table("users").update(update_data).eq("id", session["user_id"]).execute()
+            flash("Profile updated successfully!", "success")
+        except Exception:
+            flash("Failed to save profile. Please try again.", "error")
         return redirect(url_for("profile"))
+
     user = get_user_profile(session["user_id"])
-    cur = mysql.connection.cursor()
-    cur.execute("""
-        SELECT ar.id, c.name, ar.status, ar.created_at
-        FROM adoption_requests ar
-        JOIN cats c ON ar.cat_id = c.id
-        WHERE ar.user_id=%s ORDER BY ar.created_at DESC LIMIT 5
-    """, (session["user_id"],))
-    recent = cur.fetchall()
-    cur.close()
+    try:
+        ar_res = supabase.table("adoption_requests").select(
+            "id, status, created_at, cats(name)"
+        ).eq("user_id", session["user_id"]).order("created_at", desc=True).limit(5).execute()
+
+        recent = [
+            (ar["id"], (ar.get("cats") or {}).get("name"), ar["status"], parse_dt(ar.get("created_at")))
+            for ar in (ar_res.data or [])
+        ]
+    except Exception:
+        recent = []
+
     return render_template("profile.html", user=user, recent=recent)
 
 
-# ================= DELETE ACCOUNT =================
+# ------------------------------------------------------------------ delete account --
+
 @app.route("/delete_account", methods=["POST"])
 def delete_account():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    cur = mysql.connection.cursor()
-    cur.execute("DELETE FROM users WHERE id=%s", (session["user_id"],))
-    mysql.connection.commit()
-    cur.close()
+    try:
+        supabase.table("users").delete().eq("id", session["user_id"]).execute()
+    except Exception:
+        flash("Failed to delete account.", "error")
+        return redirect(url_for("profile"))
     session.clear()
     return redirect(url_for("login"))
 
 
-# ================= LOGOUT =================
+# ------------------------------------------------------------------ logout --
+
 @app.route("/logout")
 def logout():
     session.clear()

@@ -70,7 +70,7 @@
                             <span class="info-label">Valid ID</span>
                             <span class="info-value">
                                 {% if user[6] %}
-                                <a href="{{ url_for('static', filename='uploads/' + user[6]) }}" target="_blank" style="color:var(--primary);font-weight:600;">View uploaded ID</a>
+                                <a href="{{ user[6] }}" target="_blank" style="color:var(--primary);font-weight:600;">View uploaded ID</a>
                                 {% else %}
                                 <span style="color:#e74c3c;">Not uploaded</span>
                                 {% endif %}
@@ -123,7 +123,7 @@
                                 <div style="font-size:22px;margin-bottom:6px;color:var(--text-muted);">&#8679;</div>
                                 <p id="fileLabel">
                                     {% if user[6] %}
-                                    Current: <strong>{{ user[6] }}</strong> — click to replace
+                                    Current: <strong>ID uploaded</strong> — click to replace
                                     {% else %}
                                     Click to upload your valid ID<br><span>PNG, JPG, PDF accepted</span>
                                     {% endif %}
