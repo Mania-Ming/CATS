@@ -3,7 +3,11 @@ from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-from supabase_client import supabase
+from supabase_client import supabase as _supabase_client
+
+# If env vars were missing at boot, supabase_client sets the value to None.
+# We re-export it here so all existing code continues to work unchanged.
+supabase = _supabase_client
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cat_adoption_secret_2026")
@@ -389,5 +393,8 @@ def logout():
     return redirect(url_for("login"))
 
 
+# app.run() is intentionally kept inside the __name__ guard.
+# Vercel never calls this block — it imports the `app` object directly
+# via api/index.py and calls it as a WSGI app.
 if __name__ == "__main__":
     app.run(debug=True)
