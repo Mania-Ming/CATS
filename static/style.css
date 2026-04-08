@@ -281,7 +281,10 @@ a { text-decoration: none; color: inherit; }
     padding: 4px;
 }
 
-.page-content { padding: 28px; flex: 1; }
+.page-content {
+    padding: 28px;
+    flex: 1;
+}
 
 /* ===== SEARCH BAR ===== */
 .search-bar {

@@ -1,122 +1,150 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Cat Adoption Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
 
-<!-- HAMBURGER BUTTON -->
-<button id="menu-toggle" class="hamburger">☰</button>
-
-<!-- SIDEBAR -->
-<div id="sidebar" class="sidebar">
-    <h2>Cat Adoption</h2>
-    <p class="panel-text">User Panel</p>
-
-    <a href="{{ url_for('dashboard') }}" class="active">
-        Available Cats
-    </a>
-
-    <a href="{{ url_for('history') }}" 
-   style="padding:8px 15px; background:#e07a5f; color:white; border-radius:10px; text-decoration:none; padding: 12px;">
-   View Adoption History
-</a>
-
-    <a href="{{ url_for('profile') }}">My Profile</a>
-
-    <div class="logout">
-        <a href="{{ url_for('logout') }}" class="logout-btn">
-            Logout
-        </a>
-    </div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
 </div>
+{% endif %}
+{% endwith %}
 
-<!-- MAIN CONTENT -->
-<div id="main-content" class="main-content">
+<div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div><h2>Cat Adoption</h2><span>User Panel</span></div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-label">Menu</div>
+            <a href="{{ url_for('dashboard') }}" class="nav-item active"><span class="nav-icon">&#9632;</span> Dashboard</a>
+            <a href="{{ url_for('profile') }}" class="nav-item"><span class="nav-icon">&#9632;</span> My Profile</a>
+            <a href="{{ url_for('history') }}" class="nav-item"><span class="nav-icon">&#9632;</span> Adoption History</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="{{ url_for('logout') }}" class="nav-item" style="color:#e74c3c;"><span class="nav-icon">&#9632;</span> Logout</a>
+        </div>
+    </aside>
 
-    <div class="container">
-
-        <!-- SEARCH FORM -->
-        <form method="GET" action="{{ url_for('dashboard') }}">
-            <div class="top-bar">
-                <div></div>
-
-                <div class="search-section">
-                    <input type="text" 
-                           name="search"
-                           placeholder="Search by name..."
-                           value="{{ request.args.get('search', '') }}">
-
-                    <select name="breed">
-                        <option value="All Breeds"
-                            {% if request.args.get('breed') == 'All Breeds' %}selected{% endif %}>
-                            All Breeds
-                        </option>
-                        <option value="Persian"
-                            {% if request.args.get('breed') == 'Persian' %}selected{% endif %}>
-                            Persian
-                        </option>
-                        <option value="Siamese"
-                            {% if request.args.get('breed') == 'Siamese' %}selected{% endif %}>
-                            Siamese
-                        </option>
-                        <option value="Ragdoll"
-                            {% if request.args.get('breed') == 'Ragdoll' %}selected{% endif %}>
-                            Ragdoll
-                        </option>
-                        <option value="British Shorthair"
-                            {% if request.args.get('breed') == 'British Shorthair' %}selected{% endif %}>
-                            British Shorthair
-                        </option>
-                    </select>
-
+    <div class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="menuToggle">&#9776;</button>
+                <div>
+                    <div class="topbar-title">Available Cats</div>
+                    <div class="topbar-subtitle">Browse our lovely cats waiting for a new home</div>
                 </div>
             </div>
-        </form>
+        </div>
 
-        <!-- TITLE -->
-        <h2>Available Cats</h2>
-        <p class="sub-text">
-            Browse our lovely cats waiting for a new home
-        </p>
+        <div class="page-content">
+
+        <!-- SEARCH FORM -->
+        <form method="GET" action="{{ url_for('dashboard') }}" class="search-bar">
+            <input type="text" 
+                   name="search"
+                   placeholder="Search by cat name..."
+                   value="{{ request.args.get('search', '') }}">
+
+            <select name="breed">
+                <option value="All Breeds"
+                    {% if request.args.get('breed') == 'All Breeds' %}selected{% endif %}>
+                    All Breeds
+                </option>
+                <option value="Persian"
+                    {% if request.args.get('breed') == 'Persian' %}selected{% endif %}>
+                    Persian
+                </option>
+                <option value="Siamese"
+                    {% if request.args.get('breed') == 'Siamese' %}selected{% endif %}>
+                    Siamese
+                </option>
+                <option value="Ragdoll"
+                    {% if request.args.get('breed') == 'Ragdoll' %}selected{% endif %}>
+                    Ragdoll
+                </option>
+                <option value="British Shorthair"
+                    {% if request.args.get('breed') == 'British Shorthair' %}selected{% endif %}>
+                    British Shorthair
+                </option>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Search</button>
+        </form>
 
         <!-- CATS GRID -->
         <div class="cats-grid">
             {% for cat in cats %}
             <div class="cat-card">
-
                 <img src="{{ url_for('static', filename='images/' + cat[5]) }}" 
                      alt="{{ cat[1] }}" 
                      class="cat-image">
 
-                <div class="cat-info">
+                <div class="cat-card-body">
                     <h3>{{ cat[1] }}</h3>
-                    <p><strong>Age:</strong> {{ cat[2] }}</p>
-                    <p><strong>Breed:</strong> {{ cat[3] }}</p>
-                    <p><strong>Gender:</strong> {{ cat[4] }}</p>
-
-                    <button class="adopt-btn"
-                        onclick="openModal('{{ cat[0] }}','{{ cat[1] }}','{{ cat[3] }}','{{ cat[2] }}','{{ cat[4] }}')">
-                        ❤ Adopt me
+                    <div class="cat-meta">
+                        <span class="cat-badge">{{ cat[3] }}</span>
+                        <span class="cat-badge">{{ cat[2] }} yrs</span>
+                        <span class="cat-badge gender">{{ cat[4] }}</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" 
+                        onclick="openModal('{{ cat[0] }}','{{ cat[1] }}','{{ cat[3] }}','{{ cat[2] }}','{{ cat[4] }}')"
+                        style="width:100%;justify-content:center;">
+                        ❤ Adopt Me
                     </button>
                 </div>
-
             </div>
             {% endfor %}
         </div>
+
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="site-footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <h3>Cat Adoption</h3>
+                    <p>Connecting loving families with cats in need of a forever home.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Navigate</h4>
+                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('profile') }}">My Profile</a>
+                    <a href="{{ url_for('history') }}">Adoption History</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Account</h4>
+                    <a href="{{ url_for('logout') }}">Sign Out</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact</h4>
+                    <a href="#">support@catadoption.ph</a>
+                    <a href="#">Manila, Philippines</a>
+                </div>
+            </div>
+            <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
+        </footer>
 
     </div>
 
 </div>
 
 <!-- ================= MODAL ================= -->
-<div id="adoptModal" class="modal">
-    <div class="modal-content">
+<div id="adoptModal" class="modal-overlay">
+    <div class="modal-box">
 
         <span class="close-btn" onclick="closeModal()">×</span>
-        <h2>Adoption Request</h2>
+        <div class="modal-header">
+            <h3>Adoption Request</h3>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
 
         <div class="selected-cat-box">
             <p><strong>Selected Cat:</strong></p>
@@ -129,12 +157,6 @@
 
             <label>Your Name</label>
             <input type="text" name="fullname" placeholder="Enter your full name" required>
-
-            <label>Contact Number</label>
-            <input type="text" name="contact" placeholder="Enter your phone number" required>
-
-            <label>Address</label>
-            <input type="text" name="address" placeholder="Enter your complete address" required>
 
             <div class="modal-buttons">
                 <button type="button" onclick="closeModal()" class="cancel-btn">
@@ -151,9 +173,8 @@
 
 <!-- SIDEBAR TOGGLE SCRIPT -->
 <script>
-document.getElementById("menu-toggle").addEventListener("click", function() {
-    document.getElementById("sidebar").classList.toggle("active");
-    document.getElementById("main-content").classList.toggle("shift");
+document.getElementById("menuToggle").addEventListener("click", function() {
+    document.getElementById("sidebar").classList.toggle("open");
 });
 
 function openModal(id, name, breed, age, gender) {
