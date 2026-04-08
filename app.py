@@ -276,18 +276,23 @@ def register():
                 "full_name": fullname,
             }).execute()
 
-            # Log the full response so you can see exactly what Supabase returned.
-            # Visible in: Vercel → project → Functions → Logs
             log.warning("register — insert response for %s: data=%s", email, res.data)
 
             if not res.data:
-                # Insert ran without raising but returned nothing — log and fail safely.
                 log.error("register — insert returned empty data for %s", email)
                 return render_template("register.html", error="Registration failed. Please try again.")
 
         except Exception as e:
-            # repr(e) gives the full exception class + message, much more useful than str(e).
-            log.error("register — insert raised for %s: %r", email, e)
+            err = repr(e)
+            log.error("register — insert raised for %s: %s", email, err)
+            # Surface a specific message for the most common failure causes
+            # so the user knows what to do instead of seeing a generic error.
+            if "duplicate" in err.lower() or "unique" in err.lower():
+                return render_template("register.html", error="Email already registered")
+            if "row-level security" in err.lower() or "rls" in err.lower():
+                return render_template("register.html", error="Registration is currently unavailable. Please contact support.")
+            if "violates not-null" in err.lower():
+                return render_template("register.html", error="Please fill all required fields")
             return render_template("register.html", error="Registration failed. Please try again.")
 
         flash("Account created! Please login.", "success")
