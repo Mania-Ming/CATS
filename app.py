@@ -9,10 +9,29 @@ from supabase_client import supabase as _supabase_client
 # We re-export it here so all existing code continues to work unchanged.
 supabase = _supabase_client
 
-app = Flask(__name__)
+# Resolve the project root so Flask finds /templates and /static
+# whether the app is started from the project root (locally)
+# or from api/ (Vercel imports api/index.py which adds root to sys.path,
+# but __file__ here is app.py which lives at the root, so this is safe).
+_root = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(
+    __name__,
+    template_folder=os.path.join(_root, "templates"),
+    static_folder=os.path.join(_root, "static"),
+    static_url_path="/static",
+)
 app.secret_key = os.environ.get("SECRET_KEY", "cat_adoption_secret_2026")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+# Inject CSS_VERSION into every template for cache-busting.
+# Bump this string whenever you update style.css.
+CSS_VERSION = "1.0.2"
+
+@app.context_processor
+def inject_globals():
+    return {"css_version": CSS_VERSION}
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
 STORAGE_BUCKET = "valid-ids"
