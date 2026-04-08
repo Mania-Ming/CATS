@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Cats — Cat Adoption</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body style="background:var(--bg);">
+
+<nav class="browse-nav">
+    <div class="brand">Cat Adoption</div>
+    <div class="nav-actions">
+        {% if logged_in %}
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm">Go to Dashboard</a>
+        {% else %}
+        <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">Sign In</a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
+        {% endif %}
+    </div>
+</nav>
+
+<div class="browse-hero">
+    <h1>Find Your Perfect Cat</h1>
+    <p>Browse cats available for adoption. Sign in or register to submit an adoption application.</p>
+    {% if not logged_in %}
+    <div style="display:flex;gap:10px;justify-content:center;">
+        <a href="{{ url_for('login') }}" class="btn btn-outline" style="border-color:rgba(255,255,255,0.3);color:white;">Sign In</a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary">Register Free</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="browse-content">
+    {% if not logged_in %}
+    <div class="guest-banner">
+        <p>You are browsing as a guest. <strong>Register or sign in</strong> to adopt a cat.</p>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+            <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">Sign In</a>
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if cats %}
+    <div class="cats-grid">
+        {% for cat in cats %}
+        <div class="cat-card">
+            <img src="{{ url_for('static', filename='images/' + cat[5]) }}" alt="{{ cat[1] }}">
+            <div class="cat-card-body">
+                <h3>{{ cat[1] }}</h3>
+                <div class="cat-meta">
+                    <span class="cat-badge">{{ cat[3] }}</span>
+                    <span class="cat-badge">{{ cat[2] }} yrs</span>
+                    <span class="cat-badge gender">{{ cat[4] }}</span>
+                </div>
+                {% if logged_in %}
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">Adopt Me</a>
+                {% else %}
+                <button onclick="document.getElementById('loginModal').classList.add('open')"
+                    class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;">
+                    Login to Adopt
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No cats available right now</h3>
+        <p>Check back soon for new arrivals.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <h3>Cat Adoption</h3>
+            <p>Connecting loving families with cats in need of a forever home. Every adoption makes a difference.</p>
+        </div>
+        <div class="footer-col">
+            <h4>Explore</h4>
+            <a href="{{ url_for('browse') }}">Browse Cats</a>
+            <a href="{{ url_for('register') }}">Create Account</a>
+            <a href="{{ url_for('login') }}">Sign In</a>
+        </div>
+        <div class="footer-col">
+            <h4>About</h4>
+            <a href="#">Our Mission</a>
+            <a href="#">How It Works</a>
+            <a href="#">Adoption Process</a>
+        </div>
+        <div class="footer-col">
+            <h4>Contact</h4>
+            <a href="#">support@catadoption.ph</a>
+            <a href="#">+63 900 000 0000</a>
+            <a href="#">Manila, Philippines</a>
+        </div>
+    </div>
+    <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
+</footer>
+
+<!-- LOGIN PROMPT MODAL -->
+<div id="loginModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:400px;">
+        <div class="modal-header">
+            <h3>Sign In Required</h3>
+            <button class="modal-close" onclick="document.getElementById('loginModal').classList.remove('open')">&#10005;</button>
+        </div>
+        <div class="modal-body" style="text-align:center;padding:28px 24px;">
+            <p style="margin-bottom:20px;color:var(--text-muted);font-size:14px;">
+                You need an account to submit an adoption application. It's free and only takes a minute.
+            </p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <a href="{{ url_for('login') }}" class="btn btn-outline">Sign In</a>
+                <a href="{{ url_for('register') }}" class="btn btn-primary">Register Free</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login — Cat Adoption</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="auth-page">
+    <div class="auth-left" style="background:linear-gradient(160deg,#1a1d2e 0%,#2d3250 100%);">
+        <div class="brand-logo">🛡️</div>
+        <h1>Admin Portal</h1>
+        <p>Manage cat listings, review adoption requests, and oversee the platform.</p>
+    </div>
+    <div class="auth-right">
+        <div class="auth-card">
+            <h2>Admin Sign In</h2>
+            <p class="subtitle">Restricted access — authorized personnel only</p>
+
+            {% if error %}
+            <div class="alert alert-error">⚠ {{ error }}</div>
+            {% endif %}
+
+            <form method="POST">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" placeholder="Admin username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="Admin password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full" style="margin-top:8px;">Sign In</button>
+            </form>
+
+            <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--text-muted);">
+                <a href="{{ url_for('login') }}" style="color:var(--primary);">← Back to User Login</a>
+            </p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

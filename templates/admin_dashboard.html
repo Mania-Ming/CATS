@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — Cat Adoption</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">✓ {{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="app-layout">
+    <aside class="sidebar admin-sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-icon">🐾</span>
+            <div><h2>Cat Adoption</h2><span>Admin Panel</span></div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-label">Management</div>
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-item active">
+                <span class="nav-icon">📊</span> Dashboard
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="{{ url_for('logout') }}" class="nav-item" style="color:#e74c3c;">
+                <span class="nav-icon">🚪</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="menuToggle">☰</button>
+                <div>
+                    <div class="topbar-title">Admin Dashboard</div>
+                    <div class="topbar-subtitle">Manage adoption requests</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <!-- STATS -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon orange">🐱</div>
+                    <div>
+                        <div class="stat-value">{{ total_cats }}</div>
+                        <div class="stat-label">Total Cats</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue">⏳</div>
+                    <div>
+                        <div class="stat-value">{{ pending_count }}</div>
+                        <div class="stat-label">Pending Requests</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">👥</div>
+                    <div>
+                        <div class="stat-value">{{ total_users }}</div>
+                        <div class="stat-label">Registered Users</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">📋</div>
+                    <div>
+                        <div class="stat-value">{{ requests|length }}</div>
+                        <div class="stat-label">Total Requests</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- REQUESTS TABLE -->
+            <div class="section-header">
+                <div>
+                    <h3>Adoption Requests</h3>
+                    <p>Review and update the status of each request</p>
+                </div>
+            </div>
+
+            {% if requests %}
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Cat</th>
+                            <th>Applicant</th>
+                            <th>Contact</th>
+                            <th>Valid ID</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in requests %}
+                        <tr>
+                            <td style="color:var(--text-muted);">{{ r[0] }}</td>
+                            <td>
+                                <strong>{{ r[1] }}</strong><br>
+                                <span style="font-size:11px;color:var(--text-muted);">{{ r[2] }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ r[3] }}</strong><br>
+                                <span style="font-size:11px;color:var(--text-muted);">{{ r[9] }}</span>
+                            </td>
+                            <td>
+                                {{ r[4] }}<br>
+                                <span style="font-size:11px;color:var(--text-muted);">{{ r[5] }}</span>
+                            </td>
+                            <td>
+                                {% if r[8] %}
+                                <a href="{{ url_for('static', filename='uploads/' + r[8]) }}" target="_blank" class="btn btn-outline btn-sm">View ID</a>
+                                {% else %}
+                                <span style="color:var(--text-muted);font-size:12px;">None</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge badge-{{ r[6]|lower }}">{{ r[6] }}</span></td>
+                            <td style="color:var(--text-muted);font-size:12px;">
+                                {{ r[7].strftime('%b %d, %Y') if r[7] else '—' }}
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('update_status', req_id=r[0]) }}" style="display:flex;gap:6px;align-items:center;">
+                                    <select name="status" class="status-select">
+                                        <option value="Pending" {% if r[6]=='Pending' %}selected{% endif %}>Pending</option>
+                                        <option value="Approved" {% if r[6]=='Approved' %}selected{% endif %}>Approved</option>
+                                        <option value="Rejected" {% if r[6]=='Rejected' %}selected{% endif %}>Rejected</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <h3>No adoption requests yet</h3>
+                <p>Requests will appear here once users submit them.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('menuToggle').addEventListener('click', () =>
+    document.getElementById('sidebar').classList.toggle('open'));
+setTimeout(() => document.querySelectorAll('.flash-msg').forEach(el => el.style.opacity = '0'), 4000);
+</script>
+</body>
+</html>

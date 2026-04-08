@@ -1,43 +1,49 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Cat Adoption Login</title>
-   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Cat Adoption</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+<div class="auth-page">
+    <div class="auth-left">
+        <div class="brand-logo">🐾</div>
+        <h1>Cat Adoption</h1>
+        <p>Find your perfect furry companion and give them a loving forever home.</p>
+    </div>
+    <div class="auth-right">
+        <div class="auth-card">
+            <h2>Welcome back</h2>
+            <p class="subtitle">Sign in to your account to continue</p>
 
-<div class="login-container">
-    <div class="login-card">
+            {% if error %}
+            <div class="alert alert-error">⚠ {{ error }}</div>
+            {% endif %}
 
-        <div class="logo">🐾</div>
+            <form method="POST">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full" style="margin-top:8px;">Sign In</button>
+            </form>
 
-        <h2>Cat Adoption</h2>
-        <p class="subtitle">Sign in to manage cat adoptions</p>
-
-        {% if error %}
-            <p class="error">{{ error }}</p>
-        {% endif %}
-
-       <form method="POST">
-
-    <label>Email</label>
-    <input type="email" name="email" required>
-
-    <label>Password</label>
-    <input type="password" name="password" required>
-
-    <p class="signup-text">
-        No account yet? 
-        <a href="{{ url_for('register') }}">Click here to Register</a>
-    </p>
-
-    <button type="submit">Login</button>
-
-</form>
-
-
+            <p style="text-align:center; margin-top:20px; font-size:13px; color:var(--text-muted);">
+                Don't have an account?
+                <a href="{{ url_for('register') }}" style="color:var(--primary); font-weight:600;">Create one</a>
+            </p>
+            <p style="text-align:center; margin-top:10px; font-size:13px; color:var(--text-muted);">
+                Just browsing?
+                <a href="{{ url_for('browse') }}" style="color:var(--secondary); font-weight:600;">View available cats →</a>
+            </p>
+        </div>
     </div>
 </div>
-
 </body>
 </html>

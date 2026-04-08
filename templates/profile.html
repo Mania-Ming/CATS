@@ -1,80 +1,185 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>My Profile - Cat Adoption</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<!-- HAMBURGER BUTTON -->
-<button id="menu-toggle" class="hamburger">☰</button>
-
-<!-- SIDEBAR -->
-<div id="sidebar" class="sidebar">
-    <h2>Cat Adoption</h2>
-    <p class="panel-text">User Panel</p>
-
-    <a href="{{ url_for('dashboard') }}">Available Cats</a>
-
-    <a href="{{ url_for('history') }}"
-       style="background:#e07a5f; color:white; border-radius:10px; text-decoration:none; padding:12px;">
-        View Adoption History
-    </a>
-
-    <a href="{{ url_for('profile') }}" class="active">My Profile</a>
-
-    <div class="logout">
-        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
-    </div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
 </div>
+{% endif %}
+{% endwith %}
 
-<!-- MAIN CONTENT -->
-<div id="main-content" class="main-content">
-    <div class="container">
+<div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div><h2>Cat Adoption</h2><span>User Panel</span></div>
+        </div>
+        <div class="sidebar-user">
+            <div class="user-name">{{ user[3] or 'User' }}</div>
+            <div class="user-email">{{ session['email'] }}</div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-label">Menu</div>
+            <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="nav-icon">&#9632;</span> Dashboard</a>
+            <a href="{{ url_for('profile') }}" class="nav-item active"><span class="nav-icon">&#9632;</span> My Profile</a>
+            <a href="{{ url_for('history') }}" class="nav-item"><span class="nav-icon">&#9632;</span> Adoption History</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="{{ url_for('logout') }}" class="nav-item" style="color:#e74c3c;"><span class="nav-icon">&#9632;</span> Logout</a>
+        </div>
+    </aside>
 
-        <div class="profile-card">
-
-            <div class="profile-avatar">👤</div>
-            <h2>My Profile</h2>
-            <p class="sub-text">{{ session['email'] }}</p>
-
-            {% if success %}
-                <p class="success-msg">{{ success }}</p>
-            {% endif %}
-
-            <!-- EDIT FORM -->
-            <form method="POST" action="{{ url_for('profile') }}">
-                <label>Email</label>
-                <input type="email" name="email" value="{{ user[1] }}" required>
-
-                <label>New Password</label>
-                <input type="password" name="password" placeholder="Enter new password" required>
-
-                <button type="submit" class="save-btn">Save Changes</button>
-            </form>
-
-            <hr class="divider">
-
-            <!-- DELETE ACCOUNT -->
-            <p class="danger-text">Danger Zone</p>
-            <p class="sub-text">Deleting your account is permanent and cannot be undone.</p>
-
-            <form method="POST" action="{{ url_for('delete_account') }}"
-                  onsubmit="return confirm('Are you sure you want to delete your account? This cannot be undone.')">
-                <button type="submit" class="delete-btn">Delete My Account</button>
-            </form>
-
+    <div class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="menuToggle">&#9776;</button>
+                <div>
+                    <div class="topbar-title">My Profile</div>
+                    <div class="topbar-subtitle">Manage your personal information and verification</div>
+                </div>
+            </div>
         </div>
 
+        <div class="page-content">
+            <div class="profile-grid">
+                <!-- LEFT: Summary card -->
+                <div>
+                    <div class="profile-card" style="text-align:center; margin-bottom:16px;">
+                        <div class="profile-avatar">{{ (user[3] or 'U')[0].upper() }}</div>
+                        <div class="profile-name">{{ user[3] or 'No name set' }}</div>
+                        <div class="profile-email">{{ user[1] }}</div>
+                        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+                        <div class="profile-info-row">
+                            <span class="info-label">Phone</span>
+                            <span class="info-value">{{ user[4] or '—' }}</span>
+                        </div>
+                        <div class="profile-info-row">
+                            <span class="info-label">Address</span>
+                            <span class="info-value">{{ user[5] or '—' }}</span>
+                        </div>
+                        <div class="profile-info-row">
+                            <span class="info-label">Valid ID</span>
+                            <span class="info-value">
+                                {% if user[6] %}
+                                <a href="{{ url_for('static', filename='uploads/' + user[6]) }}" target="_blank" style="color:var(--primary);font-weight:600;">View uploaded ID</a>
+                                {% else %}
+                                <span style="color:#e74c3c;">Not uploaded</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Recent requests -->
+                    <div class="profile-card">
+                        <h4 style="margin-bottom:14px;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Recent Requests</h4>
+                        {% if recent %}
+                        {% for r in recent %}
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
+                            <span>{{ r[1] }}</span>
+                            <span class="badge badge-{{ r[2]|lower }}">{{ r[2] }}</span>
+                        </div>
+                        {% endfor %}
+                        <a href="{{ url_for('history') }}" style="display:block;text-align:center;margin-top:12px;font-size:13px;color:var(--primary);font-weight:600;">View all</a>
+                        {% else %}
+                        <p style="color:var(--text-muted);font-size:13px;">No adoption requests yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- RIGHT: Edit form -->
+                <div class="profile-card">
+                    <h4 style="margin-bottom:20px;font-size:15px;font-weight:700;">Edit Profile</h4>
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" name="fullname" value="{{ user[3] or '' }}" placeholder="Your full name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" value="{{ user[1] }}" disabled style="background:#f5f5f5;cursor:not-allowed;color:var(--text-muted);">
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Number</label>
+                            <input type="text" name="contact" value="{{ user[4] or '' }}" placeholder="e.g. 09XX-XXX-XXXX">
+                        </div>
+                        <div class="form-group">
+                            <label>Complete Address</label>
+                            <textarea name="address" placeholder="Street, Barangay, City, Province">{{ user[5] or '' }}</textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valid ID <span style="color:var(--text-muted);font-weight:400;">(required for adoption)</span></label>
+                            <div class="file-upload-area" onclick="document.getElementById('validIdInput').click()">
+                                <input type="file" id="validIdInput" name="valid_id" accept="image/*,.pdf" onchange="updateFileName(this)">
+                                <div style="font-size:22px;margin-bottom:6px;color:var(--text-muted);">&#8679;</div>
+                                <p id="fileLabel">
+                                    {% if user[6] %}
+                                    Current: <strong>{{ user[6] }}</strong> — click to replace
+                                    {% else %}
+                                    Click to upload your valid ID<br><span>PNG, JPG, PDF accepted</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <footer class="site-footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <h3>Cat Adoption</h3>
+                    <p>Connecting loving families with cats in need of a forever home.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Navigate</h4>
+                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('profile') }}">My Profile</a>
+                    <a href="{{ url_for('history') }}">Adoption History</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Account</h4>
+                    <a href="{{ url_for('logout') }}">Sign Out</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact</h4>
+                    <a href="#">support@catadoption.ph</a>
+                    <a href="#">Manila, Philippines</a>
+                </div>
+            </div>
+            <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
+        </footer>
     </div>
 </div>
 
 <script>
-document.getElementById("menu-toggle").addEventListener("click", function() {
-    document.getElementById("sidebar").classList.toggle("active");
-    document.getElementById("main-content").classList.toggle("shift");
-});
-</script>
+document.getElementById('menuToggle').addEventListener('click', () =>
+    document.getElementById('sidebar').classList.toggle('open'));
 
+function updateFileName(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById('fileLabel').innerHTML = '<strong>' + input.files[0].name + '</strong> selected';
+    }
+}
+
+setTimeout(() => {
+    document.querySelectorAll('.flash-msg').forEach(el => {
+        el.style.transition = 'opacity 0.5s';
+        el.style.opacity = '0';
+    });
+}, 4000);
+</script>
 </body>
 </html>

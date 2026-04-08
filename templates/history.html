@@ -1,78 +1,108 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Adoption History - Cat Adoption</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adoption History — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+<div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div><h2>Cat Adoption</h2><span>User Panel</span></div>
+        </div>
+        <div class="sidebar-user">
+            <div class="user-name">{{ user[3] or 'User' }}</div>
+            <div class="user-email">{{ session['email'] }}</div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-label">Menu</div>
+            <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="nav-icon">&#9632;</span> Dashboard</a>
+            <a href="{{ url_for('profile') }}" class="nav-item"><span class="nav-icon">&#9632;</span> My Profile</a>
+            <a href="{{ url_for('history') }}" class="nav-item active"><span class="nav-icon">&#9632;</span> Adoption History</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="{{ url_for('logout') }}" class="nav-item" style="color:#e74c3c;"><span class="nav-icon">&#9632;</span> Logout</a>
+        </div>
+    </aside>
 
-<!-- HAMBURGER BUTTON -->
-<button id="menu-toggle" class="hamburger">☰</button>
+    <div class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="menuToggle">&#9776;</button>
+                <div>
+                    <div class="topbar-title">Adoption History</div>
+                    <div class="topbar-subtitle">Track your adoption applications</div>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm">Browse Cats</a>
+            </div>
+        </div>
 
-<!-- SIDEBAR -->
-<div id="sidebar" class="sidebar">
-    <h2>Cat Adoption</h2>
-    <p class="panel-text">User Panel</p>
+        <div class="page-content">
+            {% if requests %}
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cat Name</th>
+                            <th>Breed</th>
+                            <th>Status</th>
+                            <th>Date Requested</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in requests %}
+                        <tr>
+                            <td><strong>{{ req[0] }}</strong></td>
+                            <td style="color:var(--text-muted);">{{ req[1] }}</td>
+                            <td><span class="badge badge-{{ req[2]|lower }}">{{ req[2] }}</span></td>
+                            <td style="color:var(--text-muted);">{{ req[3].strftime('%b %d, %Y') if req[3] else '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <h3>No adoption requests yet</h3>
+                <p>Browse available cats and submit your first adoption application.</p>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary" style="margin-top:16px;">Browse Cats</a>
+            </div>
+            {% endif %}
+        </div>
 
-    <a href="{{ url_for('dashboard') }}">
-        Available Cats
-    </a>
-
-    <a href="{{ url_for('history') }}" class="active"
-       style="padding:8px 15px; background:#e07a5f; color:white; border-radius:10px; text-decoration:none; padding: 12px;">
-        View Adoption History
-    </a>
-
-    <a href="{{ url_for('profile') }}">My Profile</a>
-
-    <div class="logout">
-        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        <footer class="site-footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <h3>Cat Adoption</h3>
+                    <p>Connecting loving families with cats in need of a forever home.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Navigate</h4>
+                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('profile') }}">My Profile</a>
+                    <a href="{{ url_for('history') }}">Adoption History</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Account</h4>
+                    <a href="{{ url_for('logout') }}">Sign Out</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact</h4>
+                    <a href="#">support@catadoption.ph</a>
+                    <a href="#">Manila, Philippines</a>
+                </div>
+            </div>
+            <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
+        </footer>
     </div>
 </div>
-
-<!-- MAIN CONTENT -->
-<div id="main-content" class="main-content">
-    <div class="container">
-
-        <h2 style="margin-top: 60px;">Adoption History</h2>
-        <p class="sub-text">Your submitted adoption requests</p>
-
-        {% if requests %}
-        <table class="history-table">
-            <thead>
-                <tr>
-                    <th>Cat Name</th>
-                    <th>Breed</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in requests %}
-                <tr>
-                    <td>{{ r[0] }}</td>
-                    <td>{{ r[1] }}</td>
-                    <td>
-                        <span class="status-badge status-{{ r[2]|lower }}">{{ r[2] }}</span>
-                    </td>
-                    <td>{{ r[3] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-            <p class="sub-text">No adoption requests yet.</p>
-        {% endif %}
-
-    </div>
-</div>
-
 <script>
-document.getElementById("menu-toggle").addEventListener("click", function() {
-    document.getElementById("sidebar").classList.toggle("active");
-    document.getElementById("main-content").classList.toggle("shift");
-});
+document.getElementById('menuToggle').addEventListener('click', () =>
+    document.getElementById('sidebar').classList.toggle('open'));
 </script>
-
 </body>
 </html>
