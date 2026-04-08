@@ -8,8 +8,10 @@ from supabase_client import supabase as _supabase_client
 
 # Vercel captures stdout/stderr — logging.WARNING and above appear in
 # the function logs tab of your Vercel dashboard.
+# Set to DEBUG locally via LOG_LEVEL=DEBUG in your .env file.
+_log_level = os.environ.get("LOG_LEVEL", "WARNING").upper()
 logging.basicConfig(
-    level=logging.WARNING,
+    level=getattr(logging, _log_level, logging.WARNING),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 log = logging.getLogger(__name__)
@@ -246,29 +248,46 @@ def update_status(req_id):
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        email    = request.form.get("email", "").strip()
+        email    = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         fullname = request.form.get("fullname", "").strip()
+
         if not email or not password or not fullname:
             return render_template("register.html", error="Please fill all fields")
+
+        if len(password) < 6:
+            return render_template("register.html", error="Password must be at least 6 characters")
+
+        # --- duplicate email check ---
         try:
             existing = supabase.table("users").select("id").eq("email", email).execute()
+            log.warning("register — duplicate check for %s: found=%s", email, bool(existing.data))
             if existing.data:
                 return render_template("register.html", error="Email already registered")
         except Exception as e:
-            log.error("register — duplicate-check failed: %s", e)
+            log.error("register — duplicate-check failed for %s: %r", email, e)
             return render_template("register.html", error="Registration failed. Please try again.")
 
+        # --- insert new user ---
         try:
-            supabase.table("users").insert({
-                "email": email,
-                "password": generate_password_hash(password),
+            res = supabase.table("users").insert({
+                "email":     email,
+                "password":  generate_password_hash(password),
                 "full_name": fullname,
             }).execute()
+
+            # Log the full response so you can see exactly what Supabase returned.
+            # Visible in: Vercel → project → Functions → Logs
+            log.warning("register — insert response for %s: data=%s", email, res.data)
+
+            if not res.data:
+                # Insert ran without raising but returned nothing — log and fail safely.
+                log.error("register — insert returned empty data for %s", email)
+                return render_template("register.html", error="Registration failed. Please try again.")
+
         except Exception as e:
-            # The real Supabase error (e.g. RLS violation, unique constraint)
-            # is now visible in Vercel → Functions → Logs.
-            log.error("register — insert failed for %s: %s", email, e)
+            # repr(e) gives the full exception class + message, much more useful than str(e).
+            log.error("register — insert raised for %s: %r", email, e)
             return render_template("register.html", error="Registration failed. Please try again.")
 
         flash("Account created! Please login.", "success")
