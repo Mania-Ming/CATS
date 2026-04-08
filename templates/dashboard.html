@@ -140,29 +140,70 @@
 <div id="adoptModal" class="modal-overlay">
     <div class="modal-box">
 
-        <span class="close-btn" onclick="closeModal()">×</span>
         <div class="modal-header">
             <h3>Adoption Request</h3>
             <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
         </div>
 
-        <div class="selected-cat-box">
-            <p><strong>Selected Cat:</strong></p>
-            <h3 id="modalCatName"></h3>
-            <p id="modalCatDetails"></p>
-        </div>
-
         <form method="POST" action="{{ url_for('adopt_request') }}">
-            <input type="hidden" name="cat_id" id="modalCatId">
+            <div class="modal-body">
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+                    Please answer the questions below honestly. Your saved profile contact details will be used for this request.
+                </p>
+                <div class="cat-summary-box">
+                    <div>
+                        <p><strong>Selected Cat:</strong></p>
+                        <h4 id="modalCatName"></h4>
+                        <p id="modalCatDetails"></p>
+                    </div>
+                </div>
 
-            <label>Your Name</label>
-            <input type="text" name="fullname" placeholder="Enter your full name" required>
+                <input type="hidden" name="cat_id" id="modalCatId">
 
-            <div class="modal-buttons">
-                <button type="button" onclick="closeModal()" class="cancel-btn">
+                <div class="form-group">
+                    <label>Living Situation</label>
+                    <select name="living_situation" required>
+                        <option value="">Select your living situation</option>
+                        <option value="Apartment">Apartment</option>
+                        <option value="House">House</option>
+                        <option value="Condo">Condo</option>
+                        <option value="Shared Home">Shared Home</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Do you currently have other pets?</label>
+                    <select name="has_other_pets" required>
+                        <option value="">Select an option</option>
+                        <option value="No">No</option>
+                        <option value="Yes - cats">Yes - cats</option>
+                        <option value="Yes - dogs">Yes - dogs</option>
+                        <option value="Yes - mixed pets">Yes - mixed pets</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Pet Care Experience</label>
+                    <select name="experience">
+                        <option value="">Select your experience level</option>
+                        <option value="First-time adopter">First-time adopter</option>
+                        <option value="Some experience">Some experience</option>
+                        <option value="Experienced pet owner">Experienced pet owner</option>
+                        <option value="Rescue or foster experience">Rescue or foster experience</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Why do you want to adopt this cat?</label>
+                    <textarea name="reason" placeholder="Tell us about your home, routine, and why this cat is a good match for you." required></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">
                     Cancel
                 </button>
-                <button type="submit" class="submit-btn">
+                <button type="submit" class="btn btn-primary">
                     Submit Request
                 </button>
             </div>
@@ -178,7 +219,7 @@ document.getElementById("menuToggle").addEventListener("click", function() {
 });
 
 function openModal(id, name, breed, age, gender) {
-    document.getElementById("adoptModal").style.display = "flex";
+    document.getElementById("adoptModal").classList.add("open");
 
     document.getElementById("modalCatId").value = id;
     document.getElementById("modalCatName").innerText = name;
@@ -187,7 +228,7 @@ function openModal(id, name, breed, age, gender) {
 }
 
 function closeModal() {
-    document.getElementById("adoptModal").style.display = "none";
+    document.getElementById("adoptModal").classList.remove("open");
 }
 </script>
 
