@@ -22,7 +22,7 @@
             <div class="alert alert-error">⚠ {{ error }}</div>
             {% endif %}
 
-            <form method="POST" action="/login">
+            <form method="POST">
                 <div class="form-group">
                     <label>Email Address</label>
                     <input type="email" name="email" placeholder="you@example.com" required>
@@ -37,9 +37,6 @@
             <p style="text-align:center; margin-top:20px; font-size:13px; color:var(--text-muted);">
                 Don't have an account?
                 <a href="{{ url_for('register') }}" style="color:var(--primary); font-weight:600;">Create one</a>
-            </p>
-            <p style="text-align:center; margin-top:10px; font-size:13px;">
-                <a href="{{ url_for('browse') }}" style="color:var(--text-muted);">← Back to Browse</a>
             </p>
         </div>
     </div>
