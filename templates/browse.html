@@ -5,6 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browse Cats — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+    <style>
+        .cat-card { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .cat-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+
+        .cat-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .cat-modal-overlay.open { display: flex; }
+        .cat-modal-box {
+            background: white;
+            border-radius: 16px;
+            max-width: 440px;
+            width: 90%;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+        .cat-modal-img {
+            width: 100%;
+            height: 240px;
+            object-fit: cover;
+        }
+        .cat-modal-body { padding: 24px; }
+        .cat-modal-body h2 { margin: 0 0 4px; font-size: 22px; }
+        .cat-modal-breed { color: #888; font-size: 14px; margin-bottom: 16px; }
+        .cat-modal-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .cat-info-item {
+            background: #f7f7f7;
+            border-radius: 10px;
+            padding: 10px 14px;
+        }
+        .cat-info-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+        .cat-info-value { font-size: 15px; font-weight: 600; color: #222; margin-top: 2px; }
+        .cat-modal-actions { display: flex; gap: 10px; }
+        .cat-modal-close-btn {
+            position: absolute;
+            top: 12px; right: 14px;
+            background: rgba(0,0,0,0.4);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px; height: 32px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cat-modal-wrapper { position: relative; }
+    </style>
 </head>
 <body style="background:var(--bg);">
 
@@ -29,23 +92,17 @@
     {% if cats %}
     <div class="cats-grid">
         {% for cat in cats %}
-        <div class="cat-card">
+        <div class="cat-card"
+             onclick="openCatModal('{{ cat[1] }}','{{ cat[2] }}','{{ cat[3] }}','{{ cat[4] }}','{{ cat[5] }}','{{ cat[6] }}')">
             <img src="{{ url_for('static', filename='images/' + cat[5]) }}" alt="{{ cat[1] }}">
             <div class="cat-card-body">
                 <h3>{{ cat[1] }}</h3>
                 <div class="cat-meta">
-                    <span class="cat-badge">{{ cat[3] }}</span>
-                    <span class="cat-badge">{{ cat[2] }} yrs</span>
+                    <span class="cat-badge">{{ cat[3] }} yrs</span>
+                    <span class="cat-badge">{{ cat[2] }}</span>
                     <span class="cat-badge gender">{{ cat[4] }}</span>
                 </div>
-                {% if logged_in %}
-                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">Adopt Me</a>
-                {% else %}
-                <button onclick="document.getElementById('loginModal').classList.add('open')"
-                    class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;">
-                    Login to Adopt
-                </button>
-                {% endif %}
+                <p style="font-size:12px;color:#aaa;margin:8px 0 0;text-align:center;">🐾 Click to view details</p>
             </div>
         </div>
         {% endfor %}
@@ -63,7 +120,7 @@
     <div class="footer-inner">
         <div class="footer-brand">
             <h3>Cat Adoption</h3>
-            <p>Connecting loving families with cats in need of a forever home. Every adoption makes a difference.</p>
+            <p>Connecting loving families with cats in need of a forever home.</p>
         </div>
         <div class="footer-col">
             <h4>Explore</h4>
@@ -87,24 +144,69 @@
     <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
 </footer>
 
-<!-- LOGIN PROMPT MODAL -->
-<div id="loginModal" class="modal-overlay">
-    <div class="modal-box" style="max-width:400px;">
-        <div class="modal-header">
-            <h3>Sign In Required</h3>
-            <button class="modal-close" onclick="document.getElementById('loginModal').classList.remove('open')">&#10005;</button>
-        </div>
-        <div class="modal-body" style="text-align:center;padding:28px 24px;">
-            <p style="margin-bottom:20px;color:var(--text-muted);font-size:14px;">
-                You need an account to submit an adoption application. It's free and only takes a minute.
-            </p>
-            <div style="display:flex;gap:10px;justify-content:center;">
-                <a href="{{ url_for('login') }}" class="btn btn-outline">Sign In</a>
-                <a href="{{ url_for('register') }}" class="btn btn-primary">Register Free</a>
+<!-- CAT INFO MODAL -->
+<div id="catModal" class="cat-modal-overlay" onclick="closeCatModal(event)">
+    <div class="cat-modal-wrapper">
+        <button class="cat-modal-close-btn" onclick="document.getElementById('catModal').classList.remove('open')">&#10005;</button>
+        <div class="cat-modal-box">
+            <img id="modalImg" class="cat-modal-img" src="" alt="">
+            <div class="cat-modal-body">
+                <h2 id="modalName"></h2>
+                <div class="cat-modal-breed" id="modalBreedSub"></div>
+                <div class="cat-modal-info">
+                    <div class="cat-info-item">
+                        <div class="cat-info-label">Age</div>
+                        <div class="cat-info-value" id="modalAge"></div>
+                    </div>
+                    <div class="cat-info-item">
+                        <div class="cat-info-label">Gender</div>
+                        <div class="cat-info-value" id="modalGender"></div>
+                    </div>
+                    <div class="cat-info-item">
+                        <div class="cat-info-label">Breed</div>
+                        <div class="cat-info-value" id="modalBreed"></div>
+                    </div>
+                    <div class="cat-info-item">
+                        <div class="cat-info-label">Status</div>
+                        <div class="cat-info-value" id="modalStatus"></div>
+                    </div>
+                </div>
+                <div class="cat-modal-actions">
+                    {% if logged_in %}
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary" style="flex:1;justify-content:center;">Adopt Me 🐾</a>
+                    {% else %}
+                    <a href="{{ url_for('register') }}" class="btn btn-primary" style="flex:1;justify-content:center;">Register to Adopt 🐾</a>
+                    <a href="{{ url_for('login') }}" class="btn btn-outline" style="flex:1;justify-content:center;">Sign In</a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function openCatModal(name, breed, age, gender, image, status) {
+    document.getElementById('modalName').textContent      = name;
+    document.getElementById('modalBreedSub').textContent  = breed;
+    document.getElementById('modalBreed').textContent     = breed;
+    document.getElementById('modalAge').textContent       = age + ' year' + (age == 1 ? '' : 's') + ' old';
+    document.getElementById('modalGender').textContent    = gender;
+    document.getElementById('modalStatus').textContent    = status.charAt(0).toUpperCase() + status.slice(1);
+    document.getElementById('modalImg').src               = '/static/images/' + image;
+    document.getElementById('modalImg').alt               = name;
+    document.getElementById('catModal').classList.add('open');
+}
+
+function closeCatModal(event) {
+    if (event.target === document.getElementById('catModal')) {
+        document.getElementById('catModal').classList.remove('open');
+    }
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') document.getElementById('catModal').classList.remove('open');
+});
+</script>
 
 </body>
 </html>
