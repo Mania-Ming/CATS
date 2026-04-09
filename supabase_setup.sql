@@ -39,11 +39,21 @@ create table if not exists adoption_requests (
 );
 
 -- SEED CATS
+-- Run only the INSERT block below if tables already exist.
+-- Each cat has a unique image filename (cat1.jpg – cat12.jpg).
 insert into cats (name, breed, age, gender, image, status) values
-  ('Jhemer Whiskers', 'Persian', 2, 'Male', 'cat1.jpg', 'available'),
-  ('Luna', 'Siamese', 1, 'Female', 'cat2.jpg', 'available'),
-  ('Bella', 'Ragdoll', 2, 'Female', 'cat3.jpg', 'available'),
-  ('Milo', 'British Shorthair', 1, 'Male', 'cat4.jpg', 'available')
+  ('Jhemer Whiskers', 'Persian',           2, 'Male',   'cat1.jpg',  'available'),
+  ('Luna',            'Siamese',            1, 'Female', 'cat2.jpg',  'available'),
+  ('Bella',           'Ragdoll',            2, 'Female', 'cat3.jpg',  'available'),
+  ('Milo',            'British Shorthair',  1, 'Male',   'cat4.jpg',  'available'),
+  ('Nala',            'Maine Coon',         3, 'Female', 'cat5.jpg',  'available'),
+  ('Oliver',          'Scottish Fold',      2, 'Male',   'cat6.jpg',  'available'),
+  ('Cleo',            'Bengal',             1, 'Female', 'cat7.jpg',  'available'),
+  ('Simba',           'Abyssinian',         4, 'Male',   'cat8.jpg',  'available'),
+  ('Mochi',           'Birman',             2, 'Female', 'cat9.jpg',  'available'),
+  ('Leo',             'Norwegian Forest',   3, 'Male',   'cat10.jpg', 'available'),
+  ('Coco',            'Sphynx',             1, 'Female', 'cat11.jpg', 'available'),
+  ('Ash',             'Russian Blue',       2, 'Male',   'cat12.jpg', 'available')
 on conflict do nothing;
 
 -- ============================================================

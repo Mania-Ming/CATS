@@ -60,21 +60,29 @@
                     All Breeds
                 </option>
                 <option value="Persian"
-                    {% if request.args.get('breed') == 'Persian' %}selected{% endif %}>
-                    Persian
-                </option>
+                    {% if request.args.get('breed') == 'Persian' %}selected{% endif %}>Persian</option>
                 <option value="Siamese"
-                    {% if request.args.get('breed') == 'Siamese' %}selected{% endif %}>
-                    Siamese
-                </option>
+                    {% if request.args.get('breed') == 'Siamese' %}selected{% endif %}>Siamese</option>
                 <option value="Ragdoll"
-                    {% if request.args.get('breed') == 'Ragdoll' %}selected{% endif %}>
-                    Ragdoll
-                </option>
+                    {% if request.args.get('breed') == 'Ragdoll' %}selected{% endif %}>Ragdoll</option>
                 <option value="British Shorthair"
-                    {% if request.args.get('breed') == 'British Shorthair' %}selected{% endif %}>
-                    British Shorthair
-                </option>
+                    {% if request.args.get('breed') == 'British Shorthair' %}selected{% endif %}>British Shorthair</option>
+                <option value="Maine Coon"
+                    {% if request.args.get('breed') == 'Maine Coon' %}selected{% endif %}>Maine Coon</option>
+                <option value="Scottish Fold"
+                    {% if request.args.get('breed') == 'Scottish Fold' %}selected{% endif %}>Scottish Fold</option>
+                <option value="Bengal"
+                    {% if request.args.get('breed') == 'Bengal' %}selected{% endif %}>Bengal</option>
+                <option value="Abyssinian"
+                    {% if request.args.get('breed') == 'Abyssinian' %}selected{% endif %}>Abyssinian</option>
+                <option value="Birman"
+                    {% if request.args.get('breed') == 'Birman' %}selected{% endif %}>Birman</option>
+                <option value="Norwegian Forest"
+                    {% if request.args.get('breed') == 'Norwegian Forest' %}selected{% endif %}>Norwegian Forest</option>
+                <option value="Sphynx"
+                    {% if request.args.get('breed') == 'Sphynx' %}selected{% endif %}>Sphynx</option>
+                <option value="Russian Blue"
+                    {% if request.args.get('breed') == 'Russian Blue' %}selected{% endif %}>Russian Blue</option>
             </select>
             <button type="submit" class="btn btn-primary btn-sm">Search</button>
         </form>
