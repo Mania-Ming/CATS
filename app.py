@@ -132,9 +132,18 @@ def browse():
     return render_template("browse.html", cats=cats, logged_in="user_id" in session)
 
 
+# ------------------------------------------------------------------ root → browse --
+
+@app.route("/")
+def index():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("browse"))
+
+
 # ------------------------------------------------------------------ login --
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
