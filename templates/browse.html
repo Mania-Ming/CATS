@@ -23,25 +23,9 @@
 <div class="browse-hero">
     <h1>Find Your Perfect Cat</h1>
     <p>Browse cats available for adoption. Sign in or register to submit an adoption application.</p>
-    {% if not logged_in %}
-    <div style="display:flex;gap:10px;justify-content:center;">
-        <a href="{{ url_for('login') }}" class="btn btn-outline" style="border-color:rgba(255,255,255,0.3);color:white;">Sign In</a>
-        <a href="{{ url_for('register') }}" class="btn btn-primary">Register Free</a>
-    </div>
-    {% endif %}
 </div>
 
 <div class="browse-content">
-    {% if not logged_in %}
-    <div class="guest-banner">
-        <p>You are browsing as a guest. <strong>Register or sign in</strong> to adopt a cat.</p>
-        <div style="display:flex;gap:8px;flex-shrink:0;">
-            <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">Sign In</a>
-            <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
-        </div>
-    </div>
-    {% endif %}
-
     {% if cats %}
     <div class="cats-grid">
         {% for cat in cats %}
