@@ -6,9 +6,6 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase_client import supabase as _supabase_client
 
-# Vercel captures stdout/stderr — logging.WARNING and above appear in
-# the function logs tab of your Vercel dashboard.
-# Set to DEBUG locally via LOG_LEVEL=DEBUG in your .env file.
 _log_level = os.environ.get("LOG_LEVEL", "WARNING").upper()
 logging.basicConfig(
     level=getattr(logging, _log_level, logging.WARNING),
@@ -16,14 +13,8 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# If env vars were missing at boot, supabase_client sets the value to None.
-# We re-export it here so all existing code continues to work unchanged.
 supabase = _supabase_client
 
-# Resolve the project root so Flask finds /templates and /static
-# whether the app is started from the project root (locally)
-# or from api/ (Vercel imports api/index.py which adds root to sys.path,
-# but __file__ here is app.py which lives at the root, so this is safe).
 _root = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(
@@ -36,8 +27,6 @@ app.secret_key = os.environ.get("SECRET_KEY", "cat_adoption_secret_2026")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-# Inject CSS_VERSION into every template for cache-busting.
-# Bump this string whenever you update style.css.
 CSS_VERSION = "1.0.2"
 
 @app.context_processor
@@ -47,7 +36,6 @@ def inject_globals():
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
 STORAGE_BUCKET = "valid-ids"
 
-# Admin credentials from environment (fallback for local dev only)
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
@@ -99,7 +87,7 @@ def upload_valid_id(file, user_id):
 
 
 def db_query(table, filters=None, columns="*", order=None, limit=None, single=False):
-    """Generic safe SELECT helper. Returns list (or dict if single=True), or [] / None on error."""
+    """Generic safe SELECT helper."""
     try:
         q = supabase.table(table).select(columns)
         for col, val in (filters or {}).items():
@@ -113,6 +101,15 @@ def db_query(table, filters=None, columns="*", order=None, limit=None, single=Fa
         return (q.execute().data) or []
     except Exception:
         return None if single else []
+
+
+# ------------------------------------------------------------------ root → browse --
+
+@app.route("/")
+def index():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("browse"))
 
 
 # ------------------------------------------------------------------ browse --
@@ -130,15 +127,6 @@ def browse():
         log.error("browse — cats fetch failed: %s", e)
         cats = []
     return render_template("browse.html", cats=cats, logged_in="user_id" in session)
-
-
-# ------------------------------------------------------------------ root → browse --
-
-@app.route("/")
-def index():
-    if "user_id" in session:
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("browse"))
 
 
 # ------------------------------------------------------------------ login --
@@ -192,7 +180,6 @@ def admin_dashboard():
     if "admin_logged_in" not in session:
         return redirect(url_for("admin_login"))
     try:
-        # Fetch all adoption requests with related cat and user data in one call
         ar_res = supabase.table("adoption_requests").select(
             "id, status, created_at, living_situation, has_other_pets, experience_level, reason,"
             "user_id, cat_id,"
@@ -205,20 +192,20 @@ def admin_dashboard():
             cat  = ar.get("cats")  or {}
             user = ar.get("users") or {}
             requests_list.append((
-                ar["id"],                        # r[0]
-                cat.get("name"),                 # r[1]
-                cat.get("breed"),                # r[2]
-                user.get("full_name"),           # r[3]
-                user.get("phone"),               # r[4]
-                user.get("address"),             # r[5]
-                ar["status"],                    # r[6]
-                parse_dt(ar.get("created_at")),  # r[7]
-                user.get("valid_id_url"),        # r[8]
-                user.get("email"),               # r[9]
-                ar.get("living_situation"),      # r[10]
-                ar.get("has_other_pets"),        # r[11]
-                ar.get("experience_level"),      # r[12]
-                ar.get("reason"),                # r[13]
+                ar["id"],
+                cat.get("name"),
+                cat.get("breed"),
+                user.get("full_name"),
+                user.get("phone"),
+                user.get("address"),
+                ar["status"],
+                parse_dt(ar.get("created_at")),
+                user.get("valid_id_url"),
+                user.get("email"),
+                ar.get("living_situation"),
+                ar.get("has_other_pets"),
+                ar.get("experience_level"),
+                ar.get("reason"),
             ))
 
         total_cats    = len(supabase.table("cats").select("id", count="exact").execute().data or [])
@@ -274,20 +261,15 @@ def register():
             log.error("register — supabase client is None")
             return render_template("register.html", error="Service unavailable.")
 
-        # Duplicate check
         try:
             existing = supabase.table("users").select("id").eq("email", email).execute()
             log.warning("register — duplicate check: %s", existing.data)
-
             if existing.data:
                 return render_template("register.html", error="Email already registered")
-
         except Exception as e:
             log.error("DUPLICATE CHECK ERROR: %s", str(e))
-            log.error("FULL ERROR: %r", e)
             return render_template("register.html", error="Registration failed.")
 
-        # INSERT
         try:
             res = supabase.table("users").insert({
                 "email": email,
@@ -295,27 +277,22 @@ def register():
                 "full_name": fullname,
             }).execute()
 
-            #  PRINT EVERYTHING
             log.warning("INSERT RAW RESPONSE: %s", res)
             log.warning("INSERT DATA: %s", res.data)
 
-            #  CRITICAL CHECK
             if not res.data:
                 log.error("INSERT FAILED — EMPTY DATA")
-                if hasattr(res, "error"):
-                    log.error("SUPABASE ERROR: %s", res.error)
                 return render_template("register.html", error="Registration failed. Check logs.")
 
         except Exception as e:
             log.error("INSERT EXCEPTION: %s", str(e))
-            log.error("FULL INSERT ERROR: %r", e)
-
             return render_template("register.html", error="Registration failed. Check logs.")
 
         flash("Account created! Please login.", "success")
         return redirect(url_for("login"))
 
     return render_template("register.html")
+
 
 # ------------------------------------------------------------------ dashboard --
 
@@ -386,6 +363,7 @@ def adopt_request():
 
 
 # ------------------------------------------------------------------ history --
+
 @app.route("/history")
 def history():
     if "user_id" not in session:
@@ -397,7 +375,6 @@ def history():
 
         requests = []
         for ar in (ar_res.data or []):
-            # fetch cat separately if join isn't working
             cat_name = cat_breed = None
             try:
                 cat_res = supabase.table("cats").select("name, breed").eq("id", ar["cat_id"]).single().execute()
@@ -418,6 +395,8 @@ def history():
 
     user = get_user_profile(session["user_id"])
     return render_template("history.html", requests=requests, user=user)
+
+
 # ------------------------------------------------------------------ profile --
 
 @app.route("/profile", methods=["GET", "POST"])
@@ -476,7 +455,7 @@ def delete_account():
         flash("Failed to delete account.", "error")
         return redirect(url_for("profile"))
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("browse"))
 
 
 # ------------------------------------------------------------------ logout --
@@ -484,11 +463,8 @@ def delete_account():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("browse"))
 
 
-# app.run() is intentionally kept inside the __name__ guard.
-# Vercel never calls this block — it imports the `app` object directly
-# via api/index.py and calls it as a WSGI app.
 if __name__ == "__main__":
     app.run(debug=True)
