@@ -377,33 +377,38 @@ def adopt_request():
 
 
 # ------------------------------------------------------------------ history --
-
 @app.route("/history")
 def history():
     if "user_id" not in session:
         return redirect(url_for("login"))
     try:
         ar_res = supabase.table("adoption_requests").select(
-            "status, created_at, cats(name, breed)"
+            "status, created_at, cat_id"
         ).eq("user_id", session["user_id"]).order("created_at", desc=True).execute()
 
-        requests = [
-            (
-                (ar.get("cats") or {}).get("name"),
-                (ar.get("cats") or {}).get("breed"),
+        requests = []
+        for ar in (ar_res.data or []):
+            # fetch cat separately if join isn't working
+            cat_name = cat_breed = None
+            try:
+                cat_res = supabase.table("cats").select("name, breed").eq("id", ar["cat_id"]).single().execute()
+                if cat_res.data:
+                    cat_name  = cat_res.data.get("name")
+                    cat_breed = cat_res.data.get("breed")
+            except Exception:
+                pass
+            requests.append((
+                cat_name,
+                cat_breed,
                 ar["status"],
                 parse_dt(ar.get("created_at")),
-            )
-            for ar in (ar_res.data or [])
-        ]
+            ))
     except Exception as e:
         log.error("history failed: %s", e)
         requests = []
 
     user = get_user_profile(session["user_id"])
     return render_template("history.html", requests=requests, user=user)
-
-
 # ------------------------------------------------------------------ profile --
 
 @app.route("/profile", methods=["GET", "POST"])
