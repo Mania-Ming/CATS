@@ -252,49 +252,60 @@ def register():
         password = request.form.get("password", "").strip()
         fullname = request.form.get("fullname", "").strip()
 
-        # ✅ VALIDATION
+        log.warning("register — received: email=%s fullname=%s password_len=%d",
+                    email, fullname, len(password))
+
         if not email or not password or not fullname:
             return render_template("register.html", error="Please fill all fields")
 
         if len(password) < 6:
             return render_template("register.html", error="Password must be at least 6 characters")
 
-        # ✅ CHECK DUPLICATE EMAIL
+        # Guard: supabase is None when env vars are missing
+        if supabase is None:
+            log.error("register — supabase client is None (SUPABASE_URL/SUPABASE_KEY missing)")
+            return render_template("register.html", error="Service unavailable. Check server configuration.")
+
+        # Duplicate email check
         try:
             existing = supabase.table("users").select("id").eq("email", email).execute()
-
+            log.warning("register — duplicate check for %s: found=%s", email, bool(existing.data))
             if existing.data:
                 return render_template("register.html", error="Email already registered")
-
         except Exception as e:
-            print("Duplicate check error:", e)
+            log.error("register — duplicate-check failed for %s: %r", email, e)
             return render_template("register.html", error="Registration failed. Please try again.")
 
-        # ✅ INSERT USER
+        # Insert new user
         try:
-            supabase.table("users").insert({
-                "email": email,
-                "password": generate_password_hash(password),
+            res = supabase.table("users").insert({
+                "email":     email,
+                "password":  generate_password_hash(password),
                 "full_name": fullname,
             }).execute()
 
+            log.warning("register — insert response for %s: data=%s", email, res.data)
+
+            if not res.data:
+                log.error("register — insert returned empty data for %s", email)
+                return render_template("register.html", error="Registration failed. Please try again.")
+
         except Exception as e:
-            err = str(e).lower()
-            print("Insert error:", err)
-
-            if "duplicate" in err or "unique" in err:
+            err = repr(e)
+            log.error("register — insert raised for %s: %s", email, err)
+            if "duplicate" in err.lower() or "unique" in err.lower():
                 return render_template("register.html", error="Email already registered")
-
-            if "row-level security" in err or "rls" in err:
-                return render_template("register.html", error="Registration is disabled (RLS issue)")
-
+            if "row-level security" in err.lower() or "rls" in err.lower():
+                return render_template("register.html", error="Registration is currently unavailable. Please contact support.")
+            if "violates not-null" in err.lower():
+                return render_template("register.html", error="Please fill all required fields")
             return render_template("register.html", error="Registration failed. Please try again.")
 
-        # ✅ SUCCESS
         flash("Account created! Please login.", "success")
         return redirect(url_for("login"))
-
     return render_template("register.html")
+
+
 # ------------------------------------------------------------------ dashboard --
 
 @app.route("/dashboard")
