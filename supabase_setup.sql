@@ -22,7 +22,14 @@ create table if not exists cats (
   age int,
   gender text,
   image text default 'cat1.jpg',
-  status text default 'available'
+  status text default 'available',
+  weight_range text,
+  size text,
+  coat_colors text,
+  temperament text,
+  lifespan text,
+  origin text,
+  description text
 );
 
 -- ADOPTION REQUESTS
@@ -108,3 +115,36 @@ create policy "allow_ar_update" on adoption_requests
 -- STORAGE: Create a bucket named "valid-ids" and set it public
 -- Dashboard → Storage → New Bucket → Name: valid-ids → Public ✓
 -- ============================================================
+
+-- ============================================================
+-- BREED DETAIL COLUMNS (run if cats table already exists)
+-- ============================================================
+alter table cats add column if not exists weight_range text;
+alter table cats add column if not exists size         text;
+alter table cats add column if not exists coat_colors  text;
+alter table cats add column if not exists temperament  text;
+alter table cats add column if not exists lifespan     text;
+alter table cats add column if not exists origin       text;
+alter table cats add column if not exists description  text;
+
+-- Allow anon key to update cats (needed for frontend Supabase sync)
+create policy "allow_cats_update" on cats
+  for update to anon using (true);
+create policy "allow_cats_insert" on cats
+  for insert to anon with check (true);
+create policy "allow_cats_delete" on cats
+  for delete to anon using (true);
+
+-- Seed breed details
+update cats set weight_range='3–5 kg',  size='Medium', coat_colors='White, Silver, Golden, Tabby', temperament='Gentle, Quiet, Affectionate', lifespan='12–17 yrs', origin='Iran',          description='Known for their long silky coat and calm personality. Great indoor companions.' where breed='Persian';
+update cats set weight_range='3–5 kg',  size='Medium', coat_colors='Seal, Chocolate, Blue, Lilac point', temperament='Vocal, Social, Intelligent', lifespan='12–15 yrs', origin='Thailand',      description='Highly talkative and social. Forms strong bonds with their owners.' where breed='Siamese';
+update cats set weight_range='4–9 kg',  size='Large',  coat_colors='Colorpoint, Mitted, Bicolor', temperament='Docile, Calm, Affectionate', lifespan='12–17 yrs', origin='United States',  description='Nicknamed "puppy cats" for their tendency to follow owners around the house.' where breed='Ragdoll';
+update cats set weight_range='4–8 kg',  size='Medium', coat_colors='Blue, Black, White, Cream, Tabby', temperament='Calm, Easygoing, Loyal', lifespan='12–17 yrs', origin='United Kingdom', description='Stocky and round-faced. Adaptable to apartment living and very laid-back.' where breed='British Shorthair';
+update cats set weight_range='5–11 kg', size='Large',  coat_colors='Brown Tabby, Silver, Black, White', temperament='Playful, Gentle, Dog-like', lifespan='12–15 yrs', origin='United States',  description='One of the largest domestic breeds. Loves water and is highly intelligent.' where breed='Maine Coon';
+update cats set weight_range='3–5 kg',  size='Small',  coat_colors='Blue, Black, White, Tabby', temperament='Loyal, Gentle, Adaptable', lifespan='11–14 yrs', origin='Scotland',        description='Recognized by their folded ears. Sweet-natured and gets along well with children.' where breed='Scottish Fold';
+update cats set weight_range='4–7 kg',  size='Medium', coat_colors='Brown Spotted, Marble, Snow', temperament='Active, Curious, Energetic', lifespan='12–16 yrs', origin='United States',  description='Wild-looking coat with a domestic temperament. Highly athletic and playful.' where breed='Bengal';
+update cats set weight_range='3–5 kg',  size='Medium', coat_colors='Ruddy, Red, Blue, Fawn', temperament='Active, Curious, Playful', lifespan='14–15 yrs', origin='Ethiopia',        description='One of the oldest known breeds. Slender and athletic with a ticked coat.' where breed='Abyssinian';
+update cats set weight_range='3–6 kg',  size='Medium', coat_colors='Seal, Blue, Chocolate, Lilac point', temperament='Gentle, Calm, Social', lifespan='12–16 yrs', origin='Burma/France',    description='Sacred cat of Burma. Known for silky coat and striking blue eyes.' where breed='Birman';
+update cats set weight_range='4–9 kg',  size='Large',  coat_colors='Brown Tabby, Black, White, Blue', temperament='Gentle, Playful, Independent', lifespan='14–16 yrs', origin='Norway',          description='Built for cold climates with a thick double coat. Excellent hunters.' where breed='Norwegian Forest';
+update cats set weight_range='3–5 kg',  size='Medium', coat_colors='All colors and patterns', temperament='Affectionate, Energetic, Mischievous', lifespan='12–15 yrs', origin='France',          description='Hairless breed known for warmth-seeking behavior and extroverted personality.' where breed='Sphynx';
+update cats set weight_range='3–5 kg',  size='Medium', coat_colors='Blue-grey with silver tips', temperament='Gentle, Reserved, Loyal', lifespan='15–20 yrs', origin='Russia',          description='Naturally occurring breed with a dense plush coat and vivid green eyes.' where breed='Russian Blue';

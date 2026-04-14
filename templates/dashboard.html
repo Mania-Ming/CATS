@@ -49,40 +49,25 @@
 
         <!-- SEARCH FORM -->
         <form method="GET" action="{{ url_for('dashboard') }}" class="search-bar">
-            <input type="text" 
+            <input type="text"
                    name="search"
-                   placeholder="Search by cat name..."
+                   placeholder="Search by breed..."
                    value="{{ request.args.get('search', '') }}">
 
             <select name="breed">
-                <option value="All Breeds"
-                    {% if request.args.get('breed') == 'All Breeds' %}selected{% endif %}>
-                    All Breeds
-                </option>
-                <option value="Persian"
-                    {% if request.args.get('breed') == 'Persian' %}selected{% endif %}>Persian</option>
-                <option value="Siamese"
-                    {% if request.args.get('breed') == 'Siamese' %}selected{% endif %}>Siamese</option>
-                <option value="Ragdoll"
-                    {% if request.args.get('breed') == 'Ragdoll' %}selected{% endif %}>Ragdoll</option>
-                <option value="British Shorthair"
-                    {% if request.args.get('breed') == 'British Shorthair' %}selected{% endif %}>British Shorthair</option>
-                <option value="Maine Coon"
-                    {% if request.args.get('breed') == 'Maine Coon' %}selected{% endif %}>Maine Coon</option>
-                <option value="Scottish Fold"
-                    {% if request.args.get('breed') == 'Scottish Fold' %}selected{% endif %}>Scottish Fold</option>
-                <option value="Bengal"
-                    {% if request.args.get('breed') == 'Bengal' %}selected{% endif %}>Bengal</option>
-                <option value="Abyssinian"
-                    {% if request.args.get('breed') == 'Abyssinian' %}selected{% endif %}>Abyssinian</option>
-                <option value="Birman"
-                    {% if request.args.get('breed') == 'Birman' %}selected{% endif %}>Birman</option>
-                <option value="Norwegian Forest"
-                    {% if request.args.get('breed') == 'Norwegian Forest' %}selected{% endif %}>Norwegian Forest</option>
-                <option value="Sphynx"
-                    {% if request.args.get('breed') == 'Sphynx' %}selected{% endif %}>Sphynx</option>
-                <option value="Russian Blue"
-                    {% if request.args.get('breed') == 'Russian Blue' %}selected{% endif %}>Russian Blue</option>
+                <option value="All Breeds" {% if request.args.get('breed') == 'All Breeds' %}selected{% endif %}>All Breeds</option>
+                <option value="Persian"          {% if request.args.get('breed') == 'Persian' %}selected{% endif %}>Persian</option>
+                <option value="Siamese"          {% if request.args.get('breed') == 'Siamese' %}selected{% endif %}>Siamese</option>
+                <option value="Ragdoll"          {% if request.args.get('breed') == 'Ragdoll' %}selected{% endif %}>Ragdoll</option>
+                <option value="British Shorthair"{% if request.args.get('breed') == 'British Shorthair' %}selected{% endif %}>British Shorthair</option>
+                <option value="Maine Coon"       {% if request.args.get('breed') == 'Maine Coon' %}selected{% endif %}>Maine Coon</option>
+                <option value="Scottish Fold"    {% if request.args.get('breed') == 'Scottish Fold' %}selected{% endif %}>Scottish Fold</option>
+                <option value="Bengal"           {% if request.args.get('breed') == 'Bengal' %}selected{% endif %}>Bengal</option>
+                <option value="Abyssinian"       {% if request.args.get('breed') == 'Abyssinian' %}selected{% endif %}>Abyssinian</option>
+                <option value="Birman"           {% if request.args.get('breed') == 'Birman' %}selected{% endif %}>Birman</option>
+                <option value="Norwegian Forest" {% if request.args.get('breed') == 'Norwegian Forest' %}selected{% endif %}>Norwegian Forest</option>
+                <option value="Sphynx"           {% if request.args.get('breed') == 'Sphynx' %}selected{% endif %}>Sphynx</option>
+                <option value="Russian Blue"     {% if request.args.get('breed') == 'Russian Blue' %}selected{% endif %}>Russian Blue</option>
             </select>
             <button type="submit" class="btn btn-primary btn-sm">Search</button>
         </form>
@@ -90,20 +75,20 @@
         <!-- CATS GRID -->
         <div class="cats-grid">
             {% for cat in cats %}
-            <div class="cat-card">
-                <img src="{{ url_for('static', filename='images/' + cat[5]) }}" 
-                     alt="{{ cat[1] }}" 
-                     class="cat-image">
-
+            <div class="cat-card" onclick="openBreedDetail({{ cat.id }})">
+                <div class="cat-card-img-wrap">
+                    <img src="{{ url_for('static', filename='images/' + (cat.image or 'cat1.jpg')) }}"
+                         alt="{{ cat.breed }}">
+                </div>
                 <div class="cat-card-body">
-                    <h3>{{ cat[1] }}</h3>
+                    <h3 class="cat-card-name">{{ cat.name }}</h3>
+                    <p class="cat-card-breed">{{ cat.breed }}</p>
                     <div class="cat-meta">
-                        <span class="cat-badge">{{ cat[3] }}</span>
-                        <span class="cat-badge">{{ cat[2] }} yrs</span>
-                        <span class="cat-badge gender">{{ cat[4] }}</span>
+                        <span class="cat-badge">{{ cat.age }} yrs</span>
+                        <span class="cat-badge gender">{{ cat.gender }}</span>
                     </div>
-                    <button class="btn btn-primary btn-sm" 
-                        onclick="openModal('{{ cat[0] }}','{{ cat[1] }}','{{ cat[3] }}','{{ cat[2] }}','{{ cat[4] }}')"
+                    <button class="btn btn-primary btn-sm adopt-btn"
+                        onclick="event.stopPropagation(); openAdoptModal('{{ cat.id }}','{{ cat.name }}','{{ cat.breed }}','{{ cat.age }}','{{ cat.gender }}')"
                         style="width:100%;justify-content:center;">
                         ❤ Adopt Me
                     </button>
@@ -139,20 +124,33 @@
             </div>
             <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
         </footer>
-
     </div>
-
 </div>
 
-<!-- ================= MODAL ================= -->
+<!-- ================= BREED DETAIL MODAL ================= -->
+<div id="breedModal" class="modal-overlay">
+    <div class="modal-box modal-box-wide">
+        <div class="modal-header">
+            <h3 id="bdTitle">Breed Details</h3>
+            <button type="button" class="modal-close" onclick="closeBreedDetail()">&times;</button>
+        </div>
+        <div class="modal-body" id="bdBody">
+            <div class="bd-loading">Loading...</div>
+        </div>
+        <div class="modal-footer" id="bdFooter">
+            <button type="button" onclick="closeBreedDetail()" class="btn btn-secondary">Close</button>
+            <button type="button" onclick="openAdoptFromDetail()" class="btn btn-primary">❤ Adopt Me</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= ADOPT MODAL ================= -->
 <div id="adoptModal" class="modal-overlay">
     <div class="modal-box">
-
         <div class="modal-header">
             <h3>Adoption Request</h3>
-            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+            <button type="button" class="modal-close" onclick="closeAdoptModal()">&times;</button>
         </div>
-
         <form method="POST" action="{{ url_for('adopt_request') }}">
             <div class="modal-body">
                 <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
@@ -165,9 +163,7 @@
                         <p id="modalCatDetails"></p>
                     </div>
                 </div>
-
                 <input type="hidden" name="cat_id" id="modalCatId">
-
                 <div class="form-group">
                     <label>Living Situation</label>
                     <select name="living_situation" required>
@@ -178,7 +174,6 @@
                         <option value="Shared Home">Shared Home</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Do you currently have other pets?</label>
                     <select name="has_other_pets" required>
@@ -189,7 +184,6 @@
                         <option value="Yes - mixed pets">Yes - mixed pets</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Pet Care Experience</label>
                     <select name="experience">
@@ -200,44 +194,124 @@
                         <option value="Rescue or foster experience">Rescue or foster experience</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Why do you want to adopt this cat?</label>
                     <textarea name="reason" placeholder="Tell us about your home, routine, and why this cat is a good match for you." required></textarea>
                 </div>
             </div>
-
             <div class="modal-footer">
-                <button type="button" onclick="closeModal()" class="btn btn-secondary">
-                    Cancel
-                </button>
-                <button type="submit" class="btn btn-primary">
-                    Submit Request
-                </button>
+                <button type="button" onclick="closeAdoptModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Submit Request</button>
             </div>
         </form>
-
     </div>
 </div>
 
-<!-- SIDEBAR TOGGLE SCRIPT -->
 <script>
 document.getElementById("menuToggle").addEventListener("click", function() {
     document.getElementById("sidebar").classList.toggle("open");
 });
 
-function openModal(id, name, breed, age, gender) {
+// ── Adopt modal ──────────────────────────────────────────────
+let _currentCat = null;
+
+function openAdoptModal(id, name, breed, age, gender) {
+    _currentCat = { id, name, breed, age, gender };
+    document.getElementById("modalCatId").value    = id;
+    document.getElementById("modalCatName").innerText    = name;
+    document.getElementById("modalCatDetails").innerText = breed + " · " + age + " yrs · " + gender;
     document.getElementById("adoptModal").classList.add("open");
-
-    document.getElementById("modalCatId").value = id;
-    document.getElementById("modalCatName").innerText = name;
-    document.getElementById("modalCatDetails").innerText =
-        breed + " - " + age + " yrs - " + gender;
 }
-
-function closeModal() {
+function closeAdoptModal() {
     document.getElementById("adoptModal").classList.remove("open");
 }
+
+// ── Breed detail modal ───────────────────────────────────────
+function openBreedDetail(catId) {
+    document.getElementById("breedModal").classList.add("open");
+    document.getElementById("bdTitle").innerText = "Loading…";
+    document.getElementById("bdBody").innerHTML  = '<div class="bd-loading">Loading…</div>';
+
+    fetch("/api/cat/" + catId)
+        .then(r => r.json())
+        .then(cat => {
+            _currentCat = cat;
+            document.getElementById("bdTitle").innerText = cat.name + " — " + cat.breed;
+            document.getElementById("bdBody").innerHTML  = buildDetailHTML(cat);
+        })
+        .catch(() => {
+            document.getElementById("bdBody").innerHTML = '<p style="color:var(--danger)">Failed to load details.</p>';
+        });
+}
+function closeBreedDetail() {
+    document.getElementById("breedModal").classList.remove("open");
+}
+function openAdoptFromDetail() {
+    if (!_currentCat) return;
+    closeBreedDetail();
+    openAdoptModal(_currentCat.id, _currentCat.name, _currentCat.breed, _currentCat.age, _currentCat.gender);
+}
+
+function buildDetailHTML(cat) {
+    const img = cat.image || "cat1.jpg";
+    const rows = [
+        ["Origin",       cat.origin       || "—"],
+        ["Weight",       cat.weight_range || "—"],
+        ["Size",         cat.size         || "—"],
+        ["Lifespan",     cat.lifespan     || "—"],
+        ["Coat Colors",  cat.coat_colors  || "—"],
+        ["Temperament",  cat.temperament  || "—"],
+    ];
+    const tableRows = rows.map(([k,v]) =>
+        `<tr><td class="bd-label">${k}</td><td>${v}</td></tr>`
+    ).join("");
+
+    return `
+    <div class="bd-layout">
+        <div class="bd-images">
+            <img src="/static/images/${img}" alt="${cat.breed}" class="bd-main-img">
+        </div>
+        <div class="bd-info">
+            ${cat.description ? `<p class="bd-desc">${cat.description}</p>` : ""}
+            <table class="bd-table">${tableRows}</table>
+        </div>
+    </div>`;
+}
+
+// ── Supabase sync: save edits back to DB via Flask API ───────
+function syncCatUpdate(catId, fields) {
+    return fetch("/api/cat/update", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ id: catId, ...fields })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (!res.ok) console.error("Sync failed:", res.error);
+        return res;
+    });
+}
+
+function syncCatDelete(catId) {
+    return fetch("/api/cat/delete", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ id: catId })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.ok) location.reload();
+        else console.error("Delete failed:", res.error);
+    });
+}
+
+// Auto-dismiss flash messages
+setTimeout(() => {
+    document.querySelectorAll(".flash-msg").forEach(el => {
+        el.style.transition = "opacity 0.5s";
+        el.style.opacity    = "0";
+    });
+}, 4000);
 </script>
 
 </body>

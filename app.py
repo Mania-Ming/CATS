@@ -38,7 +38,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Inject CSS_VERSION into every template for cache-busting.
 # Bump this string whenever you update style.css.
-CSS_VERSION = "1.0.2"
+CSS_VERSION = "1.0.3"
 
 @app.context_processor
 def inject_globals():
@@ -328,14 +328,10 @@ def dashboard():
     try:
         q = supabase.table("cats").select("*").eq("status", "available")
         if search:
-            q = q.ilike("name", f"%{search}%")
+            q = q.ilike("breed", f"%{search}%")
         if breed and breed != "All Breeds":
             q = q.eq("breed", breed)
-        cats = [
-            (c["id"], c["name"], c["breed"], c["age"], c["gender"],
-             c.get("image", "cat1.jpg"), c["status"])
-            for c in (q.execute().data or [])
-        ]
+        cats = [c for c in (q.execute().data or [])]
         pending_count = len(
             supabase.table("adoption_requests").select("id")
             .eq("user_id", session["user_id"]).eq("status", "Pending")
@@ -348,6 +344,59 @@ def dashboard():
 
     user = get_user_profile(session["user_id"])
     return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count)
+
+
+# ------------------------------------------------------------------ cat detail API --
+
+@app.route("/api/cat/<int:cat_id>")
+def api_cat_detail(cat_id):
+    from flask import jsonify
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        res = supabase.table("cats").select("*").eq("id", cat_id).single().execute()
+        return jsonify(res.data or {})
+    except Exception as e:
+        log.error("api_cat_detail(%s) failed: %s", cat_id, e)
+        return jsonify({"error": str(e)}), 500
+
+
+# ------------------------------------------------------------------ cat update API --
+
+@app.route("/api/cat/update", methods=["POST"])
+def api_cat_update():
+    from flask import jsonify
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json()
+    cat_id = data.pop("id", None)
+    if not cat_id:
+        return jsonify({"error": "missing id"}), 400
+    try:
+        res = supabase.table("cats").update(data).eq("id", cat_id).execute()
+        return jsonify({"ok": True, "data": res.data})
+    except Exception as e:
+        log.error("api_cat_update(%s) failed: %s", cat_id, e)
+        return jsonify({"error": str(e)}), 500
+
+
+# ------------------------------------------------------------------ cat delete API --
+
+@app.route("/api/cat/delete", methods=["POST"])
+def api_cat_delete():
+    from flask import jsonify
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json()
+    cat_id = data.get("id")
+    if not cat_id:
+        return jsonify({"error": "missing id"}), 400
+    try:
+        supabase.table("cats").delete().eq("id", cat_id).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        log.error("api_cat_delete(%s) failed: %s", cat_id, e)
+        return jsonify({"error": str(e)}), 500
 
 
 # ------------------------------------------------------------------ adopt request --
