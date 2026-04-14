@@ -19,24 +19,7 @@
 {% endwith %}
 
 <div class="app-layout">
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
-            <div><h2>Cat Adoption</h2><span>User Panel</span></div>
-        </div>
-        <div class="sidebar-user">
-            <div class="user-name">{{ user[3] or 'User' }}</div>
-            <div class="user-email">{{ session['email'] }}</div>
-        </div>
-        <nav class="sidebar-nav">
-            <div class="nav-label">Menu</div>
-            <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="nav-icon">&#9632;</span> Dashboard</a>
-            <a href="{{ url_for('profile') }}" class="nav-item active"><span class="nav-icon">&#9632;</span> My Profile</a>
-            <a href="{{ url_for('history') }}" class="nav-item"><span class="nav-icon">&#9632;</span> Adoption History</a>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="{{ url_for('logout') }}" class="nav-item" style="color:#e74c3c;"><span class="nav-icon">&#9632;</span> Logout</a>
-        </div>
-    </aside>
+    {% include '_sidebar.html' %}
 
     <div class="main-content">
         <div class="topbar">

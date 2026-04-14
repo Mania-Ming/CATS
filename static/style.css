@@ -426,12 +426,21 @@ a { text-decoration: none; color: inherit; }
     color: var(--text-muted);
     font-size: 14px;
     font-weight: 500;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s;
     margin-bottom: 2px;
+    text-decoration: none;
 }
 .nav-item:hover { background: var(--bg); color: var(--text); }
 .nav-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
-.nav-item .nav-icon { font-size: 14px; width: 18px; text-align: center; opacity: 0.7; }
+.nav-item-danger { color: #e74c3c !important; }
+.nav-item-danger:hover { background: #fef2f2; color: #dc2626 !important; }
+.nav-svg {
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+.nav-item:hover .nav-svg,
+.nav-item.active .nav-svg { opacity: 1; }
 
 .sidebar-footer {
     padding: 16px 12px;

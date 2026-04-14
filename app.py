@@ -39,7 +39,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Inject CSS_VERSION into every template for cache-busting.
 # Bump this string whenever you update style.css.
-CSS_VERSION = "1.1.2"
+CSS_VERSION = "1.1.3"
 
 @app.context_processor
 def inject_globals():
@@ -347,7 +347,7 @@ def dashboard():
         pending_count = 0
 
     user = get_user_profile(session["user_id"])
-    return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count)
+    return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count, active_page="dashboard")
 
 
 # ------------------------------------------------------------------ avatar upload API --
@@ -520,7 +520,7 @@ def history():
         requests = []
 
     user = get_user_profile(session["user_id"])
-    return render_template("history.html", requests=requests, user=user)
+    return render_template("history.html", requests=requests, user=user, active_page="history")
 # ------------------------------------------------------------------ profile --
 
 @app.route("/profile", methods=["GET", "POST"])
@@ -563,7 +563,7 @@ def profile():
         log.error("profile — recent requests failed: %s", e)
         recent = []
 
-    return render_template("profile.html", user=user, recent=recent, user_id=session["user_id"])
+    return render_template("profile.html", user=user, recent=recent, user_id=session["user_id"], active_page="profile")
 
 
 # ------------------------------------------------------------------ delete account --

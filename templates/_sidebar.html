@@ -1,0 +1,67 @@
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <img src="{{ url_for('static', filename='images/logo.png') }}"
+             alt="logo" class="sidebar-logo-img">
+        <div>
+            <h2>Cat Adoption</h2>
+            <span>User Panel</span>
+        </div>
+    </div>
+
+    {% if user %}
+    <div class="sidebar-user">
+        <div class="user-name">{{ user[3] or 'User' }}</div>
+        <div class="user-email">{{ session['email'] }}</div>
+    </div>
+    {% endif %}
+
+    <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+        <a href="{{ url_for('dashboard') }}"
+           class="nav-item {{ 'active' if active_page == 'dashboard' }}">
+            <svg class="nav-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="7" height="9" x="3" y="3" rx="1"/>
+                <rect width="7" height="5" x="14" y="3" rx="1"/>
+                <rect width="7" height="9" x="14" y="12" rx="1"/>
+                <rect width="7" height="5" x="3" y="16" rx="1"/>
+            </svg>
+            Dashboard
+        </a>
+        <a href="{{ url_for('profile') }}"
+           class="nav-item {{ 'active' if active_page == 'profile' }}">
+            <svg class="nav-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8" r="5"/>
+                <path d="M20 21a8 8 0 1 0-16 0"/>
+            </svg>
+            My Profile
+        </a>
+        <a href="{{ url_for('history') }}"
+           class="nav-item {{ 'active' if active_page == 'history' }}">
+            <svg class="nav-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M12 7v5l4 2"/>
+            </svg>
+            Adoption History
+        </a>
+    </nav>
+
+    <div class="sidebar-footer">
+        <a href="{{ url_for('logout') }}" class="nav-item nav-item-danger">
+            <svg class="nav-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" x2="9" y1="12" y2="12"/>
+            </svg>
+            Logout
+        </a>
+    </div>
+</aside>
