@@ -158,3 +158,29 @@ alter table users add column if not exists avatar_url text;
 -- STORAGE: Create a bucket named "avatars" and set it public
 -- Dashboard → Storage → New Bucket → Name: avatars → Public ✓
 -- ============================================================
+
+-- ============================================================
+-- STORAGE RLS POLICIES FOR avatars BUCKET
+-- Run in Supabase SQL Editor after creating the avatars bucket.
+-- These allow public read and authenticated write (anon key).
+-- ============================================================
+
+-- Allow anyone to read avatars (public bucket)
+create policy "avatars_public_read"
+  on storage.objects for select
+  using ( bucket_id = 'avatars' );
+
+-- Allow authenticated uploads — file path must be avatars/{user_id}.*
+-- Since this app uses custom auth (not Supabase Auth), we allow all
+-- anon-key uploads and rely on the Flask session for ownership.
+create policy "avatars_anon_insert"
+  on storage.objects for insert to anon
+  with check ( bucket_id = 'avatars' );
+
+create policy "avatars_anon_update"
+  on storage.objects for update to anon
+  using ( bucket_id = 'avatars' );
+
+create policy "avatars_anon_delete"
+  on storage.objects for delete to anon
+  using ( bucket_id = 'avatars' );

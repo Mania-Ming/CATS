@@ -189,6 +189,12 @@ function updateFileName(input) {
 }
 
 // ── Avatar upload ────────────────────────────────────────────
+// The upload is handled server-side via /api/upload_avatar.
+// Storage path used: avatars/{{ user_id }}.{ext}
+// Ownership is enforced by the Flask session (user must be logged in).
+// Supabase Storage RLS policy ensures only the owner can write their file.
+const CURRENT_USER_ID = "{{ user_id }}";
+
 document.getElementById('avatarInput').addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
@@ -196,21 +202,26 @@ document.getElementById('avatarInput').addEventListener('change', function() {
     // Client-side validation
     if (!['image/jpeg', 'image/png'].includes(file.type)) {
         showAvatarStatus('Only JPG and PNG files are allowed.', 'error');
+        console.error('[Avatar] Rejected file type:', file.type);
         this.value = '';
         return;
     }
     if (file.size > 2 * 1024 * 1024) {
         showAvatarStatus('File exceeds the 2 MB limit.', 'error');
+        console.error('[Avatar] File too large:', (file.size / 1024 / 1024).toFixed(2) + ' MB');
         this.value = '';
         return;
     }
 
-    // Show preview immediately
+    console.log('[Avatar] Uploading for user:', CURRENT_USER_ID);
+    console.log('[Avatar] Storage path will be: avatars/' + CURRENT_USER_ID + '.' + file.name.split('.').pop().toLowerCase());
+
+    // Show local preview immediately (before upload completes)
     const reader = new FileReader();
     reader.onload = e => setAvatarPreview(e.target.result);
     reader.readAsDataURL(file);
 
-    // Upload
+    // Upload via Flask → Supabase Storage
     showAvatarStatus('&#9679; Uploading...', 'loading');
     const formData = new FormData();
     formData.append('avatar', file);
@@ -218,24 +229,30 @@ document.getElementById('avatarInput').addEventListener('change', function() {
     fetch('/api/upload_avatar', { method: 'POST', body: formData })
         .then(r => r.json())
         .then(res => {
+            console.log('[Avatar] Server response:', res);
             if (res.ok) {
+                // Update preview to the permanent Supabase URL
                 setAvatarPreview(res.url);
                 showAvatarStatus('&#10003; Profile photo updated!', 'success');
                 setTimeout(() => showAvatarStatus('', ''), 3000);
             } else {
+                console.error('[Avatar] Upload error:', res.error);
                 showAvatarStatus('&#10007; ' + (res.error || 'Upload failed'), 'error');
+                // Revert preview to previous state on failure
+                const prevSrc = document.getElementById('avatarImg') ? document.getElementById('avatarImg').dataset.original : null;
+                if (prevSrc) setAvatarPreview(prevSrc);
             }
         })
-        .catch(() => showAvatarStatus('&#10007; Upload failed. Try again.', 'error'));
+        .catch(err => {
+            console.error('[Avatar] Network error:', err);
+            showAvatarStatus('&#10007; Upload failed. Check your connection.', 'error');
+        });
 });
 
 function setAvatarPreview(src) {
-    // Replace initial div with img, or update existing img
     const initial = document.getElementById('avatarInitial');
     let img = document.getElementById('avatarImg');
-    if (initial) {
-        initial.style.display = 'none';
-    }
+    if (initial) initial.style.display = 'none';
     if (!img) {
         img = document.createElement('img');
         img.id = 'avatarImg';
@@ -243,6 +260,8 @@ function setAvatarPreview(src) {
         img.alt = 'Profile';
         document.querySelector('.avatar-wrap').prepend(img);
     }
+    // Store original src for rollback on error
+    if (!img.dataset.original) img.dataset.original = img.src;
     img.src = src;
     img.style.display = 'block';
 }

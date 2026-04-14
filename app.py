@@ -370,13 +370,15 @@ def upload_avatar():
         return jsonify({"error": "File exceeds 2 MB limit"}), 400
 
     try:
-        filename = f"avatar_{session['user_id']}.{ext}"
+        # Path format: avatars/{user_id}.{ext} — one file per user, always replaced
+        storage_path = f"avatars/{session['user_id']}.{ext}"
         supabase.storage.from_(AVATAR_BUCKET).upload(
-            filename, file_bytes,
+            storage_path, file_bytes,
             {"content-type": file.content_type, "upsert": "true"}
         )
-        public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(filename)
+        public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(storage_path)
         supabase.table("users").update({"avatar_url": public_url}).eq("id", session["user_id"]).execute()
+        log.warning("upload_avatar: saved %s for user %s", storage_path, session["user_id"])
         return jsonify({"ok": True, "url": public_url})
     except Exception as e:
         log.error("upload_avatar failed for %s: %r", session.get("user_id"), e)
@@ -548,7 +550,7 @@ def profile():
         log.error("profile — recent requests failed: %s", e)
         recent = []
 
-    return render_template("profile.html", user=user, recent=recent)
+    return render_template("profile.html", user=user, recent=recent, user_id=session["user_id"])
 
 
 # ------------------------------------------------------------------ delete account --
