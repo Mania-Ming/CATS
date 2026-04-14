@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-from supabase_client import supabase as _supabase_client
+from supabase_client import supabase as _supabase_client, supabase_admin as _supabase_admin
 
 # Vercel captures stdout/stderr — logging.WARNING and above appear in
 # the function logs tab of your Vercel dashboard.
@@ -18,7 +18,8 @@ log = logging.getLogger(__name__)
 
 # If env vars were missing at boot, supabase_client sets the value to None.
 # We re-export it here so all existing code continues to work unchanged.
-supabase = _supabase_client
+supabase       = _supabase_client
+supabase_admin = _supabase_admin  # service-role client — bypasses RLS for storage
 
 # Resolve the project root so Flask finds /templates and /static
 # whether the app is started from the project root (locally)
@@ -370,27 +371,28 @@ def upload_avatar():
         return jsonify({"error": "File exceeds 2 MB limit"}), 400
 
     try:
-        # Path format: avatars/{user_id}.{ext} — one file per user, always replaced
-        storage_path = f"avatars/{session['user_id']}.{ext}"
-        supabase.storage.from_(AVATAR_BUCKET).upload(
+        # Use the service-role client for storage so RLS is bypassed.
+        # The anon key cannot write to storage unless explicit policies exist.
+        storage_client = supabase_admin or supabase
+        storage_path   = f"{session['user_id']}.{ext}"  # e.g. abc-123.jpg
+
+        storage_client.storage.from_(AVATAR_BUCKET).upload(
             storage_path, file_bytes,
             {"content-type": file.content_type, "upsert": "true"}
         )
-        public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(storage_path)
+        public_url = storage_client.storage.from_(AVATAR_BUCKET).get_public_url(storage_path)
+
+        # Save URL to users table (anon client is fine here — RLS allows own-row update)
         supabase.table("users").update({"avatar_url": public_url}).eq("id", session["user_id"]).execute()
-        log.warning("upload_avatar: saved %s for user %s", storage_path, session["user_id"])
+        log.warning("upload_avatar: saved %s/%s for user %s", AVATAR_BUCKET, storage_path, session["user_id"])
         return jsonify({"ok": True, "url": public_url})
     except Exception as e:
-        # Log the full repr so the exact Supabase error code is visible in Vercel logs
         err_detail = repr(e)
-        log.error("upload_avatar failed — user=%s path=avatars/%s.%s error=%s",
-                  session.get("user_id"), session.get("user_id"), ext, err_detail)
-
-        # Surface a specific message for the most common failure
+        log.error("upload_avatar failed — user=%s error=%s", session.get("user_id"), err_detail)
         err_lower = err_detail.lower()
         if "row-level security" in err_lower or "403" in err_lower or "unauthorized" in err_lower:
             return jsonify({
-                "error": "Storage permission denied (RLS). Run the avatars bucket SQL policies in Supabase SQL Editor.",
+                "error": "Storage permission denied. Add SUPABASE_SERVICE_KEY to your environment variables.",
                 "detail": err_detail
             }), 403
         return jsonify({"error": str(e), "detail": err_detail}), 500
