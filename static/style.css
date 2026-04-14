@@ -141,20 +141,23 @@ a { text-decoration: none; color: inherit; }
 /* SVG icon — left side */
 .input-icon {
     position: absolute;
-    left: 13px;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
     width: 18px;
     height: 18px;
     color: #9ca3af;
     pointer-events: none;
     flex-shrink: 0;
     transition: color 0.2s;
+    z-index: 1;
 }
 .input-icon-wrap:focus-within .input-icon {
     color: var(--primary);
 }
 .input-icon-wrap input {
     width: 100%;
-    padding: 11px 42px 11px 40px;
+    padding: 11px 42px 11px 42px;
     border: 1.5px solid var(--border);
     border-radius: 10px;
     font-size: 14px;
@@ -174,6 +177,8 @@ a { text-decoration: none; color: inherit; }
 .pw-toggle {
     position: absolute;
     right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     background: none;
     border: none;
     cursor: pointer;
@@ -183,6 +188,7 @@ a { text-decoration: none; color: inherit; }
     align-items: center;
     transition: color 0.15s;
     line-height: 1;
+    z-index: 1;
 }
 .pw-toggle:hover { color: var(--primary); }
 
