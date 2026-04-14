@@ -235,11 +235,13 @@ function openBreedDetail(catId) {
     fetch("/api/cat/" + catId)
         .then(r => r.json())
         .then(cat => {
+            console.log("cat detail response:", cat);
             _currentCat = cat;
             document.getElementById("bdTitle").innerText = cat.name + " — " + cat.breed;
             document.getElementById("bdBody").innerHTML  = buildDetailHTML(cat);
         })
-        .catch(() => {
+        .catch(err => {
+            console.error("breed detail fetch error:", err);
             document.getElementById("bdBody").innerHTML = '<p style="color:var(--danger)">Failed to load details.</p>';
         });
 }
@@ -254,13 +256,16 @@ function openAdoptFromDetail() {
 
 function buildDetailHTML(cat) {
     const img = cat.image || "cat1.jpg";
+    // weight_range is the column name in Supabase; fall back to cat.weight
+    // in case the column was created with a different name
+    const weight = cat.weight_range || cat.weight || "—";
     const rows = [
-        ["Origin",       cat.origin       || "—"],
-        ["Weight",       cat.weight_range || "—"],
-        ["Size",         cat.size         || "—"],
-        ["Lifespan",     cat.lifespan     || "—"],
-        ["Coat Colors",  cat.coat_colors  || "—"],
-        ["Temperament",  cat.temperament  || "—"],
+        ["Origin",       cat.origin      || "—"],
+        ["Weight",       weight],
+        ["Size",         cat.size        || "—"],
+        ["Lifespan",     cat.lifespan    || "—"],
+        ["Coat Colors",  cat.coat_colors || "—"],
+        ["Temperament",  cat.temperament || "—"],
     ];
     const tableRows = rows.map(([k,v]) =>
         `<tr><td class="bd-label">${k}</td><td>${v}</td></tr>`
