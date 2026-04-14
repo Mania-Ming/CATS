@@ -10,7 +10,10 @@
 
 <!-- NAV -->
 <nav class="browse-nav">
-    <a href="{{ url_for('browse') }}" class="browse-brand">🐾 Cat Adoption</a>
+    <a href="{{ url_for('browse') }}" class="browse-brand">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Cat Adoption" class="brand-logo-img">
+        Cat Adoption
+    </a>
     <div class="nav-actions">
         {% if logged_in %}
         <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm">Go to Dashboard</a>
@@ -27,7 +30,7 @@
          style="background-image:url('{{ url_for('static', filename='images/cat3.jpg') }}')"></div>
     <div class="browse-hero-overlay"></div>
     <div class="browse-hero-content">
-        <p class="browse-hero-eyebrow">🐾 Find your forever friend</p>
+        <p class="browse-hero-eyebrow">Find your forever friend</p>
         <h1>Adopt a Cat Today</h1>
         <p class="browse-hero-sub">Every cat here is waiting for a loving home.<br>Browse, connect, and change a life.</p>
         {% if not logged_in %}
@@ -161,7 +164,9 @@
                     onclick="document.getElementById('loginModal').classList.remove('open')">&#10005;</button>
         </div>
         <div class="modal-body" style="text-align:center;padding:28px 24px;">
-            <div style="font-size:48px;margin-bottom:12px;">🐾</div>
+            <div style="margin-bottom:12px;">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Cat Adoption" style="width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">
+            </div>
             <p style="margin-bottom:20px;color:var(--text-muted);font-size:14px;line-height:1.6;">
                 Create a free account to submit an adoption application and give a cat their forever home.
             </p>
