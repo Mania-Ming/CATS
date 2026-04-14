@@ -251,21 +251,27 @@ function openAdoptFromDetail() {
 }
 
 function buildDetailHTML(cat) {
-    const img = cat.image || "cat1.jpg";
-    // weight_range is the column name in Supabase; fall back to cat.weight
-    // in case the column was created with a different name
+    const img    = cat.image || "cat1.jpg";
     const weight = cat.weight_range || cat.weight || "—";
+
     const rows = [
-        ["Origin",       cat.origin      || "—"],
-        ["Weight",       weight],
-        ["Size",         cat.size        || "—"],
-        ["Lifespan",     cat.lifespan    || "—"],
-        ["Coat Colors",  cat.coat_colors || "—"],
-        ["Temperament",  cat.temperament || "—"],
+        ["Origin",      cat.origin      || "—"],
+        ["Weight",      weight],
+        ["Size",        cat.size        || "—"],
+        ["Lifespan",    cat.lifespan    || "—"],
+        ["Coat Colors", cat.coat_colors || "—"],
+        ["Temperament", cat.temperament || "—"],
     ];
     const tableRows = rows.map(([k,v]) =>
         `<tr><td class="bd-label">${k}</td><td>${v}</td></tr>`
     ).join("");
+
+    const aboutSection = cat.about
+        ? `<div class="bd-about">
+               <p class="bd-about-label">About ${cat.name}</p>
+               <p class="bd-about-text">${cat.about}</p>
+           </div>`
+        : "";
 
     return `
     <div class="bd-layout">
@@ -274,6 +280,7 @@ function buildDetailHTML(cat) {
         </div>
         <div class="bd-info">
             ${cat.description ? `<p class="bd-desc">${cat.description}</p>` : ""}
+            ${aboutSection}
             <table class="bd-table">${tableRows}</table>
         </div>
     </div>`;

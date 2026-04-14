@@ -39,7 +39,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Inject CSS_VERSION into every template for cache-busting.
 # Bump this string whenever you update style.css.
-CSS_VERSION = "1.1.4"
+CSS_VERSION = "1.1.5"
 
 @app.context_processor
 def inject_globals():

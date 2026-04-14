@@ -1329,6 +1329,23 @@ tbody tr:hover { background: #fafbff; }
     margin-bottom: 16px;
 }
 
+.bd-about {
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+}
+.bd-about-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+.bd-about-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.7;
+}
+
 .bd-table {
     width: 100%;
     border-collapse: collapse;
