@@ -877,3 +877,63 @@ tbody tr:hover { background: #fafbff; }
     .cat-card { height: 320px; }
     .cat-card-img-wrap { height: 160px; }
 }
+
+/* ===== PROFILE AVATAR UPLOAD ===== */
+.avatar-wrap {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    margin: 0 auto 16px;
+}
+
+.avatar-photo {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    border: 3px solid var(--border);
+}
+
+/* Keep existing .profile-avatar centred inside the wrap */
+.avatar-wrap .profile-avatar {
+    width: 90px;
+    height: 90px;
+    margin: 0;
+    font-size: 34px;
+}
+
+.avatar-edit-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid var(--surface);
+    color: white;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.15s;
+    padding: 0;
+    line-height: 1;
+}
+.avatar-edit-btn:hover {
+    background: var(--primary-dark);
+    transform: scale(1.1);
+}
+
+.avatar-status {
+    font-size: 12px;
+    font-weight: 500;
+    min-height: 18px;
+    margin-bottom: 8px;
+    transition: opacity 0.3s;
+}
+.avatar-status-loading { color: var(--text-muted); }
+.avatar-status-success { color: #15803d; }
+.avatar-status-error   { color: #dc2626; }

@@ -54,7 +54,21 @@
                 <!-- LEFT: Summary card -->
                 <div>
                     <div class="profile-card" style="text-align:center; margin-bottom:16px;">
-                        <div class="profile-avatar">{{ (user[3] or 'U')[0].upper() }}</div>
+
+                        <!-- AVATAR -->
+                        <div class="avatar-wrap">
+                            {% if user[7] %}
+                            <img id="avatarImg" src="{{ user[7] }}" alt="Profile" class="avatar-photo">
+                            {% else %}
+                            <div id="avatarInitial" class="profile-avatar">{{ (user[3] or 'U')[0].upper() }}</div>
+                            {% endif %}
+                            <button type="button" class="avatar-edit-btn" onclick="document.getElementById('avatarInput').click()" title="Change photo">
+                                &#128247;
+                            </button>
+                            <input type="file" id="avatarInput" accept="image/png, image/jpeg" style="display:none">
+                        </div>
+                        <div id="avatarStatus"></div>
+
                         <div class="profile-name">{{ user[3] or 'No name set' }}</div>
                         <div class="profile-email">{{ user[1] }}</div>
                         <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
@@ -172,6 +186,71 @@ function updateFileName(input) {
     if (input.files && input.files[0]) {
         document.getElementById('fileLabel').innerHTML = '<strong>' + input.files[0].name + '</strong> selected';
     }
+}
+
+// ── Avatar upload ────────────────────────────────────────────
+document.getElementById('avatarInput').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+
+    // Client-side validation
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        showAvatarStatus('Only JPG and PNG files are allowed.', 'error');
+        this.value = '';
+        return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+        showAvatarStatus('File exceeds the 2 MB limit.', 'error');
+        this.value = '';
+        return;
+    }
+
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onload = e => setAvatarPreview(e.target.result);
+    reader.readAsDataURL(file);
+
+    // Upload
+    showAvatarStatus('&#9679; Uploading...', 'loading');
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    fetch('/api/upload_avatar', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(res => {
+            if (res.ok) {
+                setAvatarPreview(res.url);
+                showAvatarStatus('&#10003; Profile photo updated!', 'success');
+                setTimeout(() => showAvatarStatus('', ''), 3000);
+            } else {
+                showAvatarStatus('&#10007; ' + (res.error || 'Upload failed'), 'error');
+            }
+        })
+        .catch(() => showAvatarStatus('&#10007; Upload failed. Try again.', 'error'));
+});
+
+function setAvatarPreview(src) {
+    // Replace initial div with img, or update existing img
+    const initial = document.getElementById('avatarInitial');
+    let img = document.getElementById('avatarImg');
+    if (initial) {
+        initial.style.display = 'none';
+    }
+    if (!img) {
+        img = document.createElement('img');
+        img.id = 'avatarImg';
+        img.className = 'avatar-photo';
+        img.alt = 'Profile';
+        document.querySelector('.avatar-wrap').prepend(img);
+    }
+    img.src = src;
+    img.style.display = 'block';
+}
+
+function showAvatarStatus(msg, type) {
+    const el = document.getElementById('avatarStatus');
+    el.innerHTML = msg;
+    el.className = 'avatar-status avatar-status-' + type;
 }
 
 setTimeout(() => {

@@ -38,14 +38,17 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Inject CSS_VERSION into every template for cache-busting.
 # Bump this string whenever you update style.css.
-CSS_VERSION = "1.0.3"
+CSS_VERSION = "1.0.4"
 
 @app.context_processor
 def inject_globals():
     return {"css_version": CSS_VERSION}
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
+ALLOWED_AVATAR_EXTENSIONS = {"png", "jpg", "jpeg"}
 STORAGE_BUCKET = "valid-ids"
+AVATAR_BUCKET  = "avatars"
+MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2 MB
 
 # Admin credentials from environment (fallback for local dev only)
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
@@ -70,14 +73,14 @@ def parse_dt(val):
 
 
 def get_user_profile(user_id):
-    """Return user as tuple (id, email, password, full_name, phone, address, valid_id_url)."""
+    """Return user as tuple (id, email, password, full_name, phone, address, valid_id_url, avatar_url)."""
     try:
         res = supabase.table("users").select("*").eq("id", user_id).single().execute()
         u = res.data
         if not u:
             return None
         return (u.get("id"), u.get("email"), u.get("password"), u.get("full_name"),
-                u.get("phone"), u.get("address"), u.get("valid_id_url"))
+                u.get("phone"), u.get("address"), u.get("valid_id_url"), u.get("avatar_url"))
     except Exception as e:
         log.error("get_user_profile(%s) failed: %s", user_id, e)
         return None
@@ -344,6 +347,40 @@ def dashboard():
 
     user = get_user_profile(session["user_id"])
     return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count)
+
+
+# ------------------------------------------------------------------ avatar upload API --
+
+@app.route("/api/upload_avatar", methods=["POST"])
+def upload_avatar():
+    from flask import jsonify
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+
+    file = request.files.get("avatar")
+    if not file or not file.filename:
+        return jsonify({"error": "No file provided"}), 400
+
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_AVATAR_EXTENSIONS:
+        return jsonify({"error": "Only JPG and PNG files are allowed"}), 400
+
+    file_bytes = file.read()
+    if len(file_bytes) > MAX_AVATAR_BYTES:
+        return jsonify({"error": "File exceeds 2 MB limit"}), 400
+
+    try:
+        filename = f"avatar_{session['user_id']}.{ext}"
+        supabase.storage.from_(AVATAR_BUCKET).upload(
+            filename, file_bytes,
+            {"content-type": file.content_type, "upsert": "true"}
+        )
+        public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(filename)
+        supabase.table("users").update({"avatar_url": public_url}).eq("id", session["user_id"]).execute()
+        return jsonify({"ok": True, "url": public_url})
+    except Exception as e:
+        log.error("upload_avatar failed for %s: %r", session.get("user_id"), e)
+        return jsonify({"error": str(e)}), 500
 
 
 # ------------------------------------------------------------------ cat detail API --

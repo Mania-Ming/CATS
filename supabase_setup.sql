@@ -148,3 +148,13 @@ update cats set weight_range='3–6 kg',  size='Medium', coat_colors='Seal, Blue
 update cats set weight_range='4–9 kg',  size='Large',  coat_colors='Brown Tabby, Black, White, Blue', temperament='Gentle, Playful, Independent', lifespan='14–16 yrs', origin='Norway',          description='Built for cold climates with a thick double coat. Excellent hunters.' where breed='Norwegian Forest';
 update cats set weight_range='3–5 kg',  size='Medium', coat_colors='All colors and patterns', temperament='Affectionate, Energetic, Mischievous', lifespan='12–15 yrs', origin='France',          description='Hairless breed known for warmth-seeking behavior and extroverted personality.' where breed='Sphynx';
 update cats set weight_range='3–5 kg',  size='Medium', coat_colors='Blue-grey with silver tips', temperament='Gentle, Reserved, Loyal', lifespan='15–20 yrs', origin='Russia',          description='Naturally occurring breed with a dense plush coat and vivid green eyes.' where breed='Russian Blue';
+
+-- ============================================================
+-- PROFILE AVATAR (run if users table already exists)
+-- ============================================================
+alter table users add column if not exists avatar_url text;
+
+-- ============================================================
+-- STORAGE: Create a bucket named "avatars" and set it public
+-- Dashboard → Storage → New Bucket → Name: avatars → Public ✓
+-- ============================================================
