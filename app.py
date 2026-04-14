@@ -381,8 +381,19 @@ def upload_avatar():
         log.warning("upload_avatar: saved %s for user %s", storage_path, session["user_id"])
         return jsonify({"ok": True, "url": public_url})
     except Exception as e:
-        log.error("upload_avatar failed for %s: %r", session.get("user_id"), e)
-        return jsonify({"error": str(e)}), 500
+        # Log the full repr so the exact Supabase error code is visible in Vercel logs
+        err_detail = repr(e)
+        log.error("upload_avatar failed — user=%s path=avatars/%s.%s error=%s",
+                  session.get("user_id"), session.get("user_id"), ext, err_detail)
+
+        # Surface a specific message for the most common failure
+        err_lower = err_detail.lower()
+        if "row-level security" in err_lower or "403" in err_lower or "unauthorized" in err_lower:
+            return jsonify({
+                "error": "Storage permission denied (RLS). Run the avatars bucket SQL policies in Supabase SQL Editor.",
+                "detail": err_detail
+            }), 403
+        return jsonify({"error": str(e), "detail": err_detail}), 500
 
 
 # ------------------------------------------------------------------ cat detail API --
