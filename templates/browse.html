@@ -34,8 +34,8 @@
             <div class="cat-card-body">
                 <h3>{{ cat[1] }}</h3>
                 <div class="cat-meta">
-                    <span class="cat-badge">{{ cat[3] }}</span>
-                    <span class="cat-badge">{{ cat[2] }} yrs</span>
+                    <span class="cat-badge">{{ cat[2] }}</span>
+                    <span class="cat-badge">{{ cat[3] }} {{ 'yr' if cat[3] == 1 else 'yrs' }}</span>
                     <span class="cat-badge gender">{{ cat[4] }}</span>
                 </div>
                 {% if logged_in %}

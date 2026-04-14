@@ -84,7 +84,7 @@
                     <h3 class="cat-card-name">{{ cat.name }}</h3>
                     <p class="cat-card-breed">{{ cat.breed }}</p>
                     <div class="cat-meta">
-                        <span class="cat-badge">{{ cat.age }} yrs</span>
+                        <span class="cat-badge">{{ cat.age }} {{ 'yr' if cat.age == 1 else 'yrs' }}</span>
                         <span class="cat-badge gender">{{ cat.gender }}</span>
                     </div>
                     <button class="btn btn-primary btn-sm adopt-btn"
@@ -219,7 +219,7 @@ function openAdoptModal(id, name, breed, age, gender) {
     _currentCat = { id, name, breed, age, gender };
     document.getElementById("modalCatId").value    = id;
     document.getElementById("modalCatName").innerText    = name;
-    document.getElementById("modalCatDetails").innerText = breed + " · " + age + " yrs · " + gender;
+    document.getElementById("modalCatDetails").innerText = breed + " · " + age + (age == 1 ? " yr" : " yrs") + " · " + gender;
     document.getElementById("adoptModal").classList.add("open");
 }
 function closeAdoptModal() {
