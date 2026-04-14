@@ -138,17 +138,23 @@ a { text-decoration: none; color: inherit; }
     display: flex;
     align-items: center;
 }
+/* SVG icon — left side */
 .input-icon {
     position: absolute;
     left: 13px;
-    font-size: 14px;
+    width: 18px;
+    height: 18px;
+    color: #9ca3af;
     pointer-events: none;
-    opacity: 0.5;
-    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.2s;
+}
+.input-icon-wrap:focus-within .input-icon {
+    color: var(--primary);
 }
 .input-icon-wrap input {
     width: 100%;
-    padding: 11px 40px 11px 38px;
+    padding: 11px 42px 11px 40px;
     border: 1.5px solid var(--border);
     border-radius: 10px;
     font-size: 14px;
@@ -164,20 +170,29 @@ a { text-decoration: none; color: inherit; }
     transform: translateY(-1px);
 }
 
-/* Show/hide password toggle */
+/* Eye toggle — right side */
 .pw-toggle {
     position: absolute;
     right: 10px;
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 15px;
-    opacity: 0.45;
     padding: 4px;
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s;
     line-height: 1;
-    transition: opacity 0.15s;
 }
-.pw-toggle:hover { opacity: 0.85; }
+.pw-toggle:hover { color: var(--primary); }
+
+/* Spinner spin animation */
+.spin {
+    animation: spinAnim 0.8s linear infinite;
+}
+@keyframes spinAnim {
+    to { transform: rotate(360deg); }
+}
 
 /* Auth submit button */
 .btn-auth {
