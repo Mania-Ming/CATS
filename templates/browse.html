@@ -6,52 +6,118 @@
     <title>Browse Cats — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
 </head>
-<body style="background:var(--bg);">
+<body class="browse-page">
 
+<!-- NAV -->
 <nav class="browse-nav">
-    <div class="brand">Cat Adoption</div>
+    <a href="{{ url_for('browse') }}" class="browse-brand">🐾 Cat Adoption</a>
     <div class="nav-actions">
         {% if logged_in %}
         <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm">Go to Dashboard</a>
         {% else %}
-        <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">Sign In</a>
-        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
+        <a href="{{ url_for('login') }}"    class="btn btn-outline btn-sm">Sign In</a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register Free</a>
         {% endif %}
     </div>
 </nav>
 
+<!-- HERO -->
 <div class="browse-hero">
-    <h1>Find Your Perfect Cat</h1>
-    <p>Browse cats available for adoption. Sign in or register to submit an adoption application.</p>
+    <div class="browse-hero-bg"
+         style="background-image:url('{{ url_for('static', filename='images/cat3.jpg') }}')"></div>
+    <div class="browse-hero-overlay"></div>
+    <div class="browse-hero-content">
+        <p class="browse-hero-eyebrow">🐾 Find your forever friend</p>
+        <h1>Adopt a Cat Today</h1>
+        <p class="browse-hero-sub">Every cat here is waiting for a loving home.<br>Browse, connect, and change a life.</p>
+        {% if not logged_in %}
+        <div class="browse-hero-cta">
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started — It's Free</a>
+            <a href="{{ url_for('login') }}"    class="btn btn-hero-outline">Sign In</a>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
+<!-- FILTER BAR -->
+<div class="browse-filters-wrap">
+    <div class="browse-filters">
+        <span class="filter-label">Filter by:</span>
+        <select id="filterBreed" onchange="applyFilters()">
+            <option value="">All Breeds</option>
+            <option value="Persian">Persian</option>
+            <option value="Siamese">Siamese</option>
+            <option value="Ragdoll">Ragdoll</option>
+            <option value="British Shorthair">British Shorthair</option>
+            <option value="Maine Coon">Maine Coon</option>
+            <option value="Scottish Fold">Scottish Fold</option>
+            <option value="Bengal">Bengal</option>
+            <option value="Abyssinian">Abyssinian</option>
+            <option value="Birman">Birman</option>
+            <option value="Norwegian Forest">Norwegian Forest</option>
+            <option value="Sphynx">Sphynx</option>
+            <option value="Russian Blue">Russian Blue</option>
+        </select>
+        <select id="filterGender" onchange="applyFilters()">
+            <option value="">Any Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+        </select>
+        <select id="filterAge" onchange="applyFilters()">
+            <option value="">Any Age</option>
+            <option value="young">Young (1 yr)</option>
+            <option value="adult">Adult (2–3 yrs)</option>
+            <option value="senior">Senior (4+ yrs)</option>
+        </select>
+        <span class="filter-count" id="filterCount"></span>
+    </div>
+</div>
+
+<!-- GRID -->
 <div class="browse-content">
     {% if cats %}
-    <div class="cats-grid">
+    <div class="browse-grid" id="browseGrid">
         {% for cat in cats %}
-        <div class="cat-card">
-            <img src="{{ url_for('static', filename='images/' + cat[5]) }}" alt="{{ cat[1] }}">
-            <div class="cat-card-body">
-                <h3>{{ cat[1] }}</h3>
-                <div class="cat-meta">
-                    <span class="cat-badge">{{ cat[2] }}</span>
-                    <span class="cat-badge">{{ cat[3] }} {{ 'yr' if cat[3] == 1 else 'yrs' }}</span>
-                    <span class="cat-badge gender">{{ cat[4] }}</span>
+        <div class="bcard"
+             data-breed="{{ cat[2] }}"
+             data-gender="{{ cat[4] }}"
+             data-age="{{ cat[3] }}"
+             role="button"
+             tabindex="0"
+             aria-label="View details for {{ cat[1] }}"
+             onclick="handleCardClick()"
+             onkeydown="if(event.key==='Enter'||event.key===' ')handleCardClick()">
+
+            <div class="bcard-img-wrap">
+                <img src="{{ url_for('static', filename='images/' + cat[5]) }}"
+                     alt="{{ cat[1] }}" loading="lazy">
+                <div class="bcard-overlay">
+                    <span>{% if logged_in %}View Details{% else %}Sign In to Adopt{% endif %}</span>
                 </div>
-                {% if logged_in %}
-                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">Adopt Me</a>
-                {% else %}
-                <button onclick="document.getElementById('loginModal').classList.add('open')"
-                    class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;">
-                    Login to Adopt
-                </button>
-                {% endif %}
+                <span class="bcard-status">Available</span>
+            </div>
+
+            <div class="bcard-body">
+                <h3 class="bcard-name">{{ cat[1] }}</h3>
+                <p class="bcard-breed">{{ cat[2] }}</p>
+                <div class="bcard-badges">
+                    <span class="bcard-badge bcard-badge-age">{{ cat[3] }} {{ 'yr' if cat[3] == 1 else 'yrs' }}</span>
+                    <span class="bcard-badge bcard-badge-gender">{{ cat[4] }}</span>
+                </div>
             </div>
         </div>
         {% endfor %}
     </div>
+
+    <div class="browse-empty" id="noResults" style="display:none">
+        <div class="empty-icon">🔍</div>
+        <h3>No cats match your filters</h3>
+        <p>Try adjusting the breed, gender, or age filter.</p>
+    </div>
+
     {% else %}
-    <div class="empty-state">
+    <div class="browse-empty">
+        <div class="empty-icon">🐱</div>
         <h3>No cats available right now</h3>
         <p>Check back soon for new arrivals.</p>
     </div>
@@ -63,7 +129,7 @@
     <div class="footer-inner">
         <div class="footer-brand">
             <h3>Cat Adoption</h3>
-            <p>Connecting loving families with cats in need of a forever home. Every adoption makes a difference.</p>
+            <p>Connecting loving families with cats in need of a forever home.</p>
         </div>
         <div class="footer-col">
             <h4>Explore</h4>
@@ -80,7 +146,6 @@
         <div class="footer-col">
             <h4>Contact</h4>
             <a href="#">support@catadoption.ph</a>
-            <a href="#">+63 900 000 0000</a>
             <a href="#">Manila, Philippines</a>
         </div>
     </div>
@@ -92,19 +157,71 @@
     <div class="modal-box" style="max-width:400px;">
         <div class="modal-header">
             <h3>Sign In Required</h3>
-            <button class="modal-close" onclick="document.getElementById('loginModal').classList.remove('open')">&#10005;</button>
+            <button class="modal-close"
+                    onclick="document.getElementById('loginModal').classList.remove('open')">&#10005;</button>
         </div>
         <div class="modal-body" style="text-align:center;padding:28px 24px;">
-            <p style="margin-bottom:20px;color:var(--text-muted);font-size:14px;">
-                You need an account to submit an adoption application. It's free and only takes a minute.
+            <div style="font-size:48px;margin-bottom:12px;">🐾</div>
+            <p style="margin-bottom:20px;color:var(--text-muted);font-size:14px;line-height:1.6;">
+                Create a free account to submit an adoption application and give a cat their forever home.
             </p>
             <div style="display:flex;gap:10px;justify-content:center;">
-                <a href="{{ url_for('login') }}" class="btn btn-outline">Sign In</a>
+                <a href="{{ url_for('login') }}"    class="btn btn-outline">Sign In</a>
                 <a href="{{ url_for('register') }}" class="btn btn-primary">Register Free</a>
             </div>
         </div>
     </div>
 </div>
 
+<script>
+const IS_LOGGED_IN = {{ 'true' if logged_in else 'false' }};
+
+function handleCardClick() {
+    if (IS_LOGGED_IN) {
+        window.location.href = "{{ url_for('dashboard') }}";
+    } else {
+        document.getElementById('loginModal').classList.add('open');
+    }
+}
+
+// Close modal on overlay click
+document.getElementById('loginModal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+});
+
+// Filter logic — client-side, instant
+function applyFilters() {
+    const breed  = document.getElementById('filterBreed').value;
+    const gender = document.getElementById('filterGender').value;
+    const age    = document.getElementById('filterAge').value;
+    const cards  = document.querySelectorAll('.bcard');
+    let visible  = 0;
+
+    cards.forEach(card => {
+        const cBreed  = card.dataset.breed;
+        const cGender = card.dataset.gender;
+        const cAge    = parseInt(card.dataset.age);
+
+        const ageMatch = !age
+            || (age === 'young'  && cAge === 1)
+            || (age === 'adult'  && cAge >= 2 && cAge <= 3)
+            || (age === 'senior' && cAge >= 4);
+
+        const show = (!breed || cBreed === breed)
+                  && (!gender || cGender === gender)
+                  && ageMatch;
+
+        card.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
+    const countEl = document.getElementById('filterCount');
+    countEl.textContent = visible + ' cat' + (visible !== 1 ? 's' : '') + ' found';
+}
+
+// Init count on load
+applyFilters();
+</script>
 </body>
 </html>
