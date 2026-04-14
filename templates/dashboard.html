@@ -75,10 +75,16 @@
         <!-- CATS GRID -->
         <div class="cats-grid">
             {% for cat in cats %}
-            <div class="cat-card" onclick="openBreedDetail({{ cat.id }})">
+            <div class="cat-card"
+                 role="button"
+                 tabindex="0"
+                 aria-label="View details for {{ cat.name }}"
+                 onclick="openBreedDetail({{ cat.id }})"
+                 onkeydown="if(event.key==='Enter'||event.key===' ')openBreedDetail({{ cat.id }})">
                 <div class="cat-card-img-wrap">
                     <img src="{{ url_for('static', filename='images/' + (cat.image or 'cat1.jpg')) }}"
                          alt="{{ cat.breed }}">
+                    <div class="cat-card-overlay">View Details</div>
                 </div>
                 <div class="cat-card-body">
                     <h3 class="cat-card-name">{{ cat.name }}</h3>
@@ -87,11 +93,6 @@
                         <span class="cat-badge">{{ cat.age }} {{ 'yr' if cat.age == 1 else 'yrs' }}</span>
                         <span class="cat-badge gender">{{ cat.gender }}</span>
                     </div>
-                    <button class="btn btn-primary btn-sm adopt-btn"
-                        onclick="event.stopPropagation(); openAdoptModal('{{ cat.id }}','{{ cat.name }}','{{ cat.breed }}','{{ cat.age }}','{{ cat.gender }}')"
-                        style="width:100%;justify-content:center;">
-                        ❤ Adopt Me
-                    </button>
                 </div>
             </div>
             {% endfor %}
