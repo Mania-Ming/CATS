@@ -937,8 +937,8 @@ tbody tr:hover { background: #fafbff; }
 }
 .bcard:hover,
 .bcard:focus-visible {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 40px rgba(0,0,0,0.14);
+    transform: translateY(-5px);
+    box-shadow: 0 20px 48px rgba(0,0,0,0.16);
 }
 .bcard:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
@@ -985,20 +985,6 @@ tbody tr:hover { background: #fafbff; }
 .bcard:hover .bcard-overlay,
 .bcard:focus-visible .bcard-overlay { opacity: 1; }
 
-/* Available badge on image */
-.bcard-status {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    background: #22c55e;
-    color: white;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 3px 9px;
-    border-radius: 20px;
-}
 
 /* Card body */
 .bcard-body {
