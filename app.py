@@ -354,13 +354,12 @@ def api_cat_detail(cat_id):
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     try:
-        res = supabase.table("cats").select(
-            "id, name, breed, age, gender, status, image, "
-            "origin, weight_range, size, lifespan, coat_colors, temperament, description"
-        ).eq("id", cat_id).single().execute()
-        return jsonify(res.data or {})
+        res = supabase.table("cats").select("*").eq("id", cat_id).single().execute()
+        data = res.data or {}
+        log.warning("api_cat_detail(%s) returned keys: %s", cat_id, list(data.keys()))
+        return jsonify(data)
     except Exception as e:
-        log.error("api_cat_detail(%s) failed: %s", cat_id, e)
+        log.error("api_cat_detail(%s) failed: %r", cat_id, e)
         return jsonify({"error": str(e)}), 500
 
 

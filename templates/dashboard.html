@@ -236,13 +236,21 @@ function openBreedDetail(catId) {
         .then(r => r.json())
         .then(cat => {
             console.log("cat detail response:", cat);
+            if (!cat || cat.error || !cat.name) {
+                document.getElementById("bdTitle").innerText = "Error loading details";
+                document.getElementById("bdBody").innerHTML =
+                    '<p style="color:var(--danger);padding:20px">Could not load cat details. Error: ' +
+                    (cat && cat.error ? cat.error : "empty response") + '</p>';
+                return;
+            }
             _currentCat = cat;
             document.getElementById("bdTitle").innerText = cat.name + " — " + cat.breed;
             document.getElementById("bdBody").innerHTML  = buildDetailHTML(cat);
         })
         .catch(err => {
             console.error("breed detail fetch error:", err);
-            document.getElementById("bdBody").innerHTML = '<p style="color:var(--danger)">Failed to load details.</p>';
+            document.getElementById("bdTitle").innerText = "Error";
+            document.getElementById("bdBody").innerHTML = '<p style="color:var(--danger);padding:20px">Failed to load details.</p>';
         });
 }
 function closeBreedDetail() {
