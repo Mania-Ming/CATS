@@ -8,38 +8,80 @@
 </head>
 <body>
 <div class="auth-page">
+
+    <!-- LEFT: Visual branding panel -->
     <div class="auth-left">
-        <div class="brand-logo">🐾</div>
-        <h1>Cat Adoption</h1>
-        <p>Find your perfect furry companion and give them a loving forever home.</p>
+        <div class="auth-left-bg"
+             style="background-image:url('{{ url_for('static', filename='images/cat2.jpg') }}')">
+        </div>
+        <div class="auth-left-overlay"></div>
+
+        <!-- Floating paw decorations -->
+        <span class="paw paw-1">🐾</span>
+        <span class="paw paw-2">🐾</span>
+        <span class="paw paw-3">🐾</span>
+
+        <div class="auth-left-content">
+            <div class="auth-brand-logo">🐾</div>
+            <h1 class="auth-brand-title">Cat Adoption</h1>
+            <p class="auth-brand-sub">Find your perfect furry companion and give them a loving forever home.</p>
+        </div>
     </div>
+
+    <!-- RIGHT: Form panel -->
     <div class="auth-right">
         <div class="auth-card">
-            <h2>Welcome back</h2>
-            <p class="subtitle">Sign in to your account to continue</p>
+            <h2 class="auth-heading">Welcome back</h2>
+            <p class="auth-subheading">Sign in to your account to continue</p>
 
             {% if error %}
             <div class="alert alert-error">⚠ {{ error }}</div>
             {% endif %}
 
-            <form method="POST">
+            <form method="POST" id="loginForm">
                 <div class="form-group">
                     <label>Email Address</label>
-                    <input type="email" name="email" placeholder="you@example.com" required>
+                    <div class="input-icon-wrap">
+                        <span class="input-icon">✉</span>
+                        <input type="email" name="email" placeholder="you@example.com" required autocomplete="email">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" placeholder="Enter your password" required>
+                    <div class="input-icon-wrap">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" name="password" id="loginPassword" placeholder="Enter your password" required autocomplete="current-password">
+                        <button type="button" class="pw-toggle" onclick="togglePw('loginPassword', this)" tabindex="-1" aria-label="Show password">👁</button>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-full" style="margin-top:8px;">Sign In</button>
+                <button type="submit" class="btn btn-auth" id="loginBtn">
+                    <span class="btn-text">Sign In</span>
+                    <span class="btn-spinner" style="display:none">⏳</span>
+                </button>
             </form>
 
-            <p style="text-align:center; margin-top:20px; font-size:13px; color:var(--text-muted);">
+            <p class="auth-switch">
                 Don't have an account?
-                <a href="{{ url_for('register') }}" style="color:var(--primary); font-weight:600;">Create one</a>
+                <a href="{{ url_for('register') }}">Create one</a>
             </p>
         </div>
     </div>
 </div>
+
+<script>
+function togglePw(id, btn) {
+    const input = document.getElementById(id);
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '🙈' : '👁';
+}
+
+document.getElementById('loginForm').addEventListener('submit', function() {
+    const btn  = document.getElementById('loginBtn');
+    btn.querySelector('.btn-text').style.display   = 'none';
+    btn.querySelector('.btn-spinner').style.display = 'inline';
+    btn.disabled = true;
+});
+</script>
 </body>
 </html>

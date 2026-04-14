@@ -8,15 +8,30 @@
 </head>
 <body>
 <div class="auth-page">
+
+    <!-- LEFT: Visual branding panel -->
     <div class="auth-left">
-        <div class="brand-logo">🐾</div>
-        <h1>Join Us Today</h1>
-        <p>Create an account to adopt a cat and give them the loving home they deserve.</p>
+        <div class="auth-left-bg"
+             style="background-image:url('{{ url_for('static', filename='images/cat5.jpg') }}')">
+        </div>
+        <div class="auth-left-overlay"></div>
+
+        <span class="paw paw-1">🐾</span>
+        <span class="paw paw-2">🐾</span>
+        <span class="paw paw-3">🐾</span>
+
+        <div class="auth-left-content">
+            <div class="auth-brand-logo">🐾</div>
+            <h1 class="auth-brand-title">Join Us Today</h1>
+            <p class="auth-brand-sub">Create an account to adopt a cat and give them the loving home they deserve.</p>
+        </div>
     </div>
+
+    <!-- RIGHT: Form panel -->
     <div class="auth-right">
         <div class="auth-card">
-            <h2>Create account</h2>
-            <p class="subtitle">Fill in your details to get started</p>
+            <h2 class="auth-heading">Create account</h2>
+            <p class="auth-subheading">Fill in your details to get started</p>
 
             {% if error %}
             <div class="alert alert-error">⚠ {{ error }}</div>
@@ -25,25 +40,44 @@
             <form method="POST" action="/register">
                 <div class="form-group">
                     <label>Full Name</label>
-                    <input type="text" name="fullname" placeholder="Your full name" required>
+                    <div class="input-icon-wrap">
+                        <span class="input-icon">👤</span>
+                        <input type="text" name="fullname" placeholder="Your full name" required autocomplete="name">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Email Address</label>
-                    <input type="email" name="email" placeholder="you@example.com" required>
+                    <div class="input-icon-wrap">
+                        <span class="input-icon">✉</span>
+                        <input type="email" name="email" placeholder="you@example.com" required autocomplete="email">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" placeholder="Create a password" required minlength="6">
+                    <div class="input-icon-wrap">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" name="password" id="regPassword" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password">
+                        <button type="button" class="pw-toggle" onclick="togglePw('regPassword', this)" tabindex="-1" aria-label="Show password">👁</button>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-full" style="margin-top:8px;">Create Account</button>
+                <button type="submit" class="btn btn-auth">Create Account</button>
             </form>
 
-            <p style="text-align:center; margin-top:20px; font-size:13px; color:var(--text-muted);">
+            <p class="auth-switch">
                 Already have an account?
-                <a href="{{ url_for('login') }}" style="color:var(--primary); font-weight:600;">Sign in</a>
+                <a href="{{ url_for('login') }}">Sign in</a>
             </p>
         </div>
     </div>
 </div>
+
+<script>
+function togglePw(id, btn) {
+    const input = document.getElementById(id);
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '🙈' : '👁';
+}
+</script>
 </body>
 </html>
