@@ -43,15 +43,10 @@ CSS_VERSION = "1.1.5"
 
 @app.context_processor
 def inject_globals():
-    uid = session.get("user_id")
-    _is_admin = False
-    if uid:
-        try:
-            res = supabase.table("users").select("role").eq("id", uid).single().execute()
-            _is_admin = (res.data or {}).get("role") == "admin"
-        except Exception:
-            pass
-    return {"css_version": CSS_VERSION, "is_admin_user": _is_admin}
+    return {
+        "css_version": CSS_VERSION,
+        "is_admin_user": session.get("role") == "admin",
+    }
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
 ALLOWED_AVATAR_EXTENSIONS = {"png", "jpg", "jpeg"}
@@ -149,6 +144,8 @@ def browse():
 @app.route("/")
 def index():
     if "user_id" in session:
+        if session.get("role") == "admin":
+            return redirect(url_for("admin_dashboard"))
         return redirect(url_for("dashboard"))
     return redirect(url_for("browse"))
 
@@ -158,6 +155,8 @@ def index():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
+        if session.get("role") == "admin":
+            return redirect(url_for("admin_dashboard"))
         return redirect(url_for("dashboard"))
     if request.method == "POST":
         email = request.form.get("email", "").strip()
@@ -174,7 +173,10 @@ def login():
         if user and check_password_hash(user.get("password", ""), password):
             session.clear()
             session["user_id"] = user["id"]
-            session["email"] = user["email"]
+            session["email"]   = user["email"]
+            session["role"]    = user.get("role") or "user"
+            if session["role"] == "admin":
+                return redirect(url_for("admin_dashboard"))
             return redirect(url_for("dashboard"))
         return render_template("login.html", error="Invalid email or password")
     return render_template("login.html")
@@ -184,14 +186,7 @@ def login():
 
 def is_admin():
     """Return True if the current session user has role='admin'."""
-    uid = session.get("user_id")
-    if not uid:
-        return False
-    try:
-        res = supabase.table("users").select("role").eq("id", uid).single().execute()
-        return (res.data or {}).get("role") == "admin"
-    except Exception:
-        return False
+    return session.get("role") == "admin"
 
 
 # ------------------------------------------------------------------ admin login (legacy kept) --
