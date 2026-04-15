@@ -155,6 +155,18 @@ def require_login_redirect():
     return None
 
 
+def password_matches(stored_password, plain_password):
+    """Support both Werkzeug-hashed and legacy plain-text passwords."""
+    if not stored_password or plain_password is None:
+        return False
+    try:
+        if check_password_hash(stored_password, plain_password):
+            return True
+    except (ValueError, TypeError):
+        pass
+    return stored_password == plain_password
+
+
 @app.route("/")
 def home():
     return render_template("landing.html")
@@ -172,18 +184,26 @@ def login():
         if not email or not password:
             return render_template("login.html", error="Please fill all fields")
         try:
+            if supabase is None:
+                raise RuntimeError("Supabase client is not configured")
             res = supabase.table("users").select("*").eq("email", email).execute()
             user = res.data[0] if res.data else None
         except Exception as e:
             log.error("login — users fetch failed: %s", e)
             return render_template("login.html", error="Something went wrong. Please try again.")
 
-        if user and check_password_hash(user.get("password", ""), password):
-            session.clear()
-            session["user_id"] = user["id"]
-            session["email"]   = user["email"]
-            session["role"]    = user.get("role") or "user"
-            return login_redirect_by_role()
+        try:
+            if user and password_matches(user.get("password"), password):
+                session.clear()
+                session["user_id"] = user.get("id")
+                session["email"] = user.get("email", email)
+                session["role"] = (user.get("role") or "user").strip().lower()
+                if not session["user_id"]:
+                    raise RuntimeError("User record is missing an id")
+                return login_redirect_by_role()
+        except Exception as e:
+            log.error("login session setup failed: %s", e)
+            return render_template("login.html", error="Login failed. Please try again.")
         return render_template("login.html", error="Invalid email or password")
     return render_template("login.html")
 

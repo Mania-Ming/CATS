@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard — Cat Adoption</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
@@ -80,6 +80,12 @@
                         <span class="cat-badge">{{ cat.age }} {{ 'yr' if cat.age == 1 else 'yrs' }}</span>
                         <span class="cat-badge gender">{{ cat.gender }}</span>
                     </div>
+                    <button type="button"
+                            class="btn btn-primary btn-sm"
+                            style="margin-top:auto;align-self:flex-start;"
+                            onclick="event.stopPropagation(); openBreedDetail({{ cat.id }})">
+                        View Details
+                    </button>
                 </div>
             </div>
             {% endfor %}
