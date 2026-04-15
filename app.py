@@ -1,7 +1,7 @@
 import os
 import logging
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase_client import supabase as _supabase_client, supabase_admin as _supabase_admin
@@ -167,357 +167,79 @@ def login():
     return render_template("login.html")
 
 
-# ------------------------------------------------------------------ admin helpers --
-
-def is_admin():
-    return session.get("role") == "admin"
-
-
-# ------------------------------------------------------------------ admin login (legacy redirect) --
+# ------------------------------------------------------------------ admin login --
 
 @app.route("/admin_login", methods=["GET", "POST"])
 def admin_login():
     return redirect(url_for("login"))
 
 
-# ------------------------------------------------------------------ admin shared context --
-
-def _admin_guard():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-    if not is_admin():
-        return redirect(url_for("dashboard"))
-    return None
-
-
-def _build_admin_ctx(section):
-    try:
-        cats_data = supabase.table("cats").select("*").order("id").execute().data or []
-    except Exception as e:
-        log.error("admin cats fetch failed: %s", e)
-        cats_data = []
-
-    try:
-        users_data = supabase.table("users").select(
-            "id,email,full_name,role,phone,created_at"
-        ).order("created_at", desc=True).execute().data or []
-    except Exception as e:
-        log.error("admin users fetch failed: %s", e)
-        users_data = []
-
-    try:
-        ar_raw = supabase.table("adoption_requests").select(
-            "id,status,created_at,user_id,cat_id,"
-            "cats(name,breed),users(full_name,email,phone,address,valid_id_url)"
-        ).order("created_at", desc=True).execute().data or []
-    except Exception as e:
-        log.error("admin requests fetch failed: %s", e)
-        ar_raw = []
-
-    # Normalise joined rows — Supabase returns None when RLS blocks the join
-    ar_data = []
-    for r in ar_raw:
-        r["cats"]  = r.get("cats")  or {}
-        r["users"] = r.get("users") or {}
-        r["created_at_parsed"] = parse_dt(r.get("created_at"))
-        ar_data.append(r)
-
-    for u in users_data:
-        u["created_at_parsed"] = parse_dt(u.get("created_at"))
-
-    # Cat filters (only applied on the cats section)
-    search     = request.args.get("search", "").strip().lower()
-    f_status   = request.args.get("status", "all").strip().lower()
-    f_breed    = request.args.get("breed",  "all").strip().lower()
-
-    filtered_cats = [
-        c for c in cats_data
-        if (not search   or search  in (c.get("name")  or "").lower() or search in (c.get("breed") or "").lower())
-        and (f_status in ("all", "") or (c.get("status") or "").lower() == f_status)
-        and (f_breed  in ("all", "") or (c.get("breed")  or "").lower() == f_breed)
-    ]
-    breed_options = sorted({(c.get("breed") or "").strip() for c in cats_data if c.get("breed")})
-
-    stats = {
-        "total_cats":        len(cats_data),
-        "available_cats":    sum(1 for c in cats_data if (c.get("status") or "").lower() == "available"),
-        "adopted_cats":      sum(1 for c in cats_data if (c.get("status") or "").lower() == "adopted"),
-        "total_users":       len(users_data),
-        "pending_requests":  sum(1 for r in ar_data  if (r.get("status") or "") == "Pending"),
-        "approved_requests": sum(1 for r in ar_data  if (r.get("status") or "") == "Approved"),
-    }
-
-    return dict(
-        active_section=section,
-        cats=filtered_cats,
-        breed_options=breed_options,
-        users=users_data,
-        adoption_requests=ar_data,
-        stats=stats,
-        filters={"search": request.args.get("search", ""),
-                 "status": request.args.get("status", "all"),
-                 "breed":  request.args.get("breed",  "all")},
-        user=get_user_profile(session["user_id"]),
-    )
-
-
-# ------------------------------------------------------------------ /admin --
+# ------------------------------------------------------------------ admin dashboard --
 
 @app.route("/admin")
 def admin_dashboard():
-    g = _admin_guard()
-    if g: return g
-    return render_template("admin_dashboard.html", **_build_admin_ctx("dashboard"))
-
-
-@app.route("/admin/cats")
-def admin_cats():
-    g = _admin_guard()
-    if g: return g
-    return render_template("admin_dashboard.html", **_build_admin_ctx("cats"))
-
-
-@app.route("/admin/users")
-def admin_users():
-    g = _admin_guard()
-    if g: return g
-    return render_template("admin_dashboard.html", **_build_admin_ctx("users"))
-
-
-@app.route("/admin/requests")
-def admin_requests():
-    g = _admin_guard()
-    if g: return g
-    return render_template("admin_dashboard.html", **_build_admin_ctx("requests"))
-
-
-# ------------------------------------------------------------------ admin API: cats --
-
-@app.route("/admin/api/cats", methods=["POST"])
-def admin_cat_create():
-    if not is_admin(): return jsonify({"error": "forbidden"}), 403
-    data = request.get_json() or {}
-    required = ["name", "breed", "age", "gender", "status"]
-    if not all(data.get(f) for f in required):
-        return jsonify({"error": "Missing required fields"}), 400
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
     try:
-        res = supabase.table("cats").insert(data).execute()
-        return jsonify({"ok": True, "data": res.data})
+        ar_res = supabase.table("adoption_requests").select(
+            "id, status, created_at, living_situation, has_other_pets, experience_level, reason,"
+            "user_id, cat_id,"
+            "cats(name, breed),"
+            "users(full_name, phone, address, valid_id_url, email)"
+        ).order("created_at", desc=True).execute()
+
+        requests_list = []
+        for ar in (ar_res.data or []):
+            cat  = ar.get("cats")  or {}
+            user = ar.get("users") or {}
+            requests_list.append((
+                ar["id"],
+                cat.get("name"),
+                cat.get("breed"),
+                user.get("full_name"),
+                user.get("phone"),
+                user.get("address"),
+                ar["status"],
+                parse_dt(ar.get("created_at")),
+                user.get("valid_id_url"),
+                user.get("email"),
+                ar.get("living_situation"),
+                ar.get("has_other_pets"),
+                ar.get("experience_level"),
+                ar.get("reason"),
+            ))
+
+        total_cats    = len(supabase.table("cats").select("id", count="exact").execute().data or [])
+        pending_count = len(supabase.table("adoption_requests").select("id").eq("status", "Pending").execute().data or [])
+        total_users   = len(supabase.table("users").select("id", count="exact").execute().data or [])
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        log.error("admin_dashboard failed: %s", e)
+        requests_list = []
+        total_cats = pending_count = total_users = 0
+
+    return render_template("admin_dashboard.html",
+                           requests=requests_list,
+                           total_cats=total_cats,
+                           pending_count=pending_count,
+                           total_users=total_users)
 
 
-@app.route("/admin/api/cats/<int:cat_id>", methods=["PUT"])
-def admin_cat_update(cat_id):
-    if not is_admin(): return jsonify({"error": "forbidden"}), 403
-    data = request.get_json() or {}
-    data.pop("id", None)
-    try:
-        res = supabase.table("cats").update(data).eq("id", cat_id).execute()
-        return jsonify({"ok": True, "data": res.data})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/admin/api/cats/<int:cat_id>", methods=["DELETE"])
-def admin_cat_delete(cat_id):
-    if not is_admin(): return jsonify({"error": "forbidden"}), 403
-    try:
-        supabase.table("cats").delete().eq("id", cat_id).execute()
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ------------------------------------------------------------------ admin API: users --
-
-@app.route("/admin/api/users/<user_id>", methods=["PUT"])
-def admin_user_update(user_id):
-    if not is_admin(): return jsonify({"error": "forbidden"}), 403
-    data = request.get_json() or {}
-    allowed = {k: data[k] for k in ["role"] if k in data}
-    if allowed.get("role") not in {"user", "admin"}:
-        return jsonify({"error": "Invalid role"}), 400
-    try:
-        res = supabase.table("users").update(allowed).eq("id", user_id).execute()
-        return jsonify({"ok": True, "data": res.data})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/admin/api/users/<user_id>", methods=["DELETE"])
-def admin_user_delete(user_id):
-    if not is_admin(): return jsonify({"error": "forbidden"}), 403
-    if user_id == session.get("user_id"):
-        return jsonify({"error": "You cannot delete the currently signed-in admin."}), 400
-    try:
-        supabase.table("users").delete().eq("id", user_id).execute()
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ------------------------------------------------------------------ admin API: adoption requests --
-
-@app.route("/admin/api/requests/<int:req_id>", methods=["PUT"])
-def admin_request_update(req_id):
-    if not is_admin(): return jsonify({"error": "forbidden"}), 403
-    data = request.get_json() or {}
-    new_status = data.get("status")
-    if new_status not in ("Pending", "Approved", "Rejected"):
-        return jsonify({"error": "Invalid status"}), 400
-    try:
-        ar = supabase.table("adoption_requests").select("cat_id").eq("id", req_id).single().execute().data
-        supabase.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
-        if ar:
-            if new_status == "Approved":
-                supabase.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
-            elif new_status == "Rejected":
-                supabase.table("cats").update({"status": "available"}).eq("id", ar["cat_id"]).execute()
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/admin/api/requests/<int:req_id>", methods=["DELETE"])
-def admin_request_delete(req_id):
-    if not is_admin(): return jsonify({"error": "forbidden"}), 403
-    try:
-        supabase.table("adoption_requests").delete().eq("id", req_id).execute()
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ------------------------------------------------------------------ admin form POST routes --
-
-@app.route("/add_cat", methods=["POST"])
-def add_cat():
-    g = _admin_guard()
-    if g: return g
-    data = {
-        "name":   request.form.get("name",   "").strip(),
-        "breed":  request.form.get("breed",  "").strip(),
-        "age":    int(request.form.get("age") or 0),
-        "gender": request.form.get("gender", "").strip(),
-        "status": request.form.get("status", "available").strip().lower(),
-        "image":  request.form.get("image",  "cat1.jpg").strip() or "cat1.jpg",
-    }
-    if not all([data["name"], data["breed"], data["gender"]]):
-        flash("Name, breed, and gender are required.", "error")
-        return redirect(url_for("admin_cats"))
-    try:
-        supabase.table("cats").insert(data).execute()
-        flash(f"{data['name']} added successfully.", "success")
-    except Exception as e:
-        log.error("add_cat failed: %s", e)
-        flash("Failed to add cat.", "error")
-    return redirect(url_for("admin_cats"))
-
-
-@app.route("/edit_cat/<int:cat_id>", methods=["POST"])
-def edit_cat(cat_id):
-    g = _admin_guard()
-    if g: return g
-    data = {
-        "name":   request.form.get("name",   "").strip(),
-        "breed":  request.form.get("breed",  "").strip(),
-        "age":    int(request.form.get("age") or 0),
-        "gender": request.form.get("gender", "").strip(),
-        "status": request.form.get("status", "available").strip().lower(),
-        "image":  request.form.get("image",  "cat1.jpg").strip() or "cat1.jpg",
-    }
-    try:
-        supabase.table("cats").update(data).eq("id", cat_id).execute()
-        flash(f"{data['name']} updated successfully.", "success")
-    except Exception as e:
-        log.error("edit_cat(%s) failed: %s", cat_id, e)
-        flash("Failed to update cat.", "error")
-    return redirect(url_for("admin_cats"))
-
-
-@app.route("/delete_cat/<int:cat_id>", methods=["POST"])
-def delete_cat(cat_id):
-    g = _admin_guard()
-    if g: return g
-    try:
-        supabase.table("cats").delete().eq("id", cat_id).execute()
-        flash(f"Cat #{cat_id} deleted.", "success")
-    except Exception as e:
-        log.error("delete_cat(%s) failed: %s", cat_id, e)
-        flash("Failed to delete cat.", "error")
-    return redirect(url_for("admin_cats"))
-
-
-@app.route("/update_role/<user_id>", methods=["POST"])
-def update_role(user_id):
-    g = _admin_guard()
-    if g: return g
-    role = (request.form.get("role") or "").strip().lower()
-    if role not in {"user", "admin"}:
-        flash("Invalid role.", "error")
-        return redirect(url_for("admin_users"))
-    try:
-        supabase.table("users").update({"role": role}).eq("id", user_id).execute()
-        flash("Role updated.", "success")
-    except Exception as e:
-        log.error("update_role(%s) failed: %s", user_id, e)
-        flash("Failed to update role.", "error")
-    return redirect(url_for("admin_users"))
-
-
-@app.route("/delete_user/<user_id>", methods=["POST"])
-def delete_user(user_id):
-    g = _admin_guard()
-    if g: return g
-    if user_id == session.get("user_id"):
-        flash("You cannot delete your own account.", "error")
-        return redirect(url_for("admin_users"))
-    try:
-        supabase.table("users").delete().eq("id", user_id).execute()
-        flash("User deleted.", "success")
-    except Exception as e:
-        log.error("delete_user(%s) failed: %s", user_id, e)
-        flash("Failed to delete user.", "error")
-    return redirect(url_for("admin_users"))
-
-
-@app.route("/delete_request/<int:req_id>", methods=["POST"])
-def delete_request(req_id):
-    g = _admin_guard()
-    if g: return g
-    try:
-        supabase.table("adoption_requests").delete().eq("id", req_id).execute()
-        flash(f"Request #{req_id} deleted.", "success")
-    except Exception as e:
-        log.error("delete_request(%s) failed: %s", req_id, e)
-        flash("Failed to delete request.", "error")
-    return redirect(url_for("admin_requests"))
-
-
-# ------------------------------------------------------------------ admin update status (legacy form POST) --
+# ------------------------------------------------------------------ admin update status --
 
 @app.route("/admin/update_status/<int:req_id>", methods=["POST"])
 def update_status(req_id):
-    g = _admin_guard()
-    if g: return g
+    if session.get("role") != "admin":
+        return redirect(url_for("login"))
     new_status = request.form.get("status")
-    if new_status not in ("Pending", "Approved", "Rejected"):
-        flash("Invalid status.", "error")
-        return redirect(url_for("admin_requests"))
     try:
-        ar = supabase.table("adoption_requests").select("cat_id").eq("id", req_id).single().execute().data
         supabase.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
-        if ar and ar.get("cat_id"):
-            if new_status == "Approved":
-                supabase.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
-            elif new_status == "Rejected":
-                supabase.table("cats").update({"status": "available"}).eq("id", ar["cat_id"]).execute()
-        flash(f"Request #{req_id} updated to {new_status}.", "success")
+        flash(f"Request #{req_id} updated to {new_status}", "success")
     except Exception as e:
         log.error("update_status(%s) failed: %s", req_id, e)
-        flash("Failed to update status.", "error")
-    return redirect(url_for("admin_requests"))
+        flash("Failed to update status. Please try again.", "error")
+    return redirect(url_for("admin_dashboard"))
 
 
 # ------------------------------------------------------------------ register --
@@ -549,6 +271,7 @@ def register():
                 return render_template("register.html", error="Email already registered")
         except Exception as e:
             log.error("DUPLICATE CHECK ERROR: %s", str(e))
+            log.error("FULL ERROR: %r", e)
             return render_template("register.html", error="Registration failed.")
 
         try:
@@ -563,10 +286,13 @@ def register():
 
             if not res.data:
                 log.error("INSERT FAILED — EMPTY DATA")
+                if hasattr(res, "error"):
+                    log.error("SUPABASE ERROR: %s", res.error)
                 return render_template("register.html", error="Registration failed. Check logs.")
 
         except Exception as e:
             log.error("INSERT EXCEPTION: %s", str(e))
+            log.error("FULL INSERT ERROR: %r", e)
             return render_template("register.html", error="Registration failed. Check logs.")
 
         flash("Account created! Please login.", "success")
@@ -608,6 +334,7 @@ def dashboard():
 
 @app.route("/api/upload_avatar", methods=["POST"])
 def upload_avatar():
+    from flask import jsonify
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
 
@@ -652,6 +379,7 @@ def upload_avatar():
 
 @app.route("/api/cat/<int:cat_id>")
 def api_cat_detail(cat_id):
+    from flask import jsonify
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     try:
@@ -668,6 +396,7 @@ def api_cat_detail(cat_id):
 
 @app.route("/api/cat/update", methods=["POST"])
 def api_cat_update():
+    from flask import jsonify
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json()
@@ -686,6 +415,7 @@ def api_cat_update():
 
 @app.route("/api/cat/delete", methods=["POST"])
 def api_cat_delete():
+    from flask import jsonify
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json()

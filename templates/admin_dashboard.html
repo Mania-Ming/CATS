@@ -3,194 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Cat Adoption</title>
+    <title>Admin Dashboard — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
-    <style>
-        .admin-sidebar{background:linear-gradient(180deg,#171b2d 0%,#121726 100%)}
-        .admin-sidebar .sidebar-brand,.admin-sidebar .sidebar-footer{border-color:rgba(255,255,255,.08)}
-        .admin-sidebar .nav-item,.admin-sidebar .nav-label,.admin-sidebar .sidebar-brand h2,.admin-sidebar .sidebar-brand span{color:rgba(255,255,255,.72)}
-        .admin-sidebar .nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
-        .admin-sidebar .nav-item.active{background:rgba(255,107,53,.18);color:#fff;border:1px solid rgba(255,107,53,.25)}
-        .logo-box{width:42px;height:42px;border-radius:14px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center}
-        .logo-box img{width:28px;height:28px;object-fit:contain}
-        .nav-item i{width:18px;text-align:center}.admin-topbar{background:linear-gradient(135deg,rgba(255,107,53,.08),rgba(255,255,255,0)),var(--surface)}
-        .stat-card{transition:transform .18s ease,box-shadow .18s ease}.stat-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(15,23,42,.12)}
-        .stat-icon{width:54px;height:54px;border-radius:50%;font-size:18px}.stat-icon.red{background:#fef2f2;color:#dc2626}.stat-icon.purple{background:#f5f3ff;color:#7c3aed}
-        .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
-        .panel-body{padding:24px}.table-scroll{overflow-x:auto}.table-thumb{width:52px;height:52px;border-radius:14px;object-fit:cover;border:1px solid var(--border)}
-        .toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}.toolbar-actions,.row-actions,.inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-        .compact-search{margin-bottom:0;padding-bottom:0;border-bottom:none}.muted-stack{display:flex;flex-direction:column;gap:4px}.muted-stack small{color:var(--text-muted)}
-        .summary-list{display:grid;gap:12px}.summary-item{padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:#fbfcfe}
-        .mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.mini-card{padding:16px;border-radius:18px;background:#fafbff;border:1px solid var(--border)}
-        .mini-card span{display:block;font-size:12px;color:var(--text-muted);margin-bottom:6px}.mini-card strong{font-size:24px}
-        .pill-count{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 10px;border-radius:999px;background:var(--primary-light);color:var(--primary-dark);font-size:12px;font-weight:700}
-        .status-select,.table-role-select,.modal-form input,.modal-form select,.modal-form textarea{border:1.5px solid var(--border);border-radius:14px;padding:11px 14px;font:inherit;background:var(--surface);color:var(--text)}
-        .status-select,.table-role-select{padding:8px 12px;border-radius:12px}.modal-form{padding:22px 24px 24px;display:grid;gap:16px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field-group{display:grid;gap:8px}
-        .field-group label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)}.field-group textarea{min-height:96px;resize:vertical}.modal-footer{display:flex;justify-content:flex-end;gap:10px}
-        .flash-msg::before{content:"\f058";font-family:"Font Awesome 6 Free";font-weight:900;margin-right:8px}
-        @media (max-width:1100px){.admin-grid{grid-template-columns:1fr}.mini-grid{grid-template-columns:1fr 1fr}}
-        @media (max-width:768px){.form-grid,.mini-grid{grid-template-columns:1fr}}
-    </style>
 </head>
 <body>
+
 {% with messages = get_flashed_messages(with_categories=true) %}
 {% if messages %}
-<div class="flash-container">{% for category, message in messages %}<div class="flash-msg flash-{{ category }}">{{ message }}</div>{% endfor %}</div>
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">✓ {{ message }}</div>
+    {% endfor %}
+</div>
 {% endif %}
 {% endwith %}
-{% set page_title = {'dashboard':'Admin Dashboard','cats':'Cats Management','users':'User Management','requests':'Adoption Requests'}[active_section] %}
-{% set page_subtitle = {'dashboard':'Track cats, users, and adoption activity in one place.','cats':'Create, update, search, and organize your rescue listings.','users':'Manage roles and keep admin access under control.','requests':'Review applications and keep cat availability in sync.'}[active_section] %}
+
 <div class="app-layout">
     <aside class="sidebar admin-sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <span class="logo-box"><img src="{{ url_for('static', filename='images/logo.png') }}" alt="Cat Adoption logo"></span>
+            <span class="brand-icon">🐾</span>
             <div><h2>Cat Adoption</h2><span>Admin Panel</span></div>
         </div>
-        {% if user %}
-        <div class="sidebar-user" style="background:rgba(255,255,255,.06);">
-            <div class="user-name" style="color:white;">{{ user[3] or 'Administrator' }}</div>
-            <div class="user-email" style="color:rgba(255,255,255,.6);">{{ session['email'] }}</div>
-        </div>
-        {% endif %}
         <nav class="sidebar-nav">
-            <div class="nav-label">Navigation</div>
-            <a href="{{ url_for('admin_dashboard') }}" class="nav-item {{ 'active' if active_section == 'dashboard' }}"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
-            <a href="{{ url_for('admin_cats') }}" class="nav-item {{ 'active' if active_section == 'cats' }}"><i class="fa-solid fa-cat"></i> Cats</a>
-            <a href="{{ url_for('admin_users') }}" class="nav-item {{ 'active' if active_section == 'users' }}"><i class="fa-solid fa-users"></i> Users</a>
-            <a href="{{ url_for('admin_requests') }}" class="nav-item {{ 'active' if active_section == 'requests' }}"><i class="fa-solid fa-clipboard-list"></i> Adoption Requests</a>
+            <div class="nav-label">Management</div>
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-item active">
+                <span class="nav-icon">📊</span> Dashboard
+            </a>
         </nav>
         <div class="sidebar-footer">
-            <a href="{{ url_for('logout') }}" class="nav-item nav-item-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            <a href="{{ url_for('logout') }}" class="nav-item" style="color:#e74c3c;">
+                <span class="nav-icon">🚪</span> Logout
+            </a>
         </div>
     </aside>
+
     <div class="main-content">
-        <div class="topbar admin-topbar">
+        <div class="topbar">
             <div class="topbar-left">
-                <button class="hamburger" id="menuToggle">&#9776;</button>
-                <div><div class="topbar-title">{{ page_title }}</div><div class="topbar-subtitle">{{ page_subtitle }}</div></div>
-            </div>
-            <div class="topbar-right">
-                {% if active_section == 'cats' %}
-                <button type="button" class="btn btn-primary btn-sm" id="openAddCatModal">Add Cat</button>
-                {% elif active_section == 'dashboard' %}
-                <a href="{{ url_for('admin_requests') }}" class="btn btn-outline btn-sm">Review Requests</a>
-                {% endif %}
+                <button class="hamburger" id="menuToggle">☰</button>
+                <div>
+                    <div class="topbar-title">Admin Dashboard</div>
+                    <div class="topbar-subtitle">Manage adoption requests</div>
+                </div>
             </div>
         </div>
+
         <div class="page-content">
+            <!-- STATS -->
             <div class="stats-row">
-                <div class="stat-card"><div class="stat-icon orange"><i class="fa-solid fa-cat"></i></div><div><div class="stat-value">{{ stats.total_cats }}</div><div class="stat-label">Total Cats</div></div></div>
-                <div class="stat-card"><div class="stat-icon blue"><i class="fa-solid fa-house-circle-check"></i></div><div><div class="stat-value">{{ stats.available_cats }}</div><div class="stat-label">Available Cats</div></div></div>
-                <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-heart-circle-check"></i></div><div><div class="stat-value">{{ stats.adopted_cats }}</div><div class="stat-label">Adopted Cats</div></div></div>
-                <div class="stat-card"><div class="stat-icon purple"><i class="fa-solid fa-users"></i></div><div><div class="stat-value">{{ stats.total_users }}</div><div class="stat-label">Total Users</div></div></div>
-                <div class="stat-card"><div class="stat-icon blue"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="stat-value">{{ stats.pending_requests }}</div><div class="stat-label">Pending Requests</div></div></div>
-                <div class="stat-card"><div class="stat-icon red"><i class="fa-solid fa-circle-check"></i></div><div><div class="stat-value">{{ stats.approved_requests }}</div><div class="stat-label">Approved Requests</div></div></div>
-            </div>
-            {% if active_section == 'dashboard' %}
-            <div class="admin-grid" style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;">
-                <div class="panel"><div class="panel-body">
-                    <div class="section-header"><div><h3>Latest Adoption Requests</h3><p>The most recent applications from users.</p></div><a href="{{ url_for('admin_requests') }}" class="btn btn-outline btn-sm">View All</a></div>
-                    {% if adoption_requests %}
-                    <div class="summary-list">{% for req in adoption_requests[:5] %}<div class="summary-item"><strong>{{ req.cats.name if req.cats else 'Unknown Cat' }} - {{ req.users.full_name if req.users and req.users.full_name else 'Unknown Applicant' }}</strong><small>{{ req.status }} � {{ req.created_at_parsed.strftime('%b %d, %Y') if req.created_at_parsed else 'No date' }} � {{ req.users.email if req.users and req.users.email else 'No email' }}</small></div>{% endfor %}</div>
-                    {% else %}<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-clipboard-list"></i></div><h3>No requests yet</h3><p>New adoption applications will show up here.</p></div>{% endif %}
-                </div></div>
-                <div class="panel"><div class="panel-body">
-                    <div class="section-header"><div><h3>Quick Overview</h3><p>Core platform health at a glance.</p></div></div>
-                    <div class="summary-list">
-                        <div class="summary-item"><strong>Cats ready for adoption</strong><small>{{ stats.available_cats }} cats are currently marked available.</small></div>
-                        <div class="summary-item"><strong>Requests waiting for review</strong><small>{{ stats.pending_requests }} applications still need an admin decision.</small></div>
-                        <div class="summary-item"><strong>Community growth</strong><small>{{ stats.total_users }} registered users are using the platform.</small></div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">🐱</div>
+                    <div>
+                        <div class="stat-value">{{ total_cats }}</div>
+                        <div class="stat-label">Total Cats</div>
                     </div>
-                    <div class="mini-grid">
-                        <div class="mini-card"><span>Cats Listed</span><strong>{{ stats.total_cats }}</strong></div>
-                        <div class="mini-card"><span>Approved</span><strong>{{ stats.approved_requests }}</strong></div>
-                        <div class="mini-card"><span>Users</span><strong>{{ stats.total_users }}</strong></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue">⏳</div>
+                    <div>
+                        <div class="stat-value">{{ pending_count }}</div>
+                        <div class="stat-label">Pending Requests</div>
                     </div>
-                </div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">👥</div>
+                    <div>
+                        <div class="stat-value">{{ total_users }}</div>
+                        <div class="stat-label">Registered Users</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">📋</div>
+                    <div>
+                        <div class="stat-value">{{ requests|length }}</div>
+                        <div class="stat-label">Total Requests</div>
+                    </div>
+                </div>
             </div>
-            {% elif active_section == 'cats' %}
-            <div class="panel"><div class="panel-body">
-                <div class="toolbar"><div><h3 style="font-size:18px;font-weight:700;">Cats Management</h3><p style="font-size:13px;color:var(--text-muted);margin-top:2px;">Search by name or breed, then filter by status and breed.</p></div><div class="toolbar-actions"><button type="button" class="btn btn-primary btn-sm" id="openAddCatModalSecondary">Add Cat</button></div></div>
-                <form method="GET" action="{{ url_for('admin_cats') }}" class="search-bar compact-search">
-                    <input type="text" name="search" placeholder="Search cats..." value="{{ filters.search }}">
-                    <select name="status"><option value="all" {% if filters.status == 'all' %}selected{% endif %}>All Statuses</option><option value="available" {% if filters.status == 'available' %}selected{% endif %}>Available</option><option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option><option value="adopted" {% if filters.status == 'adopted' %}selected{% endif %}>Adopted</option></select>
-                    <select name="breed"><option value="all" {% if filters.breed == 'all' %}selected{% endif %}>All Breeds</option>{% for breed in breed_options %}<option value="{{ breed }}" {% if filters.breed|lower == breed|lower %}selected{% endif %}>{{ breed }}</option>{% endfor %}</select>
-                    <button type="submit" class="btn btn-primary btn-sm">Apply</button>
-                    <a href="{{ url_for('admin_cats') }}" class="btn btn-secondary btn-sm">Reset</a>
-                </form>
-                {% if cats %}
-                <div class="table-card" style="margin-top:18px;"><div class="table-scroll"><table><thead><tr><th>Image</th><th>Name</th><th>Breed</th><th>Age</th><th>Gender</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-                    {% for cat in cats %}
-                    {% set image_name = cat.image or 'cat1.jpg' %}
-                    {% set image_src = image_name if image_name.startswith('http://') or image_name.startswith('https://') or image_name.startswith('/') else url_for('static', filename='images/' ~ image_name) %}
-                    <tr>
-                        <td><img src="{{ image_src }}" alt="{{ cat.name }}" class="table-thumb"></td>
-                        <td><div class="muted-stack"><strong>{{ cat.name }}</strong><small>ID #{{ cat.id }}</small></div></td>
-                        <td>{{ cat.breed or 'Unknown' }}</td>
-                        <td>{{ cat.age if cat.age is not none else 'N/A' }}</td>
-                        <td>{{ cat.gender or 'N/A' }}</td>
-                        <td><span class="badge badge-{{ 'approved' if (cat.status or '').lower() == 'adopted' else 'pending' if (cat.status or '').lower() == 'pending' else 'rejected' if (cat.status or '').lower() == 'rejected' else 'approved' }}">{{ (cat.status or 'available').title() }}</span></td>
-                        <td><div class="row-actions"><button type="button" class="btn btn-outline btn-sm edit-cat-btn" data-id="{{ cat.id }}" data-name="{{ cat.name }}" data-breed="{{ cat.breed or '' }}" data-age="{{ cat.age if cat.age is not none else '' }}" data-gender="{{ cat.gender or '' }}" data-status="{{ cat.status or 'available' }}" data-image="{{ cat.image or 'cat1.jpg' }}" data-description="{{ cat.description or '' }}">Edit</button><form method="POST" action="{{ url_for('delete_cat', cat_id=cat.id) }}" class="confirm-form" data-confirm="Delete {{ cat.name }} from the cats list?"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form></div></td>
-                    </tr>
-                    {% endfor %}
-                </tbody></table></div></div>
-                {% else %}<div class="empty-state" style="padding-top:36px;"><div class="empty-icon"><i class="fa-solid fa-cat"></i></div><h3>No cats matched your filters</h3><p>Adjust the search filters or add a new cat profile.</p></div>{% endif %}
-            </div></div>
-            {% elif active_section == 'users' %}
-            <div class="panel"><div class="panel-body">
-                <div class="section-header"><div><h3>Users</h3><p>Update roles and manage user accounts.</p></div><span class="pill-count">{{ users|length }}</span></div>
-                {% if users %}
-                <div class="table-card"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Created At</th><th>Actions</th></tr></thead><tbody>
-                    {% for admin_user in users %}
-                    <tr>
-                        <td><div class="muted-stack"><strong>{{ admin_user.full_name or 'Unnamed User' }}</strong><small>{{ admin_user.phone or 'No phone provided' }}</small></div></td>
-                        <td>{{ admin_user.email }}</td>
-                        <td><form method="POST" action="{{ url_for('update_role', user_id=admin_user.id) }}" class="inline-form role-form" data-user-name="{{ admin_user.full_name or admin_user.email }}"><select name="role" class="table-role-select" data-initial-value="{{ admin_user.role or 'user' }}"><option value="user" {% if (admin_user.role or 'user') == 'user' %}selected{% endif %}>User</option><option value="admin" {% if admin_user.role == 'admin' %}selected{% endif %}>Admin</option></select><button type="submit" class="btn btn-primary btn-sm">Save</button></form></td>
-                        <td>{{ admin_user.created_at_parsed.strftime('%b %d, %Y') if admin_user.created_at_parsed else (admin_user.created_at or 'N/A') }}</td>
-                        <td><form method="POST" action="{{ url_for('delete_user', user_id=admin_user.id) }}" class="confirm-form" data-confirm="Delete {{ admin_user.full_name or admin_user.email }}? This also removes their adoption requests."><button type="submit" class="btn btn-danger btn-sm" {% if admin_user.id == session['user_id'] %}disabled{% endif %}>Delete</button></form></td>
-                    </tr>
-                    {% endfor %}
-                </tbody></table></div></div>
-                {% else %}<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-users"></i></div><h3>No users found</h3><p>User records will appear here once people register.</p></div>{% endif %}
-            </div></div>
-            {% elif active_section == 'requests' %}
-            <div class="panel"><div class="panel-body">
-                <div class="section-header"><div><h3>Adoption Requests</h3><p>Approve, reject, or remove requests while keeping cat status accurate.</p></div><span class="pill-count">{{ adoption_requests|length }}</span></div>
-                {% if adoption_requests %}
-                <div class="table-card"><div class="table-scroll"><table><thead><tr><th>ID</th><th>Cat</th><th>Applicant</th><th>Contact</th><th>Valid ID</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>
-                    {% for req in adoption_requests %}
-                    <tr>
-                        <td>#{{ req.id }}</td>
-                        <td><div class="muted-stack"><strong>{{ req.cats.name if req.cats else 'Unknown Cat' }}</strong><small>{{ req.cats.breed if req.cats and req.cats.breed else 'No breed' }}</small></div></td>
-                        <td><div class="muted-stack"><strong>{{ req.users.full_name if req.users and req.users.full_name else 'Unknown Applicant' }}</strong><small>{{ req.users.address if req.users and req.users.address else 'No address' }}</small></div></td>
-                        <td><div class="muted-stack"><strong>{{ req.users.email if req.users and req.users.email else 'No email' }}</strong><small>{{ req.users.phone if req.users and req.users.phone else 'No phone' }}</small></div></td>
-                        <td>{% if req.users and req.users.valid_id_url %}<a href="{{ req.users.valid_id_url }}" target="_blank" class="btn btn-outline btn-sm">View ID</a>{% else %}<span style="color:var(--text-muted);font-size:12px;">Not uploaded</span>{% endif %}</td>
-                        <td><span class="badge badge-{{ req.status|lower }}">{{ req.status }}</span></td>
-                        <td>{{ req.created_at_parsed.strftime('%b %d, %Y') if req.created_at_parsed else 'N/A' }}</td>
-                        <td><div class="row-actions"><form method="POST" action="{{ url_for('update_status', req_id=req.id) }}" class="inline-form confirm-status-form" data-request-id="{{ req.id }}"><select name="status" class="status-select" data-initial-value="{{ req.status }}"><option value="Pending" {% if req.status == 'Pending' %}selected{% endif %}>Pending</option><option value="Approved" {% if req.status == 'Approved' %}selected{% endif %}>Approved</option><option value="Rejected" {% if req.status == 'Rejected' %}selected{% endif %}>Rejected</option></select><button type="submit" class="btn btn-primary btn-sm">Save</button></form><form method="POST" action="{{ url_for('delete_request', req_id=req.id) }}" class="confirm-form" data-confirm="Delete adoption request #{{ req.id }}?"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form></div></td>
-                    </tr>
-                    {% endfor %}
-                </tbody></table></div></div>
-                {% else %}<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-clipboard-list"></i></div><h3>No adoption requests yet</h3><p>Requests will appear here once users submit them.</p></div>{% endif %}
-            </div></div>
+
+            <!-- REQUESTS TABLE -->
+            <div class="section-header">
+                <div>
+                    <h3>Adoption Requests</h3>
+                    <p>Review and update the status of each request</p>
+                </div>
+            </div>
+
+            {% if requests %}
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Cat</th>
+                            <th>Applicant</th>
+                            <th>Contact</th>
+                            <th>Valid ID</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in requests %}
+                        <tr>
+                            <td style="color:var(--text-muted);">{{ r[0] }}</td>
+                            <td>
+                                <strong>{{ r[1] }}</strong><br>
+                                <span style="font-size:11px;color:var(--text-muted);">{{ r[2] }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ r[3] }}</strong><br>
+                                <span style="font-size:11px;color:var(--text-muted);">{{ r[9] }}</span>
+                            </td>
+                            <td>
+                                {{ r[4] }}<br>
+                                <span style="font-size:11px;color:var(--text-muted);">{{ r[5] }}</span>
+                            </td>
+                            <td>
+                                {% if r[8] %}
+                                <a href="{{ r[8] }}" target="_blank" class="btn btn-outline btn-sm">View ID</a>
+                                {% else %}
+                                <span style="color:var(--text-muted);font-size:12px;">None</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge badge-{{ r[6]|lower }}">{{ r[6] }}</span></td>
+                            <td style="color:var(--text-muted);font-size:12px;">
+                                {{ r[7].strftime('%b %d, %Y') if r[7] else '—' }}
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('update_status', req_id=r[0]) }}" style="display:flex;gap:6px;align-items:center;">
+                                    <select name="status" class="status-select">
+                                        <option value="Pending" {% if r[6]=='Pending' %}selected{% endif %}>Pending</option>
+                                        <option value="Approved" {% if r[6]=='Approved' %}selected{% endif %}>Approved</option>
+                                        <option value="Rejected" {% if r[6]=='Rejected' %}selected{% endif %}>Rejected</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <h3>No adoption requests yet</h3>
+                <p>Requests will appear here once users submit them.</p>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
-<div class="modal-overlay" id="catModal"><div class="modal-box"><div class="modal-header"><h3 id="catModalTitle">Add Cat</h3><button type="button" class="modal-close" id="closeCatModal">&times;</button></div><form method="POST" id="catForm" class="modal-form"><div class="form-grid"><div class="field-group"><label for="catName">Name</label><input type="text" id="catName" name="name" required></div><div class="field-group"><label for="catBreed">Breed</label><input type="text" id="catBreed" name="breed" required></div><div class="field-group"><label for="catAge">Age</label><input type="number" id="catAge" name="age" min="0" required></div><div class="field-group"><label for="catGender">Gender</label><select id="catGender" name="gender" required><option value="">Select gender</option><option value="Male">Male</option><option value="Female">Female</option></select></div><div class="field-group"><label for="catStatus">Status</label><select id="catStatus" name="status" required><option value="available">Available</option><option value="pending">Pending</option><option value="adopted">Adopted</option></select></div><div class="field-group"><label for="catImage">Image URL or File Name</label><input type="text" id="catImage" name="image" placeholder="cat1.jpg or https://..."></div></div><div class="field-group"><label for="catDescription">Description</label><textarea id="catDescription" name="description" placeholder="Optional short description"></textarea></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="cancelCatModal">Cancel</button><button type="submit" class="btn btn-primary">Save Cat</button></div></form></div></div>
+
 <script>
-const sidebar=document.getElementById('sidebar');const menuToggle=document.getElementById('menuToggle');const catModal=document.getElementById('catModal');const catForm=document.getElementById('catForm');const catModalTitle=document.getElementById('catModalTitle');const openAddCatButtons=[document.getElementById('openAddCatModal'),document.getElementById('openAddCatModalSecondary')].filter(Boolean);const closeCatModal=document.getElementById('closeCatModal');const cancelCatModal=document.getElementById('cancelCatModal');const catFields={name:document.getElementById('catName'),breed:document.getElementById('catBreed'),age:document.getElementById('catAge'),gender:document.getElementById('catGender'),status:document.getElementById('catStatus'),image:document.getElementById('catImage'),description:document.getElementById('catDescription')};
-function openCatModal(mode,payload={}){catModal.classList.add('open');catModalTitle.textContent=mode==='edit'?'Edit Cat':'Add Cat';catForm.action=mode==='edit'?`/edit_cat/${payload.id}`:"{{ url_for('add_cat') }}";catFields.name.value=payload.name||'';catFields.breed.value=payload.breed||'';catFields.age.value=payload.age||'';catFields.gender.value=payload.gender||'';catFields.status.value=payload.status||'available';catFields.image.value=payload.image||'cat1.jpg';catFields.description.value=payload.description||''}
-function hideCatModal(){catModal.classList.remove('open')}
-if(menuToggle){menuToggle.addEventListener('click',()=>sidebar.classList.toggle('open'))}
-openAddCatButtons.forEach((button)=>button.addEventListener('click',()=>openCatModal('add')));
-document.querySelectorAll('.edit-cat-btn').forEach((button)=>button.addEventListener('click',()=>openCatModal('edit',{id:button.dataset.id,name:button.dataset.name,breed:button.dataset.breed,age:button.dataset.age,gender:button.dataset.gender,status:button.dataset.status,image:button.dataset.image,description:button.dataset.description})));
-if(closeCatModal){closeCatModal.addEventListener('click',hideCatModal)}if(cancelCatModal){cancelCatModal.addEventListener('click',hideCatModal)}if(catModal){catModal.addEventListener('click',(event)=>{if(event.target===catModal)hideCatModal()})}
-document.querySelectorAll('.confirm-form').forEach((form)=>form.addEventListener('submit',(event)=>{if(!window.confirm(form.dataset.confirm||'Are you sure?'))event.preventDefault()}));
-document.querySelectorAll('.confirm-status-form').forEach((form)=>form.addEventListener('submit',(event)=>{const select=form.querySelector('select[name="status"]');const requestId=form.dataset.requestId;const selected=select.value;const original=select.dataset.initialValue;if(selected!==original&&!window.confirm(`Update request #${requestId} to ${selected}?`)){event.preventDefault();select.value=original}}));
-document.querySelectorAll('.role-form').forEach((form)=>form.addEventListener('submit',(event)=>{const select=form.querySelector('select[name="role"]');const original=select.dataset.initialValue;const selected=select.value;const userName=form.dataset.userName||'this user';if(selected!==original&&!window.confirm(`Change ${userName}'s role to ${selected}?`)){event.preventDefault();select.value=original}}));
-setTimeout(()=>document.querySelectorAll('.flash-msg').forEach((el)=>{el.style.opacity='0'}),4000);
+document.getElementById('menuToggle').addEventListener('click', () =>
+    document.getElementById('sidebar').classList.toggle('open'));
+setTimeout(() => document.querySelectorAll('.flash-msg').forEach(el => el.style.opacity = '0'), 4000);
 </script>
 </body>
 </html>
