@@ -198,17 +198,32 @@ def require_admin_redirect():
     return None
 
 
+# Columns that actually exist in the cats table.
+_CAT_FIELDS = {"name", "breed", "age", "gender", "status", "image",
+               "origin", "weight", "size", "lifespan",
+               "coat_colors", "temperament", "about"}
+
 def parse_cat_form(form_data):
-    """Normalize cat payload from form data or JSON."""
-    return {
-        "name": (form_data.get("name") or "").strip(),
-        "breed": (form_data.get("breed") or "").strip(),
-        "age": int(form_data.get("age") or 0) if str(form_data.get("age") or "").strip() else None,
+    """Normalize cat payload from form data or JSON.
+    Only includes keys that exist in the cats table.
+    Maps the UI 'description' field → 'about' (the actual DB column).
+    """
+    age_raw = str(form_data.get("age") or "").strip()
+    payload = {
+        "name":   (form_data.get("name")   or "").strip(),
+        "breed":  (form_data.get("breed")  or "").strip(),
+        "age":    int(age_raw) if age_raw.isdigit() else None,
         "gender": (form_data.get("gender") or "").strip(),
-        "status": (form_data.get("status") or "").strip().lower() or "available",
-        "image": (form_data.get("image") or "").strip() or "cat1.jpg",
-        "description": (form_data.get("description") or "").strip() or None,
+        "status": (form_data.get("status") or "available").strip().lower(),
+        "image":  (form_data.get("image")  or "cat1.jpg").strip(),
+        "about":  (form_data.get("description") or form_data.get("about") or "").strip() or None,
     }
+    # Include any extra optional columns if provided
+    for col in ("origin", "weight", "size", "lifespan", "coat_colors", "temperament"):
+        val = (form_data.get(col) or "").strip()
+        if val:
+            payload[col] = val
+    return payload
 
 
 def validate_cat_payload(data, partial=False):
@@ -217,10 +232,15 @@ def validate_cat_payload(data, partial=False):
         for field in required:
             if data.get(field) in (None, ""):
                 return f"{field.replace('_', ' ').title()} is required."
-    if data.get("age") is not None and data["age"] < 0:
-        return "Age must be zero or greater."
-    if data.get("status") and data["status"] not in {"available", "pending", "adopted"}:
-        return "Status must be available, pending, or adopted."
+    if data.get("age") is not None:
+        try:
+            if int(data["age"]) < 0:
+                return "Age must be zero or greater."
+        except (ValueError, TypeError):
+            return "Age must be a valid number."
+    valid_statuses = {"available", "pending", "adopted"}
+    if data.get("status") and data["status"] not in valid_statuses:
+        return f"Status must be one of: {', '.join(sorted(valid_statuses))}."
     return None
 
 
@@ -272,7 +292,8 @@ def build_admin_context(active_section="dashboard"):
             supabase.table("adoption_requests")
             .select(
                 "id,status,created_at,living_situation,has_other_pets,experience_level,reason,"
-                "user_id,cat_id,cats(id,name,breed,image,status),"
+                "user_id,cat_id,"
+                "cats(id,name,breed,image,status),"
                 "users(id,full_name,email,phone,address,valid_id_url)"
             )
             .order("created_at", desc=True)
@@ -282,7 +303,28 @@ def build_admin_context(active_section="dashboard"):
         )
     except Exception as e:
         log.error("build_admin_context adoption_requests failed: %s", e)
-        adoption_requests = []
+        # Fallback: fetch without joins so the page still loads
+        try:
+            adoption_requests = (
+                supabase.table("adoption_requests")
+                .select("id,status,created_at,user_id,cat_id")
+                .order("created_at", desc=True)
+                .execute()
+                .data
+                or []
+            )
+        except Exception as inner:
+            log.error("build_admin_context adoption_requests fallback failed: %s", inner)
+            adoption_requests = []
+
+    # Normalise every request row so the template can safely access
+    # req.cats.name / req.users.email without AttributeError when the
+    # join returns None (e.g. RLS blocks the related row).
+    for req in adoption_requests:
+        if not isinstance(req.get("cats"), dict):
+            req["cats"] = {}
+        if not isinstance(req.get("users"), dict):
+            req["users"] = {}
 
     for user_row in users_data:
         user_row["created_at_parsed"] = parse_dt(user_row.get("created_at"))
