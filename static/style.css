@@ -1135,6 +1135,23 @@ tbody tr:hover { background: #fafbff; }
 .admin-sidebar .nav-item.active { background: rgba(255,107,53,0.2); color: var(--primary); }
 .admin-sidebar .sidebar-footer { border-top-color: rgba(255,255,255,0.08); }
 
+.logo-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.nav-icon {
+    font-size: 15px;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+.admin-sidebar .nav-item:hover .nav-icon { color: var(--primary); }
+.admin-sidebar .nav-item.active .nav-icon { color: var(--primary); }
+
 .status-select {
     padding: 5px 10px;
     border-radius: 20px;

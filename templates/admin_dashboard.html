@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
 </head>
 <body>
 
@@ -21,18 +22,18 @@
 <div class="app-layout">
     <aside class="sidebar admin-sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <span class="brand-icon">🐾</span>
+            <img src="{{ url_for('static', filename='images/logo.png') }}" class="logo-icon" alt="Cat Adoption">
             <div><h2>Cat Adoption</h2><span>Admin Panel</span></div>
         </div>
         <nav class="sidebar-nav">
             <div class="nav-label">Management</div>
             <a href="{{ url_for('admin_dashboard') }}" class="nav-item active">
-                <span class="nav-icon">📊</span> Dashboard
+                <i class="fas fa-chart-line nav-icon"></i> Dashboard
             </a>
         </nav>
         <div class="sidebar-footer">
-            <a href="{{ url_for('logout') }}" class="nav-item" style="color:#e74c3c;">
-                <span class="nav-icon">🚪</span> Logout
+            <a href="{{ url_for('logout') }}" class="nav-item nav-item-danger">
+                <i class="fas fa-sign-out-alt nav-icon"></i> Logout
             </a>
         </div>
     </aside>
@@ -52,28 +53,28 @@
             <!-- STATS -->
             <div class="stats-row">
                 <div class="stat-card">
-                    <div class="stat-icon orange">🐱</div>
+                    <div class="stat-icon orange"><i class="fas fa-cat"></i></div>
                     <div>
                         <div class="stat-value">{{ total_cats }}</div>
                         <div class="stat-label">Total Cats</div>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon blue">⏳</div>
+                    <div class="stat-icon blue"><i class="fas fa-hourglass-half"></i></div>
                     <div>
                         <div class="stat-value">{{ pending_count }}</div>
                         <div class="stat-label">Pending Requests</div>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon green">👥</div>
+                    <div class="stat-icon green"><i class="fas fa-users"></i></div>
                     <div>
                         <div class="stat-value">{{ total_users }}</div>
                         <div class="stat-label">Registered Users</div>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon orange">📋</div>
+                    <div class="stat-icon orange"><i class="fas fa-clipboard-list"></i></div>
                     <div>
                         <div class="stat-value">{{ requests|length }}</div>
                         <div class="stat-label">Total Requests</div>
@@ -148,7 +149,7 @@
             </div>
             {% else %}
             <div class="empty-state">
-                <div class="empty-icon">📋</div>
+                <div class="empty-icon"><i class="fas fa-clipboard-list" style="font-size:48px;color:var(--text-muted);"></i></div>
                 <h3>No adoption requests yet</h3>
                 <p>Requests will appear here once users submit them.</p>
             </div>
