@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Cats — Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
+</head>
+<body>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="app-layout">
+    {% set active_page = 'cats' %}
+    {% include '_admin_sidebar.html' %}
+
+    <div class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="menuToggle">&#9776;</button>
+                <div>
+                    <div class="topbar-title">Manage Cats</div>
+                    <div class="topbar-subtitle">Add, edit, or remove cat listings</div>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> Add Cat
+                </button>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <!-- Search -->
+            <form method="GET" action="{{ url_for('admin_cats') }}" class="search-bar" style="margin-bottom:20px;">
+                <input type="text" name="search" placeholder="Search by name or breed..." value="{{ search }}">
+                <button type="submit" class="btn btn-primary btn-sm">Search</button>
+                {% if search %}
+                <a href="{{ url_for('admin_cats') }}" class="btn btn-secondary btn-sm">Clear</a>
+                {% endif %}
+            </form>
+
+            {% if cats %}
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr><th>Image</th><th>Name</th><th>Breed</th><th>Age</th><th>Gender</th><th>Status</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for cat in cats %}
+                        {% set img = cat.image or 'cat1.jpg' %}
+                        {% set img_src = img if img.startswith('http') else url_for('static', filename='images/' ~ img) %}
+                        <tr>
+                            <td><img src="{{ img_src }}" alt="{{ cat.name }}" style="width:52px;height:52px;object-fit:cover;border-radius:10px;border:1px solid var(--border);"></td>
+                            <td><strong>{{ cat.name }}</strong><br><span style="font-size:11px;color:var(--text-muted);">ID #{{ cat.id }}</span></td>
+                            <td>{{ cat.breed or '—' }}</td>
+                            <td>{{ cat.age if cat.age is not none else '—' }}</td>
+                            <td>{{ cat.gender or '—' }}</td>
+                            <td><span class="badge badge-{{ 'approved' if cat.status == 'available' else 'rejected' if cat.status == 'adopted' else 'pending' }}">{{ (cat.status or 'available').title() }}</span></td>
+                            <td style="display:flex;gap:6px;">
+                                <button class="btn btn-outline btn-sm"
+                                    onclick="openEditModal({{ cat.id }}, '{{ cat.name|e }}', '{{ cat.breed|e }}', '{{ cat.age or '' }}', '{{ cat.gender|e }}', '{{ cat.status|e }}', '{{ (cat.image or 'cat1.jpg')|e }}')">
+                                    <i class="fas fa-pen"></i> Edit
+                                </button>
+                                <form method="POST" action="{{ url_for('admin_cats_delete', cat_id=cat.id) }}"
+                                      onsubmit="return confirm('Delete {{ cat.name }}?')">
+                                    <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fas fa-cat" style="font-size:48px;color:var(--text-muted);"></i></div>
+                <h3>No cats found</h3>
+                <p>{% if search %}No results for "{{ search }}".{% else %}Add your first cat listing.{% endif %}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Add New Cat</h3>
+            <button class="modal-close" onclick="closeModal('addModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('admin_cats_add') }}">
+            <div class="modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group"><label>Name *</label><input type="text" name="name" required></div>
+                <div class="form-group"><label>Breed *</label><input type="text" name="breed" required></div>
+                <div class="form-group"><label>Age</label><input type="number" name="age" min="0"></div>
+                <div class="form-group"><label>Gender *</label>
+                    <select name="gender" required>
+                        <option value="">Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Status</label>
+                    <select name="status">
+                        <option value="available">Available</option>
+                        <option value="adopted">Adopted</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Image filename or URL</label><input type="text" name="image" placeholder="cat1.jpg"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Cat</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Edit Cat</h3>
+            <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+        </div>
+        <form method="POST" id="editForm">
+            <div class="modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group"><label>Name *</label><input type="text" name="name" id="editName" required></div>
+                <div class="form-group"><label>Breed *</label><input type="text" name="breed" id="editBreed" required></div>
+                <div class="form-group"><label>Age</label><input type="number" name="age" id="editAge" min="0"></div>
+                <div class="form-group"><label>Gender *</label>
+                    <select name="gender" id="editGender" required>
+                        <option value="">Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Status</label>
+                    <select name="status" id="editStatus">
+                        <option value="available">Available</option>
+                        <option value="adopted">Adopted</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Image filename or URL</label><input type="text" name="image" id="editImage"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('menuToggle').addEventListener('click', () =>
+    document.getElementById('sidebar').classList.toggle('open'));
+
+function openAddModal() {
+    document.getElementById('addModal').classList.add('open');
+}
+function openEditModal(id, name, breed, age, gender, status, image) {
+    document.getElementById('editForm').action = '/admin/cats/edit/' + id;
+    document.getElementById('editName').value   = name;
+    document.getElementById('editBreed').value  = breed;
+    document.getElementById('editAge').value    = age;
+    document.getElementById('editGender').value = gender;
+    document.getElementById('editStatus').value = status;
+    document.getElementById('editImage').value  = image;
+    document.getElementById('editModal').classList.add('open');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(m =>
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+setTimeout(() => document.querySelectorAll('.flash-msg').forEach(el => el.style.opacity = '0'), 4000);
+</script>
+</body>
+</html>

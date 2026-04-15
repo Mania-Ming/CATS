@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users — Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
+</head>
+<body>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="app-layout">
+    {% set active_page = 'users' %}
+    {% include '_admin_sidebar.html' %}
+
+    <div class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="menuToggle">&#9776;</button>
+                <div>
+                    <div class="topbar-title">Manage Users</div>
+                    <div class="topbar-subtitle">Update roles and manage user accounts</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="section-header">
+                <div><h3>All Users</h3><p>{{ users|length }} registered</p></div>
+            </div>
+
+            {% if users %}
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td><strong>{{ u.full_name or 'Unnamed' }}</strong></td>
+                            <td style="color:var(--text-muted);">{{ u.email }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin_users_update_role', user_id=u.id) }}"
+                                      style="display:flex;gap:6px;align-items:center;"
+                                      onsubmit="return confirm('Change role for {{ u.full_name or u.email }}?')">
+                                    <select name="role" class="status-select">
+                                        <option value="user"  {% if u.role == 'user'  or not u.role %}selected{% endif %}>User</option>
+                                        <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                </form>
+                            </td>
+                            <td style="color:var(--text-muted);font-size:12px;">
+                                {{ u.created_at[:10] if u.created_at else '—' }}
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin_users_delete', user_id=u.id) }}"
+                                      onsubmit="return confirm('Delete {{ u.full_name or u.email }}? This cannot be undone.')">
+                                    <button type="submit" class="btn btn-danger btn-sm"
+                                            {% if u.id == session['user_id'] %}disabled title="Cannot delete yourself"{% endif %}>
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fas fa-users" style="font-size:48px;color:var(--text-muted);"></i></div>
+                <h3>No users found</h3>
+                <p>Users will appear here once they register.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('menuToggle').addEventListener('click', () =>
+    document.getElementById('sidebar').classList.toggle('open'));
+setTimeout(() => document.querySelectorAll('.flash-msg').forEach(el => el.style.opacity = '0'), 4000);
+</script>
+</body>
+</html>
