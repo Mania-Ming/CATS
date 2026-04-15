@@ -1204,13 +1204,12 @@ tbody tr:hover { background: #fafbff; }
 }
 
 .cat-card {
-    background: var(--surface);
-    border-radius: var(--radius);
+    background: #ffffff;
+    border-radius: 14px;
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     border: 1px solid var(--border);
     cursor: pointer;
-    height: 290px;          /* shorter — no button row */
     display: flex;
     flex-direction: column;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -1218,8 +1217,8 @@ tbody tr:hover { background: #fafbff; }
 }
 .cat-card:hover,
 .cat-card:focus-visible {
-    transform: scale(1.02);
-    box-shadow: 0 8px 28px rgba(0,0,0,0.13);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.11);
 }
 .cat-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
@@ -1242,11 +1241,11 @@ tbody tr:hover { background: #fafbff; }
     transform: scale(1.05);
 }
 
-/* "View Details" overlay — appears on hover */
+/* "View Details" overlay — appears on hover, sits over image only */
 .cat-card-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(26, 29, 46, 0.52);
+    background: rgba(26, 29, 46, 0.48);
     color: white;
     font-size: 13px;
     font-weight: 600;
@@ -1260,41 +1259,59 @@ tbody tr:hover { background: #fafbff; }
 .cat-card:hover .cat-card-overlay,
 .cat-card:focus-visible .cat-card-overlay { opacity: 1; }
 
+/* Card body — text lives here, never overlaps image */
 .cat-card-body {
-    padding: 12px 14px;
+    padding: 12px 14px 14px;
     display: flex;
     flex-direction: column;
-    flex: 1;
-    overflow: hidden;
+    gap: 0;
 }
 
 .cat-card-name {
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 2px;
+    margin: 0 0 3px;
 }
 
 .cat-card-breed {
-    font-size: 12px;
-    color: var(--text-muted);
+    font-size: 13px;
+    color: #64748b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 8px;
+    margin: 0 0 10px;
 }
 
 .cat-card-body .cat-meta {
     display: flex;
-    flex-wrap: nowrap;
-    gap: 5px;
-    overflow: hidden;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
 }
 
-/* .adopt-btn no longer used on cards — kept for any legacy reference */
-.adopt-btn { display: none; }
+.cat-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #f1f5f9;
+    color: #475569;
+    border: none;
+}
+.cat-badge.gender {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+
+.cat-card-body .btn {
+    align-self: flex-start;
+    margin-top: 0;
+}
 
 /* ===== BREED DETAIL MODAL ===== */
 .modal-box-wide {
