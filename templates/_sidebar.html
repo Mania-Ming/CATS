@@ -52,6 +52,20 @@
         </a>
     </nav>
 
+        {% if session.get('user_role') == 'admin' or is_admin_user %}
+        <div class="nav-label" style="margin-top:8px;">Admin</div>
+        <a href="{{ url_for('admin_dashboard') }}" class="nav-item {{ 'active' if active_page == 'admin' }}">
+            <svg class="nav-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/>
+                <path d="M12 8v4l3 3"/>
+            </svg>
+            Admin Panel
+        </a>
+        {% endif %}
+    </nav>
+
     <div class="sidebar-footer">
         <a href="{{ url_for('logout') }}" class="nav-item nav-item-danger">
             <svg class="nav-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16"

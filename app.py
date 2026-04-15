@@ -43,7 +43,15 @@ CSS_VERSION = "1.1.5"
 
 @app.context_processor
 def inject_globals():
-    return {"css_version": CSS_VERSION}
+    uid = session.get("user_id")
+    _is_admin = False
+    if uid:
+        try:
+            res = supabase.table("users").select("role").eq("id", uid).single().execute()
+            _is_admin = (res.data or {}).get("role") == "admin"
+        except Exception:
+            pass
+    return {"css_version": CSS_VERSION, "is_admin_user": _is_admin}
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
 ALLOWED_AVATAR_EXTENSIONS = {"png", "jpg", "jpeg"}
@@ -172,80 +180,175 @@ def login():
     return render_template("login.html")
 
 
-# ------------------------------------------------------------------ admin login --
+# ------------------------------------------------------------------ admin helpers --
+
+def is_admin():
+    """Return True if the current session user has role='admin'."""
+    uid = session.get("user_id")
+    if not uid:
+        return False
+    try:
+        res = supabase.table("users").select("role").eq("id", uid).single().execute()
+        return (res.data or {}).get("role") == "admin"
+    except Exception:
+        return False
+
+
+# ------------------------------------------------------------------ admin login (legacy kept) --
 
 @app.route("/admin_login", methods=["GET", "POST"])
 def admin_login():
-    if "admin_logged_in" in session:
-        return redirect(url_for("admin_dashboard"))
-    if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session.clear()
-            session["admin_logged_in"] = True
-            return redirect(url_for("admin_dashboard"))
-        return render_template("admin_login.html", error="Invalid admin credentials")
-    return render_template("admin_login.html")
+    return redirect(url_for("login"))
 
 
-# ------------------------------------------------------------------ admin dashboard --
+# ------------------------------------------------------------------ /admin (new role-based) --
 
-@app.route("/admin_dashboard")
+@app.route("/admin")
 def admin_dashboard():
-    if "admin_logged_in" not in session:
-        return redirect(url_for("admin_login"))
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if not is_admin():
+        return redirect(url_for("dashboard"))
+    from flask import jsonify
     try:
-        # Fetch all adoption requests with related cat and user data in one call
-        ar_res = supabase.table("adoption_requests").select(
-            "id, status, created_at, living_situation, has_other_pets, experience_level, reason,"
-            "user_id, cat_id,"
-            "cats(name, breed),"
-            "users(full_name, phone, address, valid_id_url, email)"
-        ).order("created_at", desc=True).execute()
-
-        requests_list = []
-        for ar in (ar_res.data or []):
-            cat  = ar.get("cats")  or {}
-            user = ar.get("users") or {}
-            requests_list.append((
-                ar["id"],                        # r[0]
-                cat.get("name"),                 # r[1]
-                cat.get("breed"),                # r[2]
-                user.get("full_name"),           # r[3]
-                user.get("phone"),               # r[4]
-                user.get("address"),             # r[5]
-                ar["status"],                    # r[6]
-                parse_dt(ar.get("created_at")),  # r[7]
-                user.get("valid_id_url"),        # r[8]
-                user.get("email"),               # r[9]
-                ar.get("living_situation"),      # r[10]
-                ar.get("has_other_pets"),        # r[11]
-                ar.get("experience_level"),      # r[12]
-                ar.get("reason"),                # r[13]
-            ))
-
-        total_cats    = len(supabase.table("cats").select("id", count="exact").execute().data or [])
-        pending_count = len(supabase.table("adoption_requests").select("id").eq("status", "Pending").execute().data or [])
-        total_users   = len(supabase.table("users").select("id", count="exact").execute().data or [])
+        cats_data  = supabase.table("cats").select("*").order("id").execute().data or []
+        users_data = supabase.table("users").select("id,email,full_name,role,created_at").order("created_at", desc=True).execute().data or []
+        ar_data    = supabase.table("adoption_requests").select(
+            "id,status,created_at,user_id,cat_id,cats(name),users(full_name,email)"
+        ).order("created_at", desc=True).execute().data or []
     except Exception as e:
         log.error("admin_dashboard failed: %s", e)
-        requests_list = []
-        total_cats = pending_count = total_users = 0
+        cats_data = users_data = ar_data = []
 
+    available = sum(1 for c in cats_data if c.get("status") == "available")
+    adopted   = sum(1 for c in cats_data if c.get("status") == "adopted")
+    pending   = sum(1 for r in ar_data   if r.get("status") == "Pending")
+    approved  = sum(1 for r in ar_data   if r.get("status") == "Approved")
+
+    user = get_user_profile(session["user_id"])
     return render_template("admin_dashboard.html",
-                           requests=requests_list,
-                           total_cats=total_cats,
-                           pending_count=pending_count,
-                           total_users=total_users)
+                           cats=cats_data,
+                           users=users_data,
+                           adoption_requests=ar_data,
+                           stats={
+                               "total_cats": len(cats_data),
+                               "available": available,
+                               "adopted": adopted,
+                               "total_users": len(users_data),
+                               "pending": pending,
+                               "approved": approved,
+                           },
+                           user=user)
 
 
-# ------------------------------------------------------------------ admin update status --
+# ------------------------------------------------------------------ admin API: cats --
+
+@app.route("/admin/api/cats", methods=["POST"])
+def admin_cat_create():
+    from flask import jsonify
+    if not is_admin(): return jsonify({"error": "forbidden"}), 403
+    data = request.get_json()
+    required = ["name", "breed", "age", "gender", "status"]
+    if not all(data.get(f) for f in required):
+        return jsonify({"error": "Missing required fields"}), 400
+    try:
+        res = supabase.table("cats").insert(data).execute()
+        return jsonify({"ok": True, "data": res.data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/admin/api/cats/<int:cat_id>", methods=["PUT"])
+def admin_cat_update(cat_id):
+    from flask import jsonify
+    if not is_admin(): return jsonify({"error": "forbidden"}), 403
+    data = request.get_json()
+    data.pop("id", None)
+    try:
+        res = supabase.table("cats").update(data).eq("id", cat_id).execute()
+        return jsonify({"ok": True, "data": res.data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/admin/api/cats/<int:cat_id>", methods=["DELETE"])
+def admin_cat_delete(cat_id):
+    from flask import jsonify
+    if not is_admin(): return jsonify({"error": "forbidden"}), 403
+    try:
+        supabase.table("cats").delete().eq("id", cat_id).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ------------------------------------------------------------------ admin API: users --
+
+@app.route("/admin/api/users/<user_id>", methods=["PUT"])
+def admin_user_update(user_id):
+    from flask import jsonify
+    if not is_admin(): return jsonify({"error": "forbidden"}), 403
+    data = request.get_json()
+    allowed = {k: data[k] for k in ["role"] if k in data}
+    try:
+        res = supabase.table("users").update(allowed).eq("id", user_id).execute()
+        return jsonify({"ok": True, "data": res.data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/admin/api/users/<user_id>", methods=["DELETE"])
+def admin_user_delete(user_id):
+    from flask import jsonify
+    if not is_admin(): return jsonify({"error": "forbidden"}), 403
+    try:
+        supabase.table("users").delete().eq("id", user_id).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ------------------------------------------------------------------ admin API: adoption requests --
+
+@app.route("/admin/api/requests/<int:req_id>", methods=["PUT"])
+def admin_request_update(req_id):
+    from flask import jsonify
+    if not is_admin(): return jsonify({"error": "forbidden"}), 403
+    data = request.get_json()
+    new_status = data.get("status")
+    if new_status not in ("Pending", "Approved", "Rejected"):
+        return jsonify({"error": "Invalid status"}), 400
+    try:
+        # Get cat_id for this request
+        ar = supabase.table("adoption_requests").select("cat_id").eq("id", req_id).single().execute().data
+        supabase.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
+        if ar:
+            if new_status == "Approved":
+                supabase.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
+            elif new_status == "Rejected":
+                supabase.table("cats").update({"status": "available"}).eq("id", ar["cat_id"]).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/admin/api/requests/<int:req_id>", methods=["DELETE"])
+def admin_request_delete(req_id):
+    from flask import jsonify
+    if not is_admin(): return jsonify({"error": "forbidden"}), 403
+    try:
+        supabase.table("adoption_requests").delete().eq("id", req_id).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ------------------------------------------------------------------ admin update status (legacy) --
 
 @app.route("/admin/update_status/<int:req_id>", methods=["POST"])
 def update_status(req_id):
-    if "admin_logged_in" not in session:
-        return redirect(url_for("admin_login"))
+    if not is_admin():
+        return redirect(url_for("login"))
     new_status = request.form.get("status")
     try:
         supabase.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
