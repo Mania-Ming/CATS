@@ -8,11 +8,14 @@ create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
   password text not null,
+  role text default 'user',
   full_name text,
   phone text,
   address text,
   valid_id_url text
 );
+
+alter table users add column if not exists role text default 'user';
 
 -- CATS
 create table if not exists cats (

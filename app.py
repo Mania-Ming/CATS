@@ -141,13 +141,23 @@ def browse():
 
 # ------------------------------------------------------------------ root → browse --
 
+def login_redirect_by_role():
+    """Redirect an authenticated user to the correct destination for their role."""
+    if session.get("role") == "admin":
+        return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("dashboard"))
+
+
+def require_login_redirect():
+    """Return a redirect response when the user is not authenticated."""
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    return None
+
+
 @app.route("/")
-def index():
-    if "user_id" in session:
-        if session.get("role") == "admin":
-            return redirect(url_for("admin_dashboard"))
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("browse"))
+def home():
+    return render_template("landing.html")
 
 
 # ------------------------------------------------------------------ login --
@@ -155,11 +165,9 @@ def index():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
-        if session.get("role") == "admin":
-            return redirect(url_for("admin_dashboard"))
-        return redirect(url_for("dashboard"))
+        return login_redirect_by_role()
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
+        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         if not email or not password:
             return render_template("login.html", error="Please fill all fields")
@@ -175,9 +183,7 @@ def login():
             session["user_id"] = user["id"]
             session["email"]   = user["email"]
             session["role"]    = user.get("role") or "user"
-            if session["role"] == "admin":
-                return redirect(url_for("admin_dashboard"))
-            return redirect(url_for("dashboard"))
+            return login_redirect_by_role()
         return render_template("login.html", error="Invalid email or password")
     return render_template("login.html")
 
@@ -191,8 +197,9 @@ def is_admin():
 
 def require_admin_redirect():
     """Return a redirect response when the user is not an authenticated admin."""
-    if "user_id" not in session:
-        return redirect(url_for("login"))
+    guard = require_login_redirect()
+    if guard:
+        return guard
     if not is_admin():
         return redirect(url_for("dashboard"))
     return None
@@ -680,6 +687,7 @@ def register():
                 "email": email,
                 "password": generate_password_hash(password),
                 "full_name": fullname,
+                "role": "user",
             }).execute()
 
             #  PRINT EVERYTHING
@@ -708,8 +716,9 @@ def register():
 
 @app.route("/dashboard")
 def dashboard():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
+    guard = require_login_redirect()
+    if guard:
+        return guard
     search = request.args.get("search", "")
     breed  = request.args.get("breed", "")
     try:
@@ -970,7 +979,7 @@ def delete_account():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("home"))
 
 
 # app.run() is intentionally kept inside the __name__ guard.

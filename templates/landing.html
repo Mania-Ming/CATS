@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Adoption - Welcome</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+</head>
+<body class="browse-page">
+
+<nav class="browse-nav">
+    <a href="{{ url_for('home') }}" class="browse-brand">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Cat Adoption" class="brand-logo-img">
+        Cat Adoption
+    </a>
+    <div class="nav-actions">
+        <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">Login</a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
+    </div>
+</nav>
+
+<section class="browse-hero">
+    <div class="browse-hero-bg" style="background-image:url('{{ url_for('static', filename='images/cat3.jpg') }}')"></div>
+    <div class="browse-hero-overlay"></div>
+    <div class="browse-hero-content">
+        <p class="browse-hero-eyebrow">Welcome to Cat Adoption</p>
+        <h1>Find a loving home for every cat</h1>
+        <p class="browse-hero-sub">
+            Browse adoptable cats, create an account, and manage applications through a secure role-based system.
+        </p>
+        <div class="browse-hero-cta">
+            <a href="{{ url_for('login') }}" class="btn btn-outline">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
+        </div>
+    </div>
+</section>
+
+<div class="browse-content" style="padding-top:36px;">
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon orange">1</div>
+            <div>
+                <div class="stat-value">Create</div>
+                <div class="stat-label">Register your account</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon blue">2</div>
+            <div>
+                <div class="stat-value">Sign In</div>
+                <div class="stat-label">Login with your details</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">3</div>
+            <div>
+                <div class="stat-value">Adopt</div>
+                <div class="stat-label">Start your adoption journey</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <h3>Cat Adoption</h3>
+            <p>Connecting caring adopters with cats waiting for a forever home.</p>
+        </div>
+        <div class="footer-col">
+            <h4>Access</h4>
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Register</a>
+        </div>
+        <div class="footer-col">
+            <h4>Explore</h4>
+            <a href="{{ url_for('browse') }}">Browse Cats</a>
+        </div>
+        <div class="footer-col">
+            <h4>Contact</h4>
+            <a href="#">support@catadoption.ph</a>
+            <a href="#">Manila, Philippines</a>
+        </div>
+    </div>
+    <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
+</footer>
+
+</body>
+</html>
