@@ -6,7 +6,7 @@
     <title>Browse Cats — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
 </head>
-<body class="browse-page">
+<body class="browse-page" data-logged-in="{{ 'true' if logged_in else 'false' }}" data-dashboard-url="{{ url_for('dashboard') }}" data-hero-img="{{ url_for('static', filename='images/cat3.jpg') }}">
 
 <!-- NAV -->
 <nav class="browse-nav">
@@ -26,8 +26,7 @@
 
 <!-- HERO -->
 <div class="browse-hero">
-    <div class="browse-hero-bg"
-         style="background-image:url('{{ url_for('static', filename='images/cat3.jpg') }}')"></div>
+    <div class="browse-hero-bg" id="heroBg"></div>
     <div class="browse-hero-overlay"></div>
     <div class="browse-hero-content">
         <p class="browse-hero-eyebrow">Find your forever friend</p>
@@ -189,11 +188,12 @@
 </div>
 
 <script>
-const IS_LOGGED_IN = {{ 'true' if logged_in else 'false' }};
+const IS_LOGGED_IN = document.body.dataset.loggedIn === 'true';
+const DASHBOARD_URL = document.body.dataset.dashboardUrl;
 
 function handleCardClick() {
     if (IS_LOGGED_IN) {
-        window.location.href = "{{ url_for('dashboard') }}";
+        window.location.href = DASHBOARD_URL;
     } else {
         document.getElementById('loginModal').classList.add('open');
     }
@@ -237,6 +237,10 @@ function applyFilters() {
 
 // Init count on load
 applyFilters();
+
+// Set hero background from data attribute
+const heroBg = document.getElementById('heroBg');
+if (heroBg) heroBg.style.backgroundImage = 'url(' + document.body.dataset.heroImg + ')';
 </script>
 </body>
 </html>

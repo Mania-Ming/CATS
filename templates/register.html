@@ -11,9 +11,7 @@
 
     <!-- LEFT: Visual branding panel -->
     <div class="auth-left">
-        <div class="auth-left-bg"
-             style="background-image:url('{{ url_for('static', filename='images/cat5.jpg') }}')">
-        </div>
+        <div class="auth-left-bg" id="authBg"></div>
         <div class="auth-left-overlay"></div>
 
         <img class="paw paw-1" src="{{ url_for('static', filename='images/logo.png') }}" alt="">
@@ -74,6 +72,9 @@
 </div>
 
 <script>
+document.getElementById('authBg').style.backgroundImage =
+    "url('{{ url_for('static', filename='images/cat5.jpg') }}')";
+
 function togglePw(id, btn) {
     const input = document.getElementById(id);
     const show  = input.type === 'password';
