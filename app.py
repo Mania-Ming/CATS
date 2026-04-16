@@ -167,6 +167,33 @@ def login():
     return render_template("login.html")
 
 
+# ------------------------------------------------------------------ admin debug --
+
+@app.route("/admin/debug")
+def admin_debug():
+    """Diagnostic page — shows exactly what Supabase returns for each table.
+    Remove or protect this route before going to production."""
+    if not admin_required():
+        return redirect(url_for("login"))
+    from flask import jsonify
+    db = _admin_db()
+    results = {}
+    service_key_set = bool(os.environ.get("SUPABASE_SERVICE_KEY", "").strip())
+    results["service_key_configured"] = service_key_set
+    results["using_service_role"] = (db is not supabase)
+    for table in ("users", "cats", "adoption_requests"):
+        try:
+            res = db.table(table).select("*").limit(3).execute()
+            results[table] = {
+                "count": len(res.data or []),
+                "sample": (res.data or [])[:2],
+                "error": None,
+            }
+        except Exception as e:
+            results[table] = {"count": 0, "sample": [], "error": str(e)}
+    return jsonify(results)
+
+
 # ------------------------------------------------------------------ admin login (legacy) --
 
 @app.route("/admin_login", methods=["GET", "POST"])
@@ -266,17 +293,18 @@ def update_status(req_id):
         return redirect(url_for("login"))
     new_status = request.form.get("status")
     try:
-        ar = supabase.table("adoption_requests").select("cat_id").eq("id", req_id).single().execute().data
-        supabase.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
+        db = _admin_db()
+        ar = db.table("adoption_requests").select("cat_id").eq("id", req_id).single().execute().data
+        db.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
         if ar and ar.get("cat_id"):
             if new_status == "Approved":
-                supabase.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
+                db.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
             elif new_status == "Rejected":
-                supabase.table("cats").update({"status": "available"}).eq("id", ar["cat_id"]).execute()
+                db.table("cats").update({"status": "available"}).eq("id", ar["cat_id"]).execute()
         flash(f"Request updated to {new_status}.", "success")
     except Exception as e:
         log.error("update_status(%s) failed: %s", req_id, e)
-        flash("Failed to update status.", "error")
+        flash(f"Failed to update status: {e}", "error")
     return redirect(url_for("admin_requests"))
 
 
@@ -287,11 +315,11 @@ def admin_delete_request(req_id):
     if not admin_required():
         return redirect(url_for("login"))
     try:
-        supabase.table("adoption_requests").delete().eq("id", req_id).execute()
+        _admin_db().table("adoption_requests").delete().eq("id", req_id).execute()
         flash("Request deleted.", "success")
     except Exception as e:
         log.error("admin_delete_request(%s) failed: %s", req_id, e)
-        flash("Failed to delete request.", "error")
+        flash(f"Failed to delete request: {e}", "error")
     return redirect(url_for("admin_requests"))
 
 
