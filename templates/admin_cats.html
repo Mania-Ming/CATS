@@ -6,6 +6,17 @@
     <title>Manage Cats — Admin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
+    <style>
+        .modal-box-lg { max-width: 720px; }
+        .form-grid-3  { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+        .form-grid-2  { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+        .col-span-3   { grid-column: span 3; }
+        .col-span-2   { grid-column: span 2; }
+        @media(max-width:640px){
+            .form-grid-3,.form-grid-2{grid-template-columns:1fr;}
+            .col-span-3,.col-span-2{grid-column:span 1;}
+        }
+    </style>
 </head>
 <body>
 
@@ -20,7 +31,6 @@
 {% endwith %}
 
 <div class="app-layout">
-    {% set active_page = 'cats' %}
     {% include '_admin_sidebar.html' %}
 
     <div class="main-content">
@@ -40,13 +50,10 @@
         </div>
 
         <div class="page-content">
-            <!-- Search -->
             <form method="GET" action="{{ url_for('admin_cats') }}" class="search-bar" style="margin-bottom:20px;">
                 <input type="text" name="search" placeholder="Search by name or breed..." value="{{ search }}">
                 <button type="submit" class="btn btn-primary btn-sm">Search</button>
-                {% if search %}
-                <a href="{{ url_for('admin_cats') }}" class="btn btn-secondary btn-sm">Clear</a>
-                {% endif %}
+                {% if search %}<a href="{{ url_for('admin_cats') }}" class="btn btn-secondary btn-sm">Clear</a>{% endif %}
             </form>
 
             {% if cats %}
@@ -67,10 +74,22 @@
                             <td>{{ cat.gender or '—' }}</td>
                             <td><span class="badge badge-{{ 'approved' if cat.status == 'available' else 'rejected' if cat.status == 'adopted' else 'pending' }}">{{ (cat.status or 'available').title() }}</span></td>
                             <td style="display:flex;gap:6px;">
-                                <button class="btn btn-outline btn-sm"
-                                    onclick="openEditModal({{ cat.id }}, '{{ cat.name|e }}', '{{ cat.breed|e }}', '{{ cat.age or '' }}', '{{ cat.gender|e }}', '{{ cat.status|e }}', '{{ (cat.image or 'cat1.jpg')|e }}')">
-                                    <i class="fas fa-pen"></i> Edit
-                                </button>
+                                <button class="btn btn-outline btn-sm" onclick="openEditModal(
+                                    {{ cat.id }},
+                                    {{ cat.name | tojson }},
+                                    {{ cat.breed | tojson }},
+                                    {{ (cat.age | string) if cat.age is not none else 'null' }},
+                                    {{ cat.gender | tojson }},
+                                    {{ cat.status | tojson }},
+                                    {{ (cat.image or 'cat1.jpg') | tojson }},
+                                    {{ (cat.origin or '') | tojson }},
+                                    {{ (cat.weight or '') | tojson }},
+                                    {{ (cat.size or '') | tojson }},
+                                    {{ (cat.lifespan or '') | tojson }},
+                                    {{ (cat.coat_colors or '') | tojson }},
+                                    {{ (cat.temperament or '') | tojson }},
+                                    {{ (cat.about or '') | tojson }}
+                                )"><i class="fas fa-pen"></i> Edit</button>
                                 <form method="POST" action="{{ url_for('admin_cats_delete', cat_id=cat.id) }}"
                                       onsubmit="return confirm('Delete {{ cat.name }}?')">
                                     <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button>
@@ -92,32 +111,41 @@
     </div>
 </div>
 
-<!-- ADD MODAL -->
+<!-- ===== ADD MODAL ===== -->
 <div class="modal-overlay" id="addModal">
-    <div class="modal-box">
+    <div class="modal-box modal-box-lg">
         <div class="modal-header">
             <h3>Add New Cat</h3>
             <button class="modal-close" onclick="closeModal('addModal')">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('admin_cats_add') }}">
-            <div class="modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                <div class="form-group"><label>Name *</label><input type="text" name="name" required></div>
-                <div class="form-group"><label>Breed *</label><input type="text" name="breed" required></div>
-                <div class="form-group"><label>Age</label><input type="number" name="age" min="0"></div>
-                <div class="form-group"><label>Gender *</label>
-                    <select name="gender" required>
-                        <option value="">Select</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
+            <div class="modal-body">
+                <div class="form-grid-3" style="margin-bottom:14px;">
+                    <div class="form-group"><label>Name *</label><input type="text" name="name" required></div>
+                    <div class="form-group"><label>Breed *</label><input type="text" name="breed" required></div>
+                    <div class="form-group"><label>Age</label><input type="number" name="age" min="0"></div>
+                    <div class="form-group"><label>Gender *</label>
+                        <select name="gender" required>
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Status</label>
+                        <select name="status">
+                            <option value="available">Available</option>
+                            <option value="adopted">Adopted</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Image (filename or URL)</label><input type="text" name="image" placeholder="cat1.jpg"></div>
+                    <div class="form-group"><label>Origin</label><input type="text" name="origin"></div>
+                    <div class="form-group"><label>Weight</label><input type="text" name="weight" placeholder="e.g. 3–5 kg"></div>
+                    <div class="form-group"><label>Size</label><input type="text" name="size" placeholder="e.g. Medium"></div>
+                    <div class="form-group"><label>Lifespan</label><input type="text" name="lifespan" placeholder="e.g. 12–15 years"></div>
+                    <div class="form-group"><label>Coat Colors</label><input type="text" name="coat_colors"></div>
+                    <div class="form-group"><label>Temperament</label><input type="text" name="temperament"></div>
+                    <div class="form-group col-span-3"><label>About</label><textarea name="about" style="min-height:80px;resize:vertical;"></textarea></div>
                 </div>
-                <div class="form-group"><label>Status</label>
-                    <select name="status">
-                        <option value="available">Available</option>
-                        <option value="adopted">Adopted</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>Image filename or URL</label><input type="text" name="image" placeholder="cat1.jpg"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
@@ -127,32 +155,41 @@
     </div>
 </div>
 
-<!-- EDIT MODAL -->
+<!-- ===== EDIT MODAL ===== -->
 <div class="modal-overlay" id="editModal">
-    <div class="modal-box">
+    <div class="modal-box modal-box-lg">
         <div class="modal-header">
             <h3>Edit Cat</h3>
             <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
         </div>
         <form method="POST" id="editForm">
-            <div class="modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                <div class="form-group"><label>Name *</label><input type="text" name="name" id="editName" required></div>
-                <div class="form-group"><label>Breed *</label><input type="text" name="breed" id="editBreed" required></div>
-                <div class="form-group"><label>Age</label><input type="number" name="age" id="editAge" min="0"></div>
-                <div class="form-group"><label>Gender *</label>
-                    <select name="gender" id="editGender" required>
-                        <option value="">Select</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
+            <div class="modal-body">
+                <div class="form-grid-3" style="margin-bottom:14px;">
+                    <div class="form-group"><label>Name *</label><input type="text" name="name" id="eName" required></div>
+                    <div class="form-group"><label>Breed *</label><input type="text" name="breed" id="eBreed" required></div>
+                    <div class="form-group"><label>Age</label><input type="number" name="age" id="eAge" min="0"></div>
+                    <div class="form-group"><label>Gender *</label>
+                        <select name="gender" id="eGender" required>
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Status</label>
+                        <select name="status" id="eStatus">
+                            <option value="available">Available</option>
+                            <option value="adopted">Adopted</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Image (filename or URL)</label><input type="text" name="image" id="eImage"></div>
+                    <div class="form-group"><label>Origin</label><input type="text" name="origin" id="eOrigin"></div>
+                    <div class="form-group"><label>Weight</label><input type="text" name="weight" id="eWeight"></div>
+                    <div class="form-group"><label>Size</label><input type="text" name="size" id="eSize"></div>
+                    <div class="form-group"><label>Lifespan</label><input type="text" name="lifespan" id="eLifespan"></div>
+                    <div class="form-group"><label>Coat Colors</label><input type="text" name="coat_colors" id="eCoatColors"></div>
+                    <div class="form-group"><label>Temperament</label><input type="text" name="temperament" id="eTemperament"></div>
+                    <div class="form-group col-span-3"><label>About</label><textarea name="about" id="eAbout" style="min-height:80px;resize:vertical;"></textarea></div>
                 </div>
-                <div class="form-group"><label>Status</label>
-                    <select name="status" id="editStatus">
-                        <option value="available">Available</option>
-                        <option value="adopted">Adopted</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>Image filename or URL</label><input type="text" name="image" id="editImage"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
@@ -166,22 +203,29 @@
 document.getElementById('menuToggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open'));
 
-function openAddModal() {
-    document.getElementById('addModal').classList.add('open');
-}
-function openEditModal(id, name, breed, age, gender, status, image) {
+function openAddModal() { document.getElementById('addModal').classList.add('open'); }
+
+function openEditModal(id, name, breed, age, gender, status, image,
+                       origin, weight, size, lifespan, coat_colors, temperament, about) {
     document.getElementById('editForm').action = '/admin/cats/edit/' + id;
-    document.getElementById('editName').value   = name;
-    document.getElementById('editBreed').value  = breed;
-    document.getElementById('editAge').value    = age;
-    document.getElementById('editGender').value = gender;
-    document.getElementById('editStatus').value = status;
-    document.getElementById('editImage').value  = image;
+    document.getElementById('eName').value        = name        || '';
+    document.getElementById('eBreed').value       = breed       || '';
+    document.getElementById('eAge').value         = age != null ? age : '';
+    document.getElementById('eGender').value      = gender      || '';
+    document.getElementById('eStatus').value      = status      || 'available';
+    document.getElementById('eImage').value       = image       || 'cat1.jpg';
+    document.getElementById('eOrigin').value      = origin      || '';
+    document.getElementById('eWeight').value      = weight      || '';
+    document.getElementById('eSize').value        = size        || '';
+    document.getElementById('eLifespan').value    = lifespan    || '';
+    document.getElementById('eCoatColors').value  = coat_colors || '';
+    document.getElementById('eTemperament').value = temperament || '';
+    document.getElementById('eAbout').value       = about       || '';
     document.getElementById('editModal').classList.add('open');
 }
-function closeModal(id) {
-    document.getElementById(id).classList.remove('open');
-}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
 document.querySelectorAll('.modal-overlay').forEach(m =>
     m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
 

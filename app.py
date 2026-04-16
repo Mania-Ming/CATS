@@ -187,33 +187,68 @@ def admin_dashboard():
     if not admin_required():
         return redirect(url_for("login"))
     try:
+        cats_res = supabase.table("cats").select("id").execute()
+        total_cats = len(cats_res.data or [])
+    except Exception:
+        total_cats = 0
+    try:
+        users_res = supabase.table("users").select("id").execute()
+        total_users = len(users_res.data or [])
+    except Exception:
+        total_users = 0
+    try:
+        pending_res = supabase.table("adoption_requests").select("id").eq("status", "Pending").execute()
+        pending_count = len(pending_res.data or [])
+    except Exception:
+        pending_count = 0
+    try:
         ar_res = supabase.table("adoption_requests").select(
-            "id, status, created_at, user_id, cat_id,"
-            "cats(name, breed),"
-            "users(full_name, phone, address, valid_id_url, email)"
-        ).order("created_at", desc=True).execute()
-        requests_list = []
-        for ar in (ar_res.data or []):
-            cat  = ar.get("cats")  or {}
-            user = ar.get("users") or {}
-            requests_list.append((
-                ar["id"], cat.get("name"), cat.get("breed"),
-                user.get("full_name"), user.get("phone"), user.get("address"),
-                ar["status"], parse_dt(ar.get("created_at")),
-                user.get("valid_id_url"), user.get("email"),
-            ))
-        total_cats    = len(supabase.table("cats").select("id").execute().data or [])
-        pending_count = len(supabase.table("adoption_requests").select("id").eq("status", "Pending").execute().data or [])
-        total_users   = len(supabase.table("users").select("id").execute().data or [])
+            "id, status, created_at, cat_id, user_id"
+        ).order("created_at", desc=True).limit(5).execute()
+        requests_list = _build_requests_list(ar_res.data or [])
     except Exception as e:
-        log.error("admin_dashboard failed: %s", e)
+        log.error("admin_dashboard requests failed: %s", e)
         requests_list = []
-        total_cats = pending_count = total_users = 0
     return render_template("admin_dashboard.html",
                            requests=requests_list,
                            total_cats=total_cats,
                            pending_count=pending_count,
-                           total_users=total_users)
+                           total_users=total_users,
+                           active_page="dashboard")
+
+
+def _build_requests_list(ar_data):
+    """Enrich adoption request rows with cat name/breed and user name/email."""
+    result = []
+    for ar in ar_data:
+        cat_name = cat_breed = user_name = user_email = user_phone = user_addr = valid_id = None
+        try:
+            cat_res = supabase.table("cats").select("name, breed").eq("id", ar["cat_id"]).single().execute()
+            if cat_res.data:
+                cat_name  = cat_res.data.get("name")
+                cat_breed = cat_res.data.get("breed")
+        except Exception:
+            pass
+        try:
+            u_res = supabase.table("users").select(
+                "full_name, email, phone, address, valid_id_url"
+            ).eq("id", ar["user_id"]).single().execute()
+            if u_res.data:
+                user_name  = u_res.data.get("full_name")
+                user_email = u_res.data.get("email")
+                user_phone = u_res.data.get("phone")
+                user_addr  = u_res.data.get("address")
+                valid_id   = u_res.data.get("valid_id_url")
+        except Exception:
+            pass
+        result.append((
+            ar["id"], cat_name, cat_breed,
+            user_name, user_phone, user_addr,
+            ar.get("status", "Pending"),
+            parse_dt(ar.get("created_at")),
+            valid_id, user_email,
+        ))
+    return result
 
 
 # ------------------------------------------------------------------ admin update status --
@@ -261,24 +296,13 @@ def admin_requests():
         return redirect(url_for("login"))
     try:
         ar_res = supabase.table("adoption_requests").select(
-            "id, status, created_at, user_id, cat_id,"
-            "cats(name, breed),"
-            "users(full_name, phone, address, valid_id_url, email)"
+            "id, status, created_at, cat_id, user_id"
         ).order("created_at", desc=True).execute()
-        requests_list = []
-        for ar in (ar_res.data or []):
-            cat  = ar.get("cats")  or {}
-            user = ar.get("users") or {}
-            requests_list.append((
-                ar["id"], cat.get("name"), cat.get("breed"),
-                user.get("full_name"), user.get("phone"), user.get("address"),
-                ar["status"], parse_dt(ar.get("created_at")),
-                user.get("valid_id_url"), user.get("email"),
-            ))
+        requests_list = _build_requests_list(ar_res.data or [])
     except Exception as e:
         log.error("admin_requests failed: %s", e)
         requests_list = []
-    return render_template("admin_requests.html", requests=requests_list)
+    return render_template("admin_requests.html", requests=requests_list, active_page="requests")
 
 
 # ------------------------------------------------------------------ admin cats --
@@ -289,15 +313,15 @@ def admin_cats():
         return redirect(url_for("login"))
     search = request.args.get("search", "").strip()
     try:
-        q = supabase.table("cats").select("*").order("id")
-        cats = q.execute().data or []
+        cats = supabase.table("cats").select("*").order("id").execute().data or []
         if search:
-            cats = [c for c in cats if search.lower() in (c.get("name") or "").lower()
+            cats = [c for c in cats
+                    if search.lower() in (c.get("name") or "").lower()
                     or search.lower() in (c.get("breed") or "").lower()]
     except Exception as e:
         log.error("admin_cats failed: %s", e)
         cats = []
-    return render_template("admin_cats.html", cats=cats, search=search)
+    return render_template("admin_cats.html", cats=cats, search=search, active_page="cats")
 
 
 @app.route("/admin/cats/add", methods=["POST"])
@@ -313,12 +337,20 @@ def admin_cats_add():
     if not name or not breed or not gender:
         flash("Name, breed, and gender are required.", "error")
         return redirect(url_for("admin_cats"))
+    payload = {
+        "name": name, "breed": breed, "gender": gender,
+        "status": status, "image": image,
+        "age":         int(age) if age.isdigit() else None,
+        "origin":      request.form.get("origin", "").strip() or None,
+        "weight":      request.form.get("weight", "").strip() or None,
+        "size":        request.form.get("size", "").strip() or None,
+        "lifespan":    request.form.get("lifespan", "").strip() or None,
+        "coat_colors": request.form.get("coat_colors", "").strip() or None,
+        "temperament": request.form.get("temperament", "").strip() or None,
+        "about":       request.form.get("about", "").strip() or None,
+    }
     try:
-        supabase.table("cats").insert({
-            "name": name, "breed": breed,
-            "age": int(age) if age.isdigit() else None,
-            "gender": gender, "status": status, "image": image,
-        }).execute()
+        supabase.table("cats").insert(payload).execute()
         flash(f"{name} added successfully.", "success")
     except Exception as e:
         log.error("admin_cats_add failed: %s", e)
@@ -336,12 +368,20 @@ def admin_cats_edit(cat_id):
     gender = request.form.get("gender", "").strip()
     status = request.form.get("status", "available").strip()
     image  = request.form.get("image", "").strip() or "cat1.jpg"
+    payload = {
+        "name": name, "breed": breed, "gender": gender,
+        "status": status, "image": image,
+        "age":         int(age) if age.isdigit() else None,
+        "origin":      request.form.get("origin", "").strip() or None,
+        "weight":      request.form.get("weight", "").strip() or None,
+        "size":        request.form.get("size", "").strip() or None,
+        "lifespan":    request.form.get("lifespan", "").strip() or None,
+        "coat_colors": request.form.get("coat_colors", "").strip() or None,
+        "temperament": request.form.get("temperament", "").strip() or None,
+        "about":       request.form.get("about", "").strip() or None,
+    }
     try:
-        supabase.table("cats").update({
-            "name": name, "breed": breed,
-            "age": int(age) if age.isdigit() else None,
-            "gender": gender, "status": status, "image": image,
-        }).eq("id", cat_id).execute()
+        supabase.table("cats").update(payload).eq("id", cat_id).execute()
         flash(f"{name} updated successfully.", "success")
     except Exception as e:
         log.error("admin_cats_edit(%s) failed: %s", cat_id, e)
@@ -371,11 +411,13 @@ def admin_users():
     try:
         users = supabase.table("users").select(
             "id, full_name, email, role, created_at"
-        ).order("created_at", desc=True).execute().data or []
+        ).execute().data or []
+        # sort in Python — avoids 500 if created_at column is missing
+        users.sort(key=lambda u: u.get("created_at") or "", reverse=True)
     except Exception as e:
         log.error("admin_users failed: %s", e)
         users = []
-    return render_template("admin_users.html", users=users)
+    return render_template("admin_users.html", users=users, active_page="users")
 
 
 @app.route("/admin/users/update_role/<user_id>", methods=["POST"])
