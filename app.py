@@ -448,9 +448,8 @@ def admin_users():
         return redirect(url_for("login"))
     try:
         users = _admin_db().table("users").select(
-            "id, full_name, email, phone, address, role, created_at"
+            "id, full_name, email, phone, address, role"
         ).execute().data or []
-        users.sort(key=lambda u: u.get("created_at") or "", reverse=True)
     except Exception as e:
         log.error("admin_users failed: %s", e)
         users = []
