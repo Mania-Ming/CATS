@@ -47,6 +47,7 @@
         <div class="page-content">
             {% if requests %}
             <div class="table-card">
+                <div style="overflow-x:auto;width:100%;">
                 <table>
                     <thead>
                         <tr>
@@ -63,31 +64,31 @@
                     <tbody>
                         {% for r in requests %}
                         <tr>
-                            <td style="color:var(--text-muted);font-size:12px;">{{ r[0] }}</td>
-                            <td>
+                            <td style="padding:8px 6px;font-size:12px;color:var(--text-muted);">{{ r[0] }}</td>
+                            <td style="padding:8px 6px;font-size:12px;">
                                 <strong>{{ r[1] or '—' }}</strong><br>
                                 <span style="font-size:11px;color:var(--text-muted);">{{ r[2] or '' }}</span>
                             </td>
-                            <td>
+                            <td style="padding:8px 6px;font-size:12px;">
                                 <strong>{{ r[3] or '—' }}</strong><br>
                                 <span style="font-size:11px;color:var(--text-muted);">{{ r[9] or '' }}</span>
                             </td>
-                            <td style="font-size:12px;">
+                            <td style="padding:8px 6px;font-size:12px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                 {{ r[4] or '—' }}<br>
                                 <span style="color:var(--text-muted);">{{ r[5] or '' }}</span>
                             </td>
-                            <td>
+                            <td style="padding:8px 6px;font-size:12px;">
                                 {% if r[8] %}
                                 <a href="{{ r[8] }}" target="_blank" class="btn btn-outline btn-sm">View ID</a>
                                 {% else %}
-                                <span style="color:var(--text-muted);font-size:12px;">None</span>
+                                <span style="color:var(--text-muted);">None</span>
                                 {% endif %}
                             </td>
-                            <td><span class="badge badge-{{ r[6]|lower }}">{{ r[6] }}</span></td>
-                            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap;">
+                            <td style="padding:8px 6px;"><span class="badge badge-{{ r[6]|lower }}">{{ r[6] }}</span></td>
+                            <td style="padding:8px 6px;font-size:12px;color:var(--text-muted);white-space:nowrap;">
                                 {{ r[7].strftime('%b %d, %Y') if r[7] else '—' }}
                             </td>
-                            <td>
+                            <td style="padding:8px 6px;">
                                 <div class="action-row">
                                     <form method="POST" action="{{ url_for('update_status', req_id=r[0]) }}"
                                           style="display:flex;align-items:center;gap:6px;">
@@ -108,6 +109,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             </div>
             {% else %}
             <div class="empty-state">
