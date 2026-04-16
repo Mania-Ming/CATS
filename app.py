@@ -778,13 +778,19 @@ def profile():
     user = get_user_profile(session["user_id"])
     try:
         ar_res = supabase.table("adoption_requests").select(
-            "id, status, created_at, cats(name)"
+            "id, status, created_at, cat_id"
         ).eq("user_id", session["user_id"]).order("created_at", desc=True).limit(5).execute()
 
-        recent = [
-            (ar["id"], (ar.get("cats") or {}).get("name"), ar["status"], parse_dt(ar.get("created_at")))
-            for ar in (ar_res.data or [])
-        ]
+        recent = []
+        for ar in (ar_res.data or []):
+            cat_name = None
+            try:
+                cat_res = supabase.table("cats").select("name").eq("id", ar["cat_id"]).single().execute()
+                if cat_res.data:
+                    cat_name = cat_res.data.get("name")
+            except Exception:
+                pass
+            recent.append((ar["id"], cat_name, ar["status"], parse_dt(ar.get("created_at"))))
     except Exception as e:
         log.error("profile — recent requests failed: %s", e)
         recent = []
