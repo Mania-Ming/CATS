@@ -3,45 +3,49 @@ import logging
 from supabase import create_client
 from dotenv import load_dotenv
 
-# override=False means Vercel's real env vars are never overwritten by .env
+# On Vercel, env vars are already in os.environ before this runs.
+# override=False ensures Vercel's values are never overwritten by a local .env file.
+# No dotenv_path — let python-dotenv search upward from cwd, which works locally.
 load_dotenv(override=False)
 
 log = logging.getLogger(__name__)
 
-SUPABASE_URL         = os.environ.get("SUPABASE_URL",         "").strip()
-SUPABASE_KEY         = os.environ.get("SUPABASE_KEY",         "").strip()
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+SUPABASE_URL         = (os.environ.get("SUPABASE_URL")         or "").strip()
+SUPABASE_KEY         = (os.environ.get("SUPABASE_KEY")         or "").strip()
+SUPABASE_SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_KEY") or "").strip()
 
+# Always log at WARNING so this appears in Vercel function logs.
 log.warning(
-    "supabase_client: URL=%s  KEY_prefix=%s  SERVICE_KEY_prefix=%s",
-    SUPABASE_URL,
-    SUPABASE_KEY[:12]   if SUPABASE_KEY         else "MISSING",
-    SUPABASE_SERVICE_KEY[:12] if SUPABASE_SERVICE_KEY else "MISSING",
+    "supabase_client boot — URL=%s | ANON=%s | SERVICE=%s",
+    SUPABASE_URL or "MISSING",
+    (SUPABASE_KEY[:16]         + "...") if SUPABASE_KEY         else "MISSING",
+    (SUPABASE_SERVICE_KEY[:16] + "...") if SUPABASE_SERVICE_KEY else "MISSING",
 )
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    log.error("supabase_client: SUPABASE_URL and/or SUPABASE_KEY missing")
-    supabase = None
-else:
+# ── Anon client (used for public-facing routes) ──────────────────────────────
+if SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        log.warning("supabase_client: anon client ready (%s)", SUPABASE_URL)
+        log.warning("supabase_client: anon client ready")
     except Exception as e:
-        log.error("supabase_client: create_client failed: %r", e)
+        log.error("supabase_client: anon create_client failed: %r", e)
         supabase = None
+else:
+    log.error("supabase_client: SUPABASE_URL or SUPABASE_KEY missing — anon client unavailable")
+    supabase = None
 
-# Service-role client — bypasses RLS for all admin operations.
+# ── Service-role client (used for all admin routes — bypasses RLS) ───────────
 if SUPABASE_URL and SUPABASE_SERVICE_KEY:
     try:
         supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        log.warning("supabase_client: service-role (admin) client ready — key prefix: %s", SUPABASE_SERVICE_KEY[:20])
+        log.warning("supabase_client: service-role client ready")
     except Exception as e:
-        log.error("supabase_client: admin create_client failed: %r", e)
-        supabase_admin = supabase
+        log.error("supabase_client: service-role create_client failed: %r", e)
+        supabase_admin = supabase  # fallback — admin pages will be RLS-blocked
 else:
-    log.warning(
-        "supabase_client: SUPABASE_SERVICE_KEY is NOT set. "
-        "Admin pages will use the anon key and will be blocked by RLS. "
-        "Add SUPABASE_SERVICE_KEY to your .env and Vercel environment variables."
+    log.error(
+        "supabase_client: SUPABASE_SERVICE_KEY missing — "
+        "admin routes will fall back to anon key and be blocked by RLS. "
+        "Set SUPABASE_SERVICE_KEY in Vercel → Project Settings → Environment Variables."
     )
-    supabase_admin = supabase
+    supabase_admin = supabase  # fallback
