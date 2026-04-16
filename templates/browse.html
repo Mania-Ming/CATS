@@ -19,7 +19,7 @@
         <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm">Go to Dashboard</a>
         {% else %}
         <a href="{{ url_for('login') }}"    class="btn btn-outline btn-sm">Sign In</a>
-        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register Free</a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
         {% endif %}
     </div>
 </nav>
@@ -34,7 +34,7 @@
         <p class="browse-hero-sub">Every cat here is waiting for a loving home.<br>Browse, connect, and change a life.</p>
         {% if not logged_in %}
         <div class="browse-hero-cta">
-            <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started — It's Free</a>
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started</a>
         </div>
         {% endif %}
     </div>
