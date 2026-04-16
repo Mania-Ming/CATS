@@ -6,6 +6,17 @@
     <title>Adoption Requests — Admin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
+    <style>
+        .action-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: nowrap;
+        }
+        .action-row .status-select {
+            min-width: 100px;
+        }
+    </style>
 </head>
 <body>
 
@@ -20,7 +31,6 @@
 {% endwith %}
 
 <div class="app-layout">
-    {% set active_page = 'requests' %}
     {% include '_admin_sidebar.html' %}
 
     <div class="main-content">
@@ -29,29 +39,43 @@
                 <button class="hamburger" id="menuToggle">&#9776;</button>
                 <div>
                     <div class="topbar-title">Adoption Requests</div>
-                    <div class="topbar-subtitle">Review and manage all adoption applications</div>
+                    <div class="topbar-subtitle">{{ requests|length }} total request{{ 's' if requests|length != 1 }}</div>
                 </div>
             </div>
         </div>
 
         <div class="page-content">
-            <div class="section-header">
-                <div><h3>All Requests</h3><p>{{ requests|length }} total</p></div>
-            </div>
-
             {% if requests %}
             <div class="table-card">
                 <table>
                     <thead>
-                        <tr><th>#</th><th>Cat</th><th>Applicant</th><th>Contact</th><th>Valid ID</th><th>Status</th><th>Date</th><th>Actions</th></tr>
+                        <tr>
+                            <th>#</th>
+                            <th>Cat</th>
+                            <th>Applicant</th>
+                            <th>Contact</th>
+                            <th>Valid ID</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
                     </thead>
                     <tbody>
                         {% for r in requests %}
                         <tr>
-                            <td style="color:var(--text-muted);">{{ r[0] }}</td>
-                            <td><strong>{{ r[1] }}</strong><br><span style="font-size:11px;color:var(--text-muted);">{{ r[2] }}</span></td>
-                            <td><strong>{{ r[3] }}</strong><br><span style="font-size:11px;color:var(--text-muted);">{{ r[9] }}</span></td>
-                            <td>{{ r[4] }}<br><span style="font-size:11px;color:var(--text-muted);">{{ r[5] }}</span></td>
+                            <td style="color:var(--text-muted);font-size:12px;">{{ r[0] }}</td>
+                            <td>
+                                <strong>{{ r[1] or '—' }}</strong><br>
+                                <span style="font-size:11px;color:var(--text-muted);">{{ r[2] or '' }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ r[3] or '—' }}</strong><br>
+                                <span style="font-size:11px;color:var(--text-muted);">{{ r[9] or '' }}</span>
+                            </td>
+                            <td style="font-size:12px;">
+                                {{ r[4] or '—' }}<br>
+                                <span style="color:var(--text-muted);">{{ r[5] or '' }}</span>
+                            </td>
                             <td>
                                 {% if r[8] %}
                                 <a href="{{ r[8] }}" target="_blank" class="btn btn-outline btn-sm">View ID</a>
@@ -60,20 +84,25 @@
                                 {% endif %}
                             </td>
                             <td><span class="badge badge-{{ r[6]|lower }}">{{ r[6] }}</span></td>
-                            <td style="color:var(--text-muted);font-size:12px;">{{ r[7].strftime('%b %d, %Y') if r[7] else '—' }}</td>
-                            <td style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                                <form method="POST" action="{{ url_for('update_status', req_id=r[0]) }}" style="display:flex;gap:6px;align-items:center;">
-                                    <select name="status" class="status-select">
-                                        <option value="Pending"  {% if r[6]=='Pending'  %}selected{% endif %}>Pending</option>
-                                        <option value="Approved" {% if r[6]=='Approved' %}selected{% endif %}>Approved</option>
-                                        <option value="Rejected" {% if r[6]=='Rejected' %}selected{% endif %}>Rejected</option>
-                                    </select>
-                                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                                </form>
-                                <form method="POST" action="{{ url_for('admin_delete_request', req_id=r[0]) }}"
-                                      onsubmit="return confirm('Delete request #{{ r[0] }}?')">
-                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                                </form>
+                            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap;">
+                                {{ r[7].strftime('%b %d, %Y') if r[7] else '—' }}
+                            </td>
+                            <td>
+                                <div class="action-row">
+                                    <form method="POST" action="{{ url_for('update_status', req_id=r[0]) }}"
+                                          style="display:flex;align-items:center;gap:6px;">
+                                        <select name="status" class="status-select">
+                                            <option value="Pending"  {% if r[6]=='Pending'  %}selected{% endif %}>Pending</option>
+                                            <option value="Approved" {% if r[6]=='Approved' %}selected{% endif %}>Approved</option>
+                                            <option value="Rejected" {% if r[6]=='Rejected' %}selected{% endif %}>Rejected</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('admin_delete_request', req_id=r[0]) }}"
+                                          onsubmit="return confirm('Delete request #{{ r[0] }}?')">
+                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

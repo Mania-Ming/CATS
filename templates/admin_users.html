@@ -20,7 +20,6 @@
 {% endwith %}
 
 <div class="app-layout">
-    {% set active_page = 'users' %}
     {% include '_admin_sidebar.html' %}
 
     <div class="main-content">
@@ -29,47 +28,52 @@
                 <button class="hamburger" id="menuToggle">&#9776;</button>
                 <div>
                     <div class="topbar-title">Manage Users</div>
-                    <div class="topbar-subtitle">Update roles and manage user accounts</div>
+                    <div class="topbar-subtitle">{{ users|length }} registered user{{ 's' if users|length != 1 }}</div>
                 </div>
             </div>
         </div>
 
         <div class="page-content">
-            <div class="section-header">
-                <div><h3>All Users</h3><p>{{ users|length }} registered</p></div>
-            </div>
-
             {% if users %}
             <div class="table-card">
                 <table>
                     <thead>
-                        <tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr>
+                        <tr>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Address</th>
+                            <th>Role</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
                     </thead>
                     <tbody>
                         {% for u in users %}
                         <tr>
-                            <td><strong>{{ u.full_name or 'Unnamed' }}</strong></td>
-                            <td style="color:var(--text-muted);">{{ u.email }}</td>
+                            <td><strong>{{ u.full_name or '—' }}</strong></td>
+                            <td style="color:var(--text-muted);font-size:12px;">{{ u.email or '—' }}</td>
+                            <td style="color:var(--text-muted);font-size:12px;">{{ u.phone or '—' }}</td>
+                            <td style="color:var(--text-muted);font-size:12px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ u.address or '—' }}</td>
                             <td>
                                 <form method="POST" action="{{ url_for('admin_users_update_role', user_id=u.id) }}"
-                                      style="display:flex;gap:6px;align-items:center;"
-                                      onsubmit="return confirm('Change role for {{ u.full_name or u.email }}?')">
+                                      style="display:flex;gap:6px;align-items:center;">
                                     <select name="role" class="status-select">
-                                        <option value="user"  {% if u.role == 'user'  or not u.role %}selected{% endif %}>User</option>
+                                        <option value="user"  {% if (u.role or 'user') == 'user'  %}selected{% endif %}>User</option>
                                         <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
                                     </select>
                                     <button type="submit" class="btn btn-primary btn-sm">Save</button>
                                 </form>
                             </td>
-                            <td style="color:var(--text-muted);font-size:12px;">
+                            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap;">
                                 {{ u.created_at[:10] if u.created_at else '—' }}
                             </td>
                             <td>
                                 <form method="POST" action="{{ url_for('admin_users_delete', user_id=u.id) }}"
-                                      onsubmit="return confirm('Delete {{ u.full_name or u.email }}? This cannot be undone.')">
+                                      onsubmit="return confirm('Delete {{ (u.full_name or u.email)|e }}? This cannot be undone.')">
                                     <button type="submit" class="btn btn-danger btn-sm"
                                             {% if u.id == session['user_id'] %}disabled title="Cannot delete yourself"{% endif %}>
-                                        <i class="fas fa-trash"></i> Delete
+                                        Delete
                                     </button>
                                 </form>
                             </td>
@@ -82,7 +86,7 @@
             <div class="empty-state">
                 <div class="empty-icon"><i class="fas fa-users" style="font-size:48px;color:var(--text-muted);"></i></div>
                 <h3>No users found</h3>
-                <p>Users will appear here once they register.</p>
+                <p>If users exist in Supabase, check that <code>SUPABASE_SERVICE_KEY</code> is set in your environment variables — it is required to bypass Row Level Security.</p>
             </div>
             {% endif %}
         </div>

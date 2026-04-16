@@ -180,6 +180,12 @@ def admin_required():
     return "user_id" in session and session.get("role") == "admin"
 
 
+def _admin_db():
+    """Return the service-role client for admin queries so RLS is bypassed.
+    Falls back to the anon client if the service key is not configured."""
+    return supabase_admin if supabase_admin else supabase
+
+
 # ------------------------------------------------------------------ admin dashboard --
 
 @app.route("/admin")
@@ -187,22 +193,22 @@ def admin_dashboard():
     if not admin_required():
         return redirect(url_for("login"))
     try:
-        cats_res = supabase.table("cats").select("id").execute()
+        cats_res = _admin_db().table("cats").select("id").execute()
         total_cats = len(cats_res.data or [])
     except Exception:
         total_cats = 0
     try:
-        users_res = supabase.table("users").select("id").execute()
+        users_res = _admin_db().table("users").select("id").execute()
         total_users = len(users_res.data or [])
     except Exception:
         total_users = 0
     try:
-        pending_res = supabase.table("adoption_requests").select("id").eq("status", "Pending").execute()
+        pending_res = _admin_db().table("adoption_requests").select("id").eq("status", "Pending").execute()
         pending_count = len(pending_res.data or [])
     except Exception:
         pending_count = 0
     try:
-        ar_res = supabase.table("adoption_requests").select(
+        ar_res = _admin_db().table("adoption_requests").select(
             "id, status, created_at, cat_id, user_id"
         ).order("created_at", desc=True).limit(5).execute()
         requests_list = _build_requests_list(ar_res.data or [])
@@ -219,18 +225,19 @@ def admin_dashboard():
 
 def _build_requests_list(ar_data):
     """Enrich adoption request rows with cat name/breed and user name/email."""
+    db = _admin_db()
     result = []
     for ar in ar_data:
         cat_name = cat_breed = user_name = user_email = user_phone = user_addr = valid_id = None
         try:
-            cat_res = supabase.table("cats").select("name, breed").eq("id", ar["cat_id"]).single().execute()
+            cat_res = db.table("cats").select("name, breed").eq("id", ar["cat_id"]).single().execute()
             if cat_res.data:
                 cat_name  = cat_res.data.get("name")
                 cat_breed = cat_res.data.get("breed")
         except Exception:
             pass
         try:
-            u_res = supabase.table("users").select(
+            u_res = db.table("users").select(
                 "full_name, email, phone, address, valid_id_url"
             ).eq("id", ar["user_id"]).single().execute()
             if u_res.data:
@@ -295,7 +302,7 @@ def admin_requests():
     if not admin_required():
         return redirect(url_for("login"))
     try:
-        ar_res = supabase.table("adoption_requests").select(
+        ar_res = _admin_db().table("adoption_requests").select(
             "id, status, created_at, cat_id, user_id"
         ).order("created_at", desc=True).execute()
         requests_list = _build_requests_list(ar_res.data or [])
@@ -313,7 +320,7 @@ def admin_cats():
         return redirect(url_for("login"))
     search = request.args.get("search", "").strip()
     try:
-        cats = supabase.table("cats").select("*").order("id").execute().data or []
+        cats = _admin_db().table("cats").select("*").order("id").execute().data or []
         if search:
             cats = [c for c in cats
                     if search.lower() in (c.get("name") or "").lower()
@@ -350,11 +357,11 @@ def admin_cats_add():
         "about":       request.form.get("about", "").strip() or None,
     }
     try:
-        supabase.table("cats").insert(payload).execute()
+        _admin_db().table("cats").insert(payload).execute()
         flash(f"{name} added successfully.", "success")
     except Exception as e:
         log.error("admin_cats_add failed: %s", e)
-        flash("Failed to add cat.", "error")
+        flash(f"Failed to add cat: {e}", "error")
     return redirect(url_for("admin_cats"))
 
 
@@ -381,11 +388,11 @@ def admin_cats_edit(cat_id):
         "about":       request.form.get("about", "").strip() or None,
     }
     try:
-        supabase.table("cats").update(payload).eq("id", cat_id).execute()
+        _admin_db().table("cats").update(payload).eq("id", cat_id).execute()
         flash(f"{name} updated successfully.", "success")
     except Exception as e:
         log.error("admin_cats_edit(%s) failed: %s", cat_id, e)
-        flash("Failed to update cat.", "error")
+        flash(f"Failed to update cat: {e}", "error")
     return redirect(url_for("admin_cats"))
 
 
@@ -394,11 +401,11 @@ def admin_cats_delete(cat_id):
     if not admin_required():
         return redirect(url_for("login"))
     try:
-        supabase.table("cats").delete().eq("id", cat_id).execute()
+        _admin_db().table("cats").delete().eq("id", cat_id).execute()
         flash("Cat deleted.", "success")
     except Exception as e:
         log.error("admin_cats_delete(%s) failed: %s", cat_id, e)
-        flash("Failed to delete cat.", "error")
+        flash(f"Failed to delete cat: {e}", "error")
     return redirect(url_for("admin_cats"))
 
 
@@ -409,10 +416,9 @@ def admin_users():
     if not admin_required():
         return redirect(url_for("login"))
     try:
-        users = supabase.table("users").select(
-            "id, full_name, email, role, created_at"
+        users = _admin_db().table("users").select(
+            "id, full_name, email, phone, address, role, created_at"
         ).execute().data or []
-        # sort in Python — avoids 500 if created_at column is missing
         users.sort(key=lambda u: u.get("created_at") or "", reverse=True)
     except Exception as e:
         log.error("admin_users failed: %s", e)
@@ -429,11 +435,11 @@ def admin_users_update_role(user_id):
         flash("Invalid role.", "error")
         return redirect(url_for("admin_users"))
     try:
-        supabase.table("users").update({"role": role}).eq("id", user_id).execute()
+        _admin_db().table("users").update({"role": role}).eq("id", user_id).execute()
         flash("Role updated.", "success")
     except Exception as e:
         log.error("admin_users_update_role(%s) failed: %s", user_id, e)
-        flash("Failed to update role.", "error")
+        flash(f"Failed to update role: {e}", "error")
     return redirect(url_for("admin_users"))
 
 
@@ -445,11 +451,11 @@ def admin_users_delete(user_id):
         flash("You cannot delete your own account.", "error")
         return redirect(url_for("admin_users"))
     try:
-        supabase.table("users").delete().eq("id", user_id).execute()
+        _admin_db().table("users").delete().eq("id", user_id).execute()
         flash("User deleted.", "success")
     except Exception as e:
         log.error("admin_users_delete(%s) failed: %s", user_id, e)
-        flash("Failed to delete user.", "error")
+        flash(f"Failed to delete user: {e}", "error")
     return redirect(url_for("admin_users"))
 
 
