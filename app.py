@@ -210,7 +210,10 @@ def admin_required():
 def _admin_db():
     """Return the service-role client for admin queries so RLS is bypassed.
     Falls back to the anon client if the service key is not configured."""
-    return supabase_admin if supabase_admin else supabase
+    from supabase_client import SUPABASE_SERVICE_KEY
+    if SUPABASE_SERVICE_KEY and supabase_admin and supabase_admin is not supabase:
+        return supabase_admin
+    return supabase
 
 
 # ------------------------------------------------------------------ admin dashboard --
