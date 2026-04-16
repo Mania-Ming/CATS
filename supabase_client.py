@@ -26,7 +26,7 @@ else:
 if SUPABASE_URL and SUPABASE_SERVICE_KEY:
     try:
         supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        log.warning("supabase_client: service-role (admin) client ready")
+        log.warning("supabase_client: service-role (admin) client ready — key prefix: %s", SUPABASE_SERVICE_KEY[:20])
     except Exception as e:
         log.error("supabase_client: admin create_client failed: %r", e)
         supabase_admin = supabase
