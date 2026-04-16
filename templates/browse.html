@@ -80,21 +80,30 @@
     {% if cats %}
     <div class="browse-grid" id="browseGrid">
         {% for cat in cats %}
-        <div class="bcard"
+        {% set is_adopted = cat[6] == 'adopted' %}
+        <div class="bcard {% if is_adopted %}bcard-adopted{% endif %}"
              data-breed="{{ cat[2] }}"
              data-gender="{{ cat[4] }}"
              data-age="{{ cat[3] }}"
-             role="button"
-             tabindex="0"
-             aria-label="View details for {{ cat[1] }}"
+             role="{% if is_adopted %}img{% else %}button{% endif %}"
+             tabindex="{% if is_adopted %}-1{% else %}0{% endif %}"
+             aria-label="{{ cat[1] }}{% if is_adopted %} — Adopted{% endif %}"
+             {% if not is_adopted %}
              onclick="handleCardClick()"
-             onkeydown="if(event.key==='Enter'||event.key===' ')handleCardClick()">
+             onkeydown="if(event.key==='Enter'||event.key===' ')handleCardClick()"
+             {% endif %}>
 
             <div class="bcard-img-wrap">
                 <img src="{{ url_for('static', filename='images/' + cat[5]) }}"
                      alt="{{ cat[1] }}" loading="lazy">
-                <div class="bcard-overlay">
-                    <span>{% if logged_in %}View Details{% else %}Sign In to Adopt{% endif %}</span>
+                <div class="bcard-overlay" {% if is_adopted %}style="opacity:1;background:rgba(26,29,46,0.55);"{% endif %}>
+                    {% if is_adopted %}
+                    <span style="background:var(--danger);border-color:var(--danger);">Adopted</span>
+                    {% elif logged_in %}
+                    <span>View Details</span>
+                    {% else %}
+                    <span>Sign In to Adopt</span>
+                    {% endif %}
                 </div>
             </div>
 
@@ -104,6 +113,9 @@
                 <div class="bcard-badges">
                     <span class="bcard-badge bcard-badge-age">{{ cat[3] }} {{ 'yr' if cat[3] == 1 else 'yrs' }}</span>
                     <span class="bcard-badge bcard-badge-gender">{{ cat[4] }}</span>
+                    {% if is_adopted %}
+                    <span class="bcard-badge" style="background:#fef2f2;color:#dc2626;">Adopted</span>
+                    {% endif %}
                 </div>
             </div>
         </div>

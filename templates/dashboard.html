@@ -62,16 +62,25 @@
         <!-- CATS GRID -->
         <div class="cats-grid">
             {% for cat in cats %}
-            <div class="cat-card"
-                 role="button"
-                 tabindex="0"
-                 aria-label="View details for {{ cat.name }}"
+            {% set is_adopted = cat.status == 'adopted' %}
+            <div class="cat-card {% if is_adopted %}cat-card-adopted{% endif %}"
+                 role="{% if is_adopted %}img{% else %}button{% endif %}"
+                 tabindex="{% if is_adopted %}-1{% else %}0{% endif %}"
+                 aria-label="{{ cat.name }}{% if is_adopted %} — Adopted{% endif %}"
+                 {% if not is_adopted %}
                  onclick="openBreedDetail({{ cat.id }})"
-                 onkeydown="if(event.key==='Enter'||event.key===' ')openBreedDetail({{ cat.id }})">
+                 onkeydown="if(event.key==='Enter'||event.key===' ')openBreedDetail({{ cat.id }})"
+                 {% endif %}>
                 <div class="cat-card-img-wrap">
                     <img src="{{ url_for('static', filename='images/' + (cat.image or 'cat1.jpg')) }}"
                          alt="{{ cat.name }}">
+                    {% if is_adopted %}
+                    <div class="cat-card-overlay" style="opacity:1;background:rgba(26,29,46,0.55);">
+                        <span style="background:var(--danger);border-color:var(--danger);">Adopted</span>
+                    </div>
+                    {% else %}
                     <div class="cat-card-overlay">View Details</div>
+                    {% endif %}
                 </div>
                 <div class="cat-card-body">
                     <h3 class="cat-card-name">{{ cat.name }}</h3>
@@ -79,6 +88,9 @@
                     <div class="cat-meta">
                         <span class="cat-badge">{{ cat.age }} {{ 'yr' if cat.age == 1 else 'yrs' }}</span>
                         <span class="cat-badge gender">{{ cat.gender }}</span>
+                        {% if is_adopted %}
+                        <span class="cat-badge" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;">Adopted</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -127,7 +139,7 @@
         </div>
         <div class="modal-footer" id="bdFooter">
             <button type="button" onclick="closeBreedDetail()" class="btn btn-secondary">Close</button>
-            <button type="button" onclick="openAdoptFromDetail()" class="btn btn-primary">❤ Adopt Me</button>
+            <button type="button" onclick="openAdoptFromDetail()" class="btn btn-primary" id="adoptFromDetailBtn">❤ Adopt Me</button>
         </div>
     </div>
 </div>
@@ -234,6 +246,18 @@ function openBreedDetail(catId) {
             _currentCat = cat;
             document.getElementById("bdTitle").innerText = cat.name + " — " + cat.breed;
             document.getElementById("bdBody").innerHTML  = buildDetailHTML(cat);
+            const adoptBtn = document.getElementById("adoptFromDetailBtn");
+            if (cat.status === "adopted") {
+                adoptBtn.disabled = true;
+                adoptBtn.textContent = "Already Adopted";
+                adoptBtn.style.opacity = "0.5";
+                adoptBtn.style.cursor = "not-allowed";
+            } else {
+                adoptBtn.disabled = false;
+                adoptBtn.textContent = "\u2764 Adopt Me";
+                adoptBtn.style.opacity = "";
+                adoptBtn.style.cursor = "";
+            }
         })
         .catch(err => {
             console.error("breed detail fetch error:", err);

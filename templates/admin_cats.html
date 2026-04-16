@@ -73,7 +73,8 @@
                             <td>{{ cat.age if cat.age is not none else '—' }}</td>
                             <td>{{ cat.gender or '—' }}</td>
                             <td><span class="badge badge-{{ 'approved' if cat.status == 'available' else 'rejected' if cat.status == 'adopted' else 'pending' }}">{{ (cat.status or 'available').title() }}</span></td>
-                            <td style="display:flex;gap:6px;">
+                            <td style="vertical-align:middle;">
+                                <div style="display:flex;align-items:center;gap:6px;">
                                 <button class="btn btn-outline btn-sm edit-cat-btn"
                                     data-id="{{ cat.id }}"
                                     data-name={{ cat.name | tojson }}
@@ -94,6 +95,7 @@
                                       onsubmit="return confirm('Delete {{ cat.name }}?')">
                                     <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button>
                                 </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

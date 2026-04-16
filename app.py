@@ -557,9 +557,9 @@ def dashboard():
     search = request.args.get("search", "")
     breed  = request.args.get("breed", "")
     try:
-        q = supabase.table("cats").select("*").eq("status", "available")
+        q = supabase.table("cats").select("*")
         if search:
-            q = q.ilike("breed", f"%{search}%")
+            q = q.ilike("name", f"%{search}%")
         if breed and breed != "All Breeds":
             q = q.eq("breed", breed)
         cats = [c for c in (q.execute().data or [])]
