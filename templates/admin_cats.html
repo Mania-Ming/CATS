@@ -81,7 +81,15 @@
                             <td style="font-size:12px;">{{ cat.breed or '—' }}</td>
                             <td style="font-size:12px;">{{ cat.age if cat.age is not none else '—' }}</td>
                             <td style="font-size:12px;">{{ cat.gender or '—' }}</td>
-                            <td><span class="fee-badge">{% if cat.adoption_fee %}₱{{ cat.adoption_fee | int }}{% else %}Free{% endif %}</span></td>
+                            <td>
+                                {% if cat.adoption_fee is not none and cat.adoption_fee == 0 %}
+                                <span class="fee-badge">Free</span>
+                                {% elif cat.adoption_fee %}
+                                <span class="fee-badge" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa;">&#8369;{{ cat.adoption_fee | int }}</span>
+                                {% else %}
+                                <span class="fee-badge">Free</span>
+                                {% endif %}
+                            </td>
                             <td style="font-size:12px;">{{ cat.vaccination_status or '—' }}</td>
                             <td style="font-size:12px;">{{ cat.health_status or '—' }}</td>
                             <td style="font-size:12px;">{% if cat.spayed_neutered is not none %}{{ 'Yes' if cat.spayed_neutered else 'No' }}{% else %}—{% endif %}</td>
@@ -280,6 +288,17 @@ document.getElementById('menuToggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open'));
 
 function openAddModal() { document.getElementById('addModal').classList.add('open'); }
+
+// Validate fee on form submit
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', e => {
+        const feeInput = form.querySelector('input[name="adoption_fee"]');
+        if (feeInput && feeInput.value !== '' && parseFloat(feeInput.value) < 0) {
+            e.preventDefault();
+            alert('Adoption fee cannot be negative.');
+        }
+    });
+});
 
 document.querySelectorAll('.edit-cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {

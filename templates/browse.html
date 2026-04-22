@@ -74,6 +74,16 @@
             <option value="adult">Adult (2–3 yrs)</option>
             <option value="senior">Senior (4+ yrs)</option>
         </select>
+        <select id="filterFee" onchange="applyFilters()">
+            <option value="">Any Fee</option>
+            <option value="free">Free</option>
+            <option value="paid">Paid</option>
+        </select>
+        <select id="sortFee" onchange="applyFilters()">
+            <option value="">Sort by Fee</option>
+            <option value="asc">Fee: Low to High</option>
+            <option value="desc">Fee: High to Low</option>
+        </select>
         <span class="filter-count" id="filterCount"></span>
     </div>
 </div>
@@ -88,6 +98,7 @@
              data-breed="{{ cat[2] }}"
              data-gender="{{ cat[4] }}"
              data-age="{{ cat[3] }}"
+             data-fee="{{ cat[7] if cat[7] is not none else '' }}"
              role="{% if is_adopted %}img{% else %}button{% endif %}"
              tabindex="{% if is_adopted %}-1{% else %}0{% endif %}"
              aria-label="{{ cat[1] }}{% if is_adopted %} — Adopted{% endif %}"
@@ -118,8 +129,12 @@
                 <div class="bcard-badges">
                     <span class="bcard-badge bcard-badge-age">{{ cat[3] }} {{ 'yr' if cat[3] == 1 else 'yrs' }}</span>
                     <span class="bcard-badge bcard-badge-gender">{{ cat[4] }}</span>
-                    {% if cat[7] %}
-                    <span class="bcard-badge" style="background:#f0fdf4;color:#15803d;">₱{{ cat[7] | int }}</span>
+                    {% if cat[7] is not none %}
+                    {% if cat[7] == 0 or cat[7] == 0.0 %}
+                    <span class="bcard-badge" style="background:#f0fdf4;color:#15803d;">Free</span>
+                    {% else %}
+                    <span class="bcard-badge" style="background:#fff7ed;color:#c2410c;">&#8369;{{ cat[7] | int }}</span>
+                    {% endif %}
                     {% endif %}
                     {% if is_adopted %}
                     <span class="bcard-badge" style="background:#fef2f2;color:#dc2626;">Adopted</span>
@@ -222,26 +237,46 @@ function applyFilters() {
     const breed  = document.getElementById('filterBreed').value;
     const gender = document.getElementById('filterGender').value;
     const age    = document.getElementById('filterAge').value;
-    const cards  = document.querySelectorAll('.bcard');
+    const fee    = document.getElementById('filterFee').value;
+    const sort   = document.getElementById('sortFee').value;
+    const grid   = document.getElementById('browseGrid');
+    const cards  = Array.from(document.querySelectorAll('.bcard'));
     let visible  = 0;
 
     cards.forEach(card => {
         const cBreed  = card.dataset.breed;
         const cGender = card.dataset.gender;
         const cAge    = parseInt(card.dataset.age);
+        const cFeeRaw = card.dataset.fee;
+        const cFee    = cFeeRaw === '' ? null : parseFloat(cFeeRaw);
 
         const ageMatch = !age
             || (age === 'young'  && cAge === 1)
             || (age === 'adult'  && cAge >= 2 && cAge <= 3)
             || (age === 'senior' && cAge >= 4);
 
+        const feeMatch = !fee
+            || (fee === 'free' && (cFee === null || cFee === 0))
+            || (fee === 'paid' && cFee !== null && cFee > 0);
+
         const show = (!breed || cBreed === breed)
                   && (!gender || cGender === gender)
-                  && ageMatch;
+                  && ageMatch && feeMatch;
 
         card.style.display = show ? '' : 'none';
         if (show) visible++;
     });
+
+    // Sort visible cards by fee
+    if (sort && grid) {
+        const visible_cards = cards.filter(c => c.style.display !== 'none');
+        visible_cards.sort((a, b) => {
+            const fa = a.dataset.fee === '' ? 0 : parseFloat(a.dataset.fee);
+            const fb = b.dataset.fee === '' ? 0 : parseFloat(b.dataset.fee);
+            return sort === 'asc' ? fa - fb : fb - fa;
+        });
+        visible_cards.forEach(c => grid.appendChild(c));
+    }
 
     document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
     const countEl = document.getElementById('filterCount');
