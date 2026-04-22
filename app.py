@@ -244,7 +244,7 @@ def admin_dashboard():
         pending_count = 0
     try:
         ar_res = _admin_db().table("adoption_requests").select(
-            "id, status, created_at, cat_id, user_id, payment_status, payment_proof"
+            "id, status, created_at, cat_id, user_id, payment_status, payment_proof, payment_method"
         ).order("created_at", desc=True).limit(5).execute()
         requests_list = _build_requests_list(ar_res.data or [])
     except Exception as e:
@@ -291,6 +291,7 @@ def _build_requests_list(ar_data):
             valid_id, user_email,
             ar.get("payment_status"),   # r[10]
             ar.get("payment_proof"),    # r[11]
+            ar.get("payment_method"),   # r[12]
         ))
     return result
 
@@ -341,7 +342,7 @@ def admin_requests():
         return redirect(url_for("login"))
     try:
         ar_res = _admin_db().table("adoption_requests").select(
-            "id, status, created_at, cat_id, user_id, payment_status, payment_proof"
+            "id, status, created_at, cat_id, user_id, payment_status, payment_proof, payment_method"
         ).order("created_at", desc=True).execute()
         requests_list = _build_requests_list(ar_res.data or [])
     except Exception as e:
