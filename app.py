@@ -818,31 +818,39 @@ def history():
         return redirect(url_for("login"))
     try:
         ar_res = supabase.table("adoption_requests").select(
-            "status, created_at, cat_id"
+            "id, status, created_at, cat_id, payment_status, payment_proof, payment_method"
         ).eq("user_id", session["user_id"]).order("created_at", desc=True).execute()
 
         requests = []
         for ar in (ar_res.data or []):
-            cat_name = cat_breed = None
+            cat_name = cat_breed = cat_fee = None
             try:
-                cat_res = supabase.table("cats").select("name, breed").eq("id", ar["cat_id"]).single().execute()
+                cat_res = supabase.table("cats").select("name, breed, adoption_fee").eq("id", ar["cat_id"]).single().execute()
                 if cat_res.data:
                     cat_name  = cat_res.data.get("name")
                     cat_breed = cat_res.data.get("breed")
+                    cat_fee   = cat_res.data.get("adoption_fee")
             except Exception:
                 pass
-            requests.append((
-                cat_name,
-                cat_breed,
-                ar["status"],
-                parse_dt(ar.get("created_at")),
-            ))
+            requests.append({
+                "id":             ar["id"],
+                "cat_name":       cat_name,
+                "cat_breed":      cat_breed,
+                "cat_fee":        cat_fee,
+                "status":         ar.get("status", "Pending"),
+                "payment_status": ar.get("payment_status") or "Pending Payment",
+                "payment_proof":  ar.get("payment_proof"),
+                "payment_method": ar.get("payment_method") or "GCash",
+                "created_at":     parse_dt(ar.get("created_at")),
+            })
     except Exception as e:
         log.error("history failed: %s", e)
         requests = []
 
     user = get_user_profile(session["user_id"])
-    return render_template("history.html", requests=requests, user=user, active_page="history")
+    return render_template("history.html", requests=requests, user=user,
+                           gcash_number=GCASH_NUMBER, gcash_name=GCASH_NAME,
+                           active_page="history")
 
 
 # ------------------------------------------------------------------ profile --
