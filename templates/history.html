@@ -36,6 +36,20 @@
             flex-direction: column;
             gap: 4px;
         }
+        .gcash-qr-row {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        .gcash-qr-img {
+            width: 110px;
+            height: 110px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
         .gcash-box .gcash-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
                                    letter-spacing: 0.05em; color: #64748b; }
         .gcash-box .gcash-value { font-size: 15px; font-weight: 700; color: #1a1d2e; }
@@ -146,16 +160,33 @@
                             <i class="fas fa-credit-card"></i> Payment Required
                         </p>
                         <div class="gcash-box">
-                            <span class="gcash-label">Send via GCash</span>
-                            <span class="gcash-value">{{ gcash_number }}</span>
-                            <span class="gcash-label" style="margin-top:4px;">Account Name</span>
-                            <span class="gcash-value">{{ gcash_name }}</span>
+                            {% if req.payment_method == 'GCash' or not req.payment_method %}
+                            <div class="gcash-qr-row">
+                                <img src="{{ url_for('static', filename='images/gcash.png') }}"
+                                     alt="GCash QR Code" class="gcash-qr-img">
+                                <div style="display:flex;flex-direction:column;gap:4px;">
+                                    <span class="gcash-label">Scan QR or send to</span>
+                                    <span class="gcash-value">{{ gcash_number }}</span>
+                                    <span class="gcash-label" style="margin-top:4px;">Account Name</span>
+                                    <span class="gcash-value">{{ gcash_name }}</span>
+                                    <span class="gcash-label" style="margin-top:4px;">Amount</span>
+                                    <span class="gcash-amount">
+                                        {% if req.cat_fee is not none and req.cat_fee == 0 %}Free
+                                        {% elif req.cat_fee %}&#8369;{{ req.cat_fee | int }}
+                                        {% else %}Free{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="gcash-label">Payment Method</span>
+                            <span class="gcash-value">{{ req.payment_method }}</span>
                             <span class="gcash-label" style="margin-top:4px;">Amount</span>
                             <span class="gcash-amount">
                                 {% if req.cat_fee is not none and req.cat_fee == 0 %}Free
                                 {% elif req.cat_fee %}&#8369;{{ req.cat_fee | int }}
                                 {% else %}Free{% endif %}
                             </span>
+                            {% endif %}
                         </div>
                         <p style="font-size:12px;color:#92400e;margin-bottom:10px;">
                             After sending, upload your GCash screenshot below. Your request will be marked <strong>For Verification</strong>.
@@ -207,14 +238,29 @@
                             Your receipt was not accepted. Please send the correct amount and upload a clear screenshot.
                         </p>
                         <div class="gcash-box">
-                            <span class="gcash-label">GCash Number</span>
-                            <span class="gcash-value">{{ gcash_number }}</span>
-                            <span class="gcash-label" style="margin-top:4px;">Amount</span>
+                            {% if req.payment_method == 'GCash' or not req.payment_method %}
+                            <div class="gcash-qr-row">
+                                <img src="{{ url_for('static', filename='images/gcash.png') }}"
+                                     alt="GCash QR Code" class="gcash-qr-img">
+                                <div style="display:flex;flex-direction:column;gap:4px;">
+                                    <span class="gcash-label">Scan QR or send to</span>
+                                    <span class="gcash-value">{{ gcash_number }}</span>
+                                    <span class="gcash-label" style="margin-top:4px;">Amount</span>
+                                    <span class="gcash-amount">
+                                        {% if req.cat_fee is not none and req.cat_fee == 0 %}Free
+                                        {% elif req.cat_fee %}&#8369;{{ req.cat_fee | int }}
+                                        {% else %}Free{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="gcash-label">Amount</span>
                             <span class="gcash-amount">
                                 {% if req.cat_fee is not none and req.cat_fee == 0 %}Free
                                 {% elif req.cat_fee %}&#8369;{{ req.cat_fee | int }}
                                 {% else %}Free{% endif %}
                             </span>
+                            {% endif %}
                         </div>
                         <div class="upload-zone" onclick="document.getElementById('receipt_{{ req.id }}').click()">
                             <input type="file" id="receipt_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf"
