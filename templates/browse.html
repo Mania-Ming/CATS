@@ -6,7 +6,11 @@
     <title>Browse Cats — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
 </head>
-<body class="browse-page" data-logged-in="{{ 'true' if logged_in else 'false' }}" data-dashboard-url="{{ url_for('dashboard') }}" data-hero-img="{{ url_for('static', filename='images/cat3.jpg') }}">
+<body class="browse-page"
+      data-logged-in="{{ 'true' if logged_in else 'false' }}"
+      data-dashboard-url="{{ url_for('dashboard') }}"
+      data-hero-img="{{ url_for('static', filename='images/cat3.jpg') }}"
+      data-fallback-img="{{ url_for('static', filename='images/cat1.jpg') }}">
 
 <!-- NAV -->
 <nav class="browse-nav">
@@ -96,7 +100,7 @@
                 {% set img = cat[5] or 'cat1.jpg' %}
                 <img src="{% if img.startswith('http') %}{{ img }}{% else %}{{ url_for('static', filename='images/' ~ img) }}{% endif %}"
                      alt="{{ cat[1] }}" loading="lazy"
-                     onerror="this.src='{{ url_for('static', filename='images/cat1.jpg') }}'">
+                     onerror="this.onerror=null;this.src=document.body.dataset.fallbackImg;">
                 <div class="bcard-overlay" {% if is_adopted %}style="opacity:1;background:rgba(26,29,46,0.55);"{% endif %}>
                     {% if is_adopted %}
                     <span style="background:var(--danger);border-color:var(--danger);">Adopted</span>
