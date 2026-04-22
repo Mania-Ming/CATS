@@ -233,15 +233,19 @@
 
                         {# ── Allow switching method ── #}
                         {% if method %}
-                        <form method="POST" action="/select_payment_method/{{ req.id }}"
-                              style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <span style="font-size:11px;color:#92400e;">Change method:</span>
-                            <select name="payment_method" style="font-size:11px;padding:4px 8px;border:1px solid #fb923c;border-radius:6px;">
+                            <select id="payment_method_{{ req.id }}"
+                                    style="font-size:11px;padding:4px 8px;border:1px solid #fb923c;border-radius:6px;">
                                 <option value="GCash" {% if method == 'GCash' %}selected{% endif %}>GCash</option>
                                 <option value="COD"   {% if method == 'COD'   %}selected{% endif %}>Cash on Delivery</option>
                             </select>
-                            <button type="submit" class="btn btn-sm" style="padding:4px 10px;font-size:11px;background:#fb923c;color:white;border:none;border-radius:6px;">Update</button>
-                        </form>
+                            <button onclick="updatePaymentMethod({{ req.id }})"
+                                    style="padding:4px 10px;font-size:11px;background:#fb923c;color:white;border:none;border-radius:6px;cursor:pointer;">
+                                Update
+                            </button>
+                            <span id="method_status_{{ req.id }}" style="font-size:11px;"></span>
+                        </div>
                         {% endif %}
                     </div>
 
@@ -366,6 +370,36 @@
 <script>
 document.getElementById('menuToggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open'));
+
+function updatePaymentMethod(requestId) {
+    const sel = document.getElementById('payment_method_' + requestId);
+    const method = sel ? sel.value : null;
+    const statusEl = document.getElementById('method_status_' + requestId);
+    if (!method) return;
+    statusEl.style.color = '#64748b';
+    statusEl.textContent = 'Saving...';
+    fetch('/update-payment-method/' + requestId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_method: method })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            statusEl.style.color = '#15803d';
+            statusEl.textContent = '\u2713 Updated!';
+            setTimeout(() => location.reload(), 800);
+        } else {
+            statusEl.style.color = '#dc2626';
+            statusEl.textContent = 'Failed: ' + (data.error || 'Unknown error');
+        }
+    })
+    .catch(err => {
+        console.error('updatePaymentMethod error:', err);
+        statusEl.style.color = '#dc2626';
+        statusEl.textContent = 'Request failed. Try again.';
+    });
+}
 
 function uploadReceipt(reqId, input) {
     const file = input.files[0];

@@ -692,6 +692,31 @@ def api_cat_delete():
         return jsonify({"error": str(e)}), 500
 
 
+# ------------------------------------------------------------------ update payment method (JSON API) --
+
+@app.route("/update-payment-method/<int:request_id>", methods=["POST"])
+def update_payment_method(request_id):
+    from flask import jsonify
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        data = request.get_json(force=True) or {}
+        payment_method = data.get("payment_method", "").strip()
+        log.warning("update_payment_method: req=%s method=%s user=%s",
+                    request_id, payment_method, session.get("user_id"))
+        if payment_method not in ("GCash", "COD"):
+            return jsonify({"error": "Invalid payment method. Must be GCash or COD."}), 400
+        update = {"payment_method": payment_method}
+        if payment_method == "COD":
+            update["payment_status"] = "For Verification"
+        res = supabase.table("adoption_requests").update(update).eq(
+            "id", request_id).eq("user_id", session["user_id"]).execute()
+        return jsonify({"success": True, "data": res.data})
+    except Exception as e:
+        log.error("update_payment_method(%s) failed: %s", request_id, e)
+        return jsonify({"error": str(e)}), 500
+
+
 # ------------------------------------------------------------------ select payment method --
 
 @app.route("/select_payment_method/<int:req_id>", methods=["POST"])
