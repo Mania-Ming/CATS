@@ -114,8 +114,15 @@
                 <div class="bcard-badges">
                     <span class="bcard-badge bcard-badge-age">{{ cat[3] }} {{ 'yr' if cat[3] == 1 else 'yrs' }}</span>
                     <span class="bcard-badge bcard-badge-gender">{{ cat[4] }}</span>
+                    {% if cat[7] %}
+                    <span class="bcard-badge" style="background:#f0fdf4;color:#15803d;">₱{{ cat[7] | int }}</span>
+                    {% endif %}
                     {% if is_adopted %}
                     <span class="bcard-badge" style="background:#fef2f2;color:#dc2626;">Adopted</span>
+                    {% elif cat[6] == 'pending' %}
+                    <span class="bcard-badge" style="background:#fff7ed;color:#c2410c;">Pending</span>
+                    {% else %}
+                    <span class="bcard-badge" style="background:#f0fdf4;color:#15803d;">Available</span>
                     {% endif %}
                 </div>
             </div>

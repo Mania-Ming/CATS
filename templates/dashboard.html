@@ -90,8 +90,15 @@
                     <div class="cat-meta">
                         <span class="cat-badge">{{ cat.age }} {{ 'yr' if cat.age == 1 else 'yrs' }}</span>
                         <span class="cat-badge gender">{{ cat.gender }}</span>
+                        {% if cat.adoption_fee %}
+                        <span class="cat-badge" style="background:#f0fdf4;color:#15803d;border-color:#bbf7d0;">₱{{ cat.adoption_fee | int }}</span>
+                        {% endif %}
                         {% if is_adopted %}
                         <span class="cat-badge" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;">Adopted</span>
+                        {% elif cat.status == 'pending' %}
+                        <span class="cat-badge" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa;">Pending</span>
+                        {% else %}
+                        <span class="cat-badge" style="background:#f0fdf4;color:#15803d;border-color:#bbf7d0;">Available</span>
                         {% endif %}
                     </div>
                 </div>
@@ -280,18 +287,27 @@ function buildDetailHTML(cat) {
     const img    = cat.image || "cat1.jpg";
     const imgSrc = img.startsWith('http') ? img : '/static/images/' + img;
     const weight = cat.weight_range || cat.weight || "—";
+    const fee    = cat.adoption_fee ? '\u20b1' + parseInt(cat.adoption_fee).toLocaleString() : 'Free';
 
     const rows = [
-        ["Origin",      cat.origin      || "—"],
-        ["Weight",      weight],
-        ["Size",        cat.size        || "—"],
-        ["Lifespan",    cat.lifespan    || "—"],
-        ["Coat Colors", cat.coat_colors || "—"],
-        ["Temperament", cat.temperament || "—"],
+        ["Origin",       cat.origin             || "—"],
+        ["Weight",       weight],
+        ["Size",         cat.size               || "—"],
+        ["Lifespan",     cat.lifespan           || "—"],
+        ["Coat Colors",  cat.coat_colors        || "—"],
+        ["Temperament",  cat.temperament        || "—"],
+        ["Vaccination",  cat.vaccination_status || "—"],
+        ["Health",       cat.health_status      || "—"],
+        ["Spayed/Neutered", cat.spayed_neutered === true ? 'Yes' : cat.spayed_neutered === false ? 'No' : '—'],
+        ["Adoption Fee", fee],
     ];
     const tableRows = rows.map(([k,v]) =>
         `<tr><td class="bd-label">${k}</td><td>${v}</td></tr>`
     ).join("");
+
+    const statusColor = cat.status === 'adopted' ? '#dc2626' : cat.status === 'pending' ? '#c2410c' : '#15803d';
+    const statusBg    = cat.status === 'adopted' ? '#fef2f2' : cat.status === 'pending' ? '#fff7ed' : '#f0fdf4';
+    const statusLabel = cat.status ? cat.status.charAt(0).toUpperCase() + cat.status.slice(1) : 'Available';
 
     const aboutSection = cat.about
         ? `<div class="bd-about">
@@ -305,6 +321,10 @@ function buildDetailHTML(cat) {
         <div class="bd-images">
             <img src="${imgSrc}" alt="${cat.breed}" class="bd-main-img"
                  onerror="this.src='/static/images/cat1.jpg'">
+            <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+                <span style="background:${statusBg};color:${statusColor};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">${statusLabel}</span>
+                <span style="background:#f0fdf4;color:#15803d;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">${fee}</span>
+            </div>
         </div>
         <div class="bd-info">
             ${cat.description ? `<p class="bd-desc">${cat.description}</p>` : ""}

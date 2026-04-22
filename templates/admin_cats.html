@@ -7,14 +7,18 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
     <style>
-        .modal-box-lg { max-width: 720px; }
+        .modal-box-lg { max-width: 760px; }
         .form-grid-3  { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
-        .form-grid-2  { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
         .col-span-3   { grid-column: span 3; }
         .col-span-2   { grid-column: span 2; }
         @media(max-width:640px){
-            .form-grid-3,.form-grid-2{grid-template-columns:1fr;}
+            .form-grid-3{grid-template-columns:1fr;}
             .col-span-3,.col-span-2{grid-column:span 1;}
+        }
+        .fee-badge {
+            display:inline-block;padding:2px 8px;border-radius:20px;
+            background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;
+            font-size:11px;font-weight:600;
         }
     </style>
 </head>
@@ -58,30 +62,41 @@
 
             {% if cats %}
             <div class="table-card">
+                <div style="overflow-x:auto;">
                 <table>
                     <thead>
-                        <tr><th>Image</th><th>Name</th><th>Breed</th><th>Age</th><th>Gender</th><th>Status</th><th>Actions</th></tr>
+                        <tr>
+                            <th>Image</th><th>Name</th><th>Breed</th><th>Age</th><th>Gender</th>
+                            <th>Fee</th><th>Vaccination</th><th>Health</th><th>Spayed</th><th>Status</th><th>Actions</th>
+                        </tr>
                     </thead>
                     <tbody>
                         {% for cat in cats %}
                         {% set img = cat.image or 'cat1.jpg' %}
                         {% set img_src = img if img.startswith('http') else url_for('static', filename='images/' ~ img) %}
+                        {% set st = cat.status or 'available' %}
                         <tr>
-                            <td><img src="{{ img_src }}" alt="{{ cat.name }}" style="width:52px;height:52px;object-fit:cover;border-radius:10px;border:1px solid var(--border);"></td>
+                            <td><img src="{{ img_src }}" alt="{{ cat.name }}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--border);" onerror="this.src='{{ url_for('static', filename='images/cat1.jpg') }}'"></td>
                             <td><strong>{{ cat.name }}</strong><br><span style="font-size:11px;color:var(--text-muted);">ID #{{ cat.id }}</span></td>
-                            <td>{{ cat.breed or '—' }}</td>
-                            <td>{{ cat.age if cat.age is not none else '—' }}</td>
-                            <td>{{ cat.gender or '—' }}</td>
-                            <td><span class="badge badge-{{ 'approved' if cat.status == 'available' else 'rejected' if cat.status == 'adopted' else 'pending' }}">{{ (cat.status or 'available').title() }}</span></td>
+                            <td style="font-size:12px;">{{ cat.breed or '—' }}</td>
+                            <td style="font-size:12px;">{{ cat.age if cat.age is not none else '—' }}</td>
+                            <td style="font-size:12px;">{{ cat.gender or '—' }}</td>
+                            <td><span class="fee-badge">{% if cat.adoption_fee %}₱{{ cat.adoption_fee | int }}{% else %}Free{% endif %}</span></td>
+                            <td style="font-size:12px;">{{ cat.vaccination_status or '—' }}</td>
+                            <td style="font-size:12px;">{{ cat.health_status or '—' }}</td>
+                            <td style="font-size:12px;">{% if cat.spayed_neutered is not none %}{{ 'Yes' if cat.spayed_neutered else 'No' }}{% else %}—{% endif %}</td>
+                            <td>
+                                <span class="badge badge-{{ 'approved' if st == 'available' else 'rejected' if st == 'adopted' else 'pending' }}">{{ st.title() }}</span>
+                            </td>
                             <td style="vertical-align:middle;">
                                 <div style="display:flex;align-items:center;gap:6px;">
                                 <button class="btn btn-outline btn-sm edit-cat-btn"
                                     data-id="{{ cat.id }}"
                                     data-name={{ cat.name | tojson }}
-                                    data-breed={{ cat.breed | tojson }}
+                                    data-breed={{ (cat.breed or '') | tojson }}
                                     data-age="{{ cat.age if cat.age is not none else '' }}"
-                                    data-gender={{ cat.gender | tojson }}
-                                    data-status={{ cat.status | tojson }}
+                                    data-gender={{ (cat.gender or '') | tojson }}
+                                    data-status={{ (cat.status or 'available') | tojson }}
                                     data-image={{ (cat.image or 'cat1.jpg') | tojson }}
                                     data-origin={{ (cat.origin or '') | tojson }}
                                     data-weight={{ (cat.weight or '') | tojson }}
@@ -90,6 +105,10 @@
                                     data-coat_colors={{ (cat.coat_colors or '') | tojson }}
                                     data-temperament={{ (cat.temperament or '') | tojson }}
                                     data-about={{ (cat.about or '') | tojson }}
+                                    data-adoption_fee="{{ cat.adoption_fee if cat.adoption_fee is not none else '' }}"
+                                    data-vaccination_status={{ (cat.vaccination_status or '') | tojson }}
+                                    data-health_status={{ (cat.health_status or '') | tojson }}
+                                    data-spayed_neutered="{{ 'yes' if cat.spayed_neutered else 'no' }}"
                                 ><i class="fas fa-pen"></i> Edit</button>
                                 <form method="POST" action="{{ url_for('admin_cats_delete', cat_id=cat.id) }}"
                                       onsubmit="return confirm('Delete {{ cat.name }}?')">
@@ -101,6 +120,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             </div>
             {% else %}
             <div class="empty-state">
@@ -122,10 +142,11 @@
         </div>
         <form method="POST" action="{{ url_for('admin_cats_add') }}">
             <div class="modal-body">
-                <div class="form-grid-3" style="margin-bottom:14px;">
+                <div class="form-grid-3">
                     <div class="form-group"><label>Name *</label><input type="text" name="name" required></div>
                     <div class="form-group"><label>Breed *</label><input type="text" name="breed" required></div>
                     <div class="form-group"><label>Age</label><input type="number" name="age" min="0"></div>
+
                     <div class="form-group"><label>Gender *</label>
                         <select name="gender" required>
                             <option value="">Select</option>
@@ -136,17 +157,43 @@
                     <div class="form-group"><label>Status</label>
                         <select name="status">
                             <option value="available">Available</option>
+                            <option value="pending">Pending</option>
                             <option value="adopted">Adopted</option>
                         </select>
                     </div>
-                    <div class="form-group"><label>Image (filename or URL)</label><input type="text" name="image" placeholder="cat1.jpg"></div>
+                    <div class="form-group"><label>Adoption Fee (₱)</label><input type="number" name="adoption_fee" min="0" step="0.01" placeholder="0 = Free"></div>
+
+                    <div class="form-group"><label>Vaccination Status</label>
+                        <select name="vaccination_status">
+                            <option value="">Unknown</option>
+                            <option value="Vaccinated">Vaccinated</option>
+                            <option value="Not Vaccinated">Not Vaccinated</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Health Status</label>
+                        <select name="health_status">
+                            <option value="">Unknown</option>
+                            <option value="Healthy">Healthy</option>
+                            <option value="Needs Medication">Needs Medication</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Spayed / Neutered</label>
+                        <select name="spayed_neutered">
+                            <option value="no">No</option>
+                            <option value="yes">Yes</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group col-span-3"><label>Image (filename or URL)</label><input type="text" name="image" placeholder="cat1.jpg or https://..."></div>
+
                     <div class="form-group"><label>Origin</label><input type="text" name="origin"></div>
                     <div class="form-group"><label>Weight</label><input type="text" name="weight" placeholder="e.g. 3–5 kg"></div>
                     <div class="form-group"><label>Size</label><input type="text" name="size" placeholder="e.g. Medium"></div>
                     <div class="form-group"><label>Lifespan</label><input type="text" name="lifespan" placeholder="e.g. 12–15 years"></div>
                     <div class="form-group"><label>Coat Colors</label><input type="text" name="coat_colors"></div>
                     <div class="form-group"><label>Temperament</label><input type="text" name="temperament"></div>
-                    <div class="form-group col-span-3"><label>About</label><textarea name="about" style="min-height:80px;resize:vertical;"></textarea></div>
+
+                    <div class="form-group col-span-3"><label>About / Description</label><textarea name="about" style="min-height:80px;resize:vertical;"></textarea></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -166,10 +213,11 @@
         </div>
         <form method="POST" id="editForm">
             <div class="modal-body">
-                <div class="form-grid-3" style="margin-bottom:14px;">
+                <div class="form-grid-3">
                     <div class="form-group"><label>Name *</label><input type="text" name="name" id="eName" required></div>
                     <div class="form-group"><label>Breed *</label><input type="text" name="breed" id="eBreed" required></div>
                     <div class="form-group"><label>Age</label><input type="number" name="age" id="eAge" min="0"></div>
+
                     <div class="form-group"><label>Gender *</label>
                         <select name="gender" id="eGender" required>
                             <option value="">Select</option>
@@ -180,17 +228,43 @@
                     <div class="form-group"><label>Status</label>
                         <select name="status" id="eStatus">
                             <option value="available">Available</option>
+                            <option value="pending">Pending</option>
                             <option value="adopted">Adopted</option>
                         </select>
                     </div>
-                    <div class="form-group"><label>Image (filename or URL)</label><input type="text" name="image" id="eImage"></div>
+                    <div class="form-group"><label>Adoption Fee (₱)</label><input type="number" name="adoption_fee" id="eAdoptionFee" min="0" step="0.01"></div>
+
+                    <div class="form-group"><label>Vaccination Status</label>
+                        <select name="vaccination_status" id="eVaccinationStatus">
+                            <option value="">Unknown</option>
+                            <option value="Vaccinated">Vaccinated</option>
+                            <option value="Not Vaccinated">Not Vaccinated</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Health Status</label>
+                        <select name="health_status" id="eHealthStatus">
+                            <option value="">Unknown</option>
+                            <option value="Healthy">Healthy</option>
+                            <option value="Needs Medication">Needs Medication</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Spayed / Neutered</label>
+                        <select name="spayed_neutered" id="eSpayedNeutered">
+                            <option value="no">No</option>
+                            <option value="yes">Yes</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group col-span-3"><label>Image (filename or URL)</label><input type="text" name="image" id="eImage"></div>
+
                     <div class="form-group"><label>Origin</label><input type="text" name="origin" id="eOrigin"></div>
                     <div class="form-group"><label>Weight</label><input type="text" name="weight" id="eWeight"></div>
                     <div class="form-group"><label>Size</label><input type="text" name="size" id="eSize"></div>
                     <div class="form-group"><label>Lifespan</label><input type="text" name="lifespan" id="eLifespan"></div>
                     <div class="form-group"><label>Coat Colors</label><input type="text" name="coat_colors" id="eCoatColors"></div>
                     <div class="form-group"><label>Temperament</label><input type="text" name="temperament" id="eTemperament"></div>
-                    <div class="form-group col-span-3"><label>About</label><textarea name="about" id="eAbout" style="min-height:80px;resize:vertical;"></textarea></div>
+
+                    <div class="form-group col-span-3"><label>About / Description</label><textarea name="about" id="eAbout" style="min-height:80px;resize:vertical;"></textarea></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -210,20 +284,24 @@ function openAddModal() { document.getElementById('addModal').classList.add('ope
 document.querySelectorAll('.edit-cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const d = btn.dataset;
-        document.getElementById('editForm').action = '/admin/cats/edit/' + d.id;
-        document.getElementById('eName').value        = d.name        || '';
-        document.getElementById('eBreed').value       = d.breed       || '';
-        document.getElementById('eAge').value         = d.age         || '';
-        document.getElementById('eGender').value      = d.gender      || '';
-        document.getElementById('eStatus').value      = d.status      || 'available';
-        document.getElementById('eImage').value       = d.image       || 'cat1.jpg';
-        document.getElementById('eOrigin').value      = d.origin      || '';
-        document.getElementById('eWeight').value      = d.weight      || '';
-        document.getElementById('eSize').value        = d.size        || '';
-        document.getElementById('eLifespan').value    = d.lifespan    || '';
-        document.getElementById('eCoatColors').value  = d.coat_colors || '';
-        document.getElementById('eTemperament').value = d.temperament || '';
-        document.getElementById('eAbout').value       = d.about       || '';
+        document.getElementById('editForm').action       = '/admin/cats/edit/' + d.id;
+        document.getElementById('eName').value           = d.name               || '';
+        document.getElementById('eBreed').value          = d.breed              || '';
+        document.getElementById('eAge').value            = d.age                || '';
+        document.getElementById('eGender').value         = d.gender             || '';
+        document.getElementById('eStatus').value         = d.status             || 'available';
+        document.getElementById('eImage').value          = d.image              || 'cat1.jpg';
+        document.getElementById('eOrigin').value         = d.origin             || '';
+        document.getElementById('eWeight').value         = d.weight             || '';
+        document.getElementById('eSize').value           = d.size               || '';
+        document.getElementById('eLifespan').value       = d.lifespan           || '';
+        document.getElementById('eCoatColors').value     = d.coat_colors        || '';
+        document.getElementById('eTemperament').value    = d.temperament        || '';
+        document.getElementById('eAbout').value          = d.about              || '';
+        document.getElementById('eAdoptionFee').value    = d.adoption_fee       || '';
+        document.getElementById('eVaccinationStatus').value = d.vaccination_status || '';
+        document.getElementById('eHealthStatus').value   = d.health_status      || '';
+        document.getElementById('eSpayedNeutered').value = d.spayed_neutered    || 'no';
         document.getElementById('editModal').classList.add('open');
     });
 });

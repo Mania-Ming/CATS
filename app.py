@@ -115,7 +115,8 @@ def browse():
         res = supabase.table("cats").select("*").execute()
         cats = [
             (c["id"], c["name"], c["breed"], c["age"], c["gender"],
-             c.get("image", "cat1.jpg"), c["status"])
+             c.get("image", "cat1.jpg"), c.get("status", "available"),
+             c.get("adoption_fee"))
             for c in (res.data or [])
         ]
     except Exception as e:
@@ -378,14 +379,18 @@ def admin_cats_add():
     payload = {
         "name": name, "breed": breed, "gender": gender,
         "status": status, "image": image,
-        "age":         int(age) if age.isdigit() else None,
-        "origin":      request.form.get("origin", "").strip() or None,
-        "weight":      request.form.get("weight", "").strip() or None,
-        "size":        request.form.get("size", "").strip() or None,
-        "lifespan":    request.form.get("lifespan", "").strip() or None,
-        "coat_colors": request.form.get("coat_colors", "").strip() or None,
-        "temperament": request.form.get("temperament", "").strip() or None,
-        "about":       request.form.get("about", "").strip() or None,
+        "age":                int(age) if age.isdigit() else None,
+        "origin":             request.form.get("origin", "").strip() or None,
+        "weight":             request.form.get("weight", "").strip() or None,
+        "size":               request.form.get("size", "").strip() or None,
+        "lifespan":           request.form.get("lifespan", "").strip() or None,
+        "coat_colors":        request.form.get("coat_colors", "").strip() or None,
+        "temperament":        request.form.get("temperament", "").strip() or None,
+        "about":              request.form.get("about", "").strip() or None,
+        "adoption_fee":       float(request.form.get("adoption_fee")) if request.form.get("adoption_fee", "").strip() else None,
+        "vaccination_status": request.form.get("vaccination_status", "").strip() or None,
+        "health_status":      request.form.get("health_status", "").strip() or None,
+        "spayed_neutered":    request.form.get("spayed_neutered") == "yes",
     }
     try:
         _admin_db().table("cats").insert(payload).execute()
@@ -409,14 +414,18 @@ def admin_cats_edit(cat_id):
     payload = {
         "name": name, "breed": breed, "gender": gender,
         "status": status, "image": image,
-        "age":         int(age) if age.isdigit() else None,
-        "origin":      request.form.get("origin", "").strip() or None,
-        "weight":      request.form.get("weight", "").strip() or None,
-        "size":        request.form.get("size", "").strip() or None,
-        "lifespan":    request.form.get("lifespan", "").strip() or None,
-        "coat_colors": request.form.get("coat_colors", "").strip() or None,
-        "temperament": request.form.get("temperament", "").strip() or None,
-        "about":       request.form.get("about", "").strip() or None,
+        "age":                int(age) if age.isdigit() else None,
+        "origin":             request.form.get("origin", "").strip() or None,
+        "weight":             request.form.get("weight", "").strip() or None,
+        "size":               request.form.get("size", "").strip() or None,
+        "lifespan":           request.form.get("lifespan", "").strip() or None,
+        "coat_colors":        request.form.get("coat_colors", "").strip() or None,
+        "temperament":        request.form.get("temperament", "").strip() or None,
+        "about":              request.form.get("about", "").strip() or None,
+        "adoption_fee":       float(request.form.get("adoption_fee")) if request.form.get("adoption_fee", "").strip() else None,
+        "vaccination_status": request.form.get("vaccination_status", "").strip() or None,
+        "health_status":      request.form.get("health_status", "").strip() or None,
+        "spayed_neutered":    request.form.get("spayed_neutered") == "yes",
     }
     try:
         _admin_db().table("cats").update(payload).eq("id", cat_id).execute()
