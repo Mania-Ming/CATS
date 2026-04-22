@@ -154,13 +154,33 @@
                 {% if req.status == 'Approved' %}
 
                     {% if ps == 'Pending Payment' %}
-                    {# ── Needs to pay ── #}
+                    {# ── Step 1: choose method if not yet chosen ── #}
+                    {% set method = req.payment_method or '' %}
                     <div class="payment-card needs-payment">
                         <p style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:10px;">
                             <i class="fas fa-credit-card"></i> Payment Required
                         </p>
+
+                        {% if not method or method == 'GCash' %}
+                        {# ── Method selector (shown when no method saved yet) ── #}
+                        {% if not method %}
+                        <form method="POST" action="/select_payment_method/{{ req.id }}"
+                              style="margin-bottom:14px;">
+                            <p style="font-size:12px;color:#92400e;margin-bottom:8px;font-weight:600;">Choose your payment method:</p>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                                    <input type="radio" name="payment_method" value="GCash" checked> GCash
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                                    <input type="radio" name="payment_method" value="COD"> Cash on Delivery (COD)
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm" style="margin-top:10px;">Confirm Method</button>
+                        </form>
+                        {% endif %}
+
+                        {# ── GCash instructions + QR ── #}
                         <div class="gcash-box">
-                            {% if req.payment_method == 'GCash' or not req.payment_method %}
                             <div class="gcash-qr-row">
                                 <img src="{{ url_for('static', filename='images/gcash.png') }}"
                                      alt="GCash QR Code" class="gcash-qr-img">
@@ -177,19 +197,9 @@
                                     </span>
                                 </div>
                             </div>
-                            {% else %}
-                            <span class="gcash-label">Payment Method</span>
-                            <span class="gcash-value">{{ req.payment_method }}</span>
-                            <span class="gcash-label" style="margin-top:4px;">Amount</span>
-                            <span class="gcash-amount">
-                                {% if req.cat_fee is not none and req.cat_fee == 0 %}Free
-                                {% elif req.cat_fee %}&#8369;{{ req.cat_fee | int }}
-                                {% else %}Free{% endif %}
-                            </span>
-                            {% endif %}
                         </div>
                         <p style="font-size:12px;color:#92400e;margin-bottom:10px;">
-                            After sending, upload your GCash screenshot below. Your request will be marked <strong>For Verification</strong>.
+                            After sending, upload your GCash screenshot below.
                         </p>
                         <div class="upload-zone" onclick="document.getElementById('receipt_{{ req.id }}').click()">
                             <input type="file" id="receipt_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf"
@@ -198,6 +208,41 @@
                             <p style="font-size:13px;color:var(--text-muted);margin:0;">Click to upload receipt<br><span style="font-size:11px;">JPG, PNG, PDF — max 2 MB</span></p>
                         </div>
                         <div id="status_{{ req.id }}" style="font-size:12px;margin-top:8px;min-height:16px;"></div>
+
+                        {% else %}
+                        {# ── COD instructions ── #}
+                        <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:12px 0;">
+                            <p style="font-size:14px;font-weight:700;color:#1a1d2e;margin-bottom:6px;">
+                                <i class="fas fa-truck"></i> Cash on Delivery
+                            </p>
+                            <p style="font-size:13px;color:#475569;margin-bottom:4px;">
+                                You will pay upon meet-up or delivery.
+                            </p>
+                            <p style="font-size:12px;color:#64748b;">
+                                Amount due: <strong>
+                                {% if req.cat_fee is not none and req.cat_fee == 0 %}Free
+                                {% elif req.cat_fee %}&#8369;{{ req.cat_fee | int }}
+                                {% else %}Free{% endif %}
+                                </strong>
+                            </p>
+                        </div>
+                        <p style="font-size:12px;color:#92400e;margin-top:8px;">
+                            Our team will contact you to arrange the meet-up. No receipt upload needed.
+                        </p>
+                        {% endif %}
+
+                        {# ── Allow switching method ── #}
+                        {% if method %}
+                        <form method="POST" action="/select_payment_method/{{ req.id }}"
+                              style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <span style="font-size:11px;color:#92400e;">Change method:</span>
+                            <select name="payment_method" style="font-size:11px;padding:4px 8px;border:1px solid #fb923c;border-radius:6px;">
+                                <option value="GCash" {% if method == 'GCash' %}selected{% endif %}>GCash</option>
+                                <option value="COD"   {% if method == 'COD'   %}selected{% endif %}>Cash on Delivery</option>
+                            </select>
+                            <button type="submit" class="btn btn-sm" style="padding:4px 10px;font-size:11px;background:#fb923c;color:white;border:none;border-radius:6px;">Update</button>
+                        </form>
+                        {% endif %}
                     </div>
 
                     {% elif ps == 'For Verification' %}
@@ -238,7 +283,11 @@
                             Your receipt was not accepted. Please send the correct amount and upload a clear screenshot.
                         </p>
                         <div class="gcash-box">
-                            {% if req.payment_method == 'GCash' or not req.payment_method %}
+                            {% if req.payment_method == 'COD' %}
+                            <p style="font-size:13px;color:#475569;margin:0;">
+                                <i class="fas fa-truck"></i> Cash on Delivery — please coordinate with our team.
+                            </p>
+                            {% else %}
                             <div class="gcash-qr-row">
                                 <img src="{{ url_for('static', filename='images/gcash.png') }}"
                                      alt="GCash QR Code" class="gcash-qr-img">
@@ -253,13 +302,6 @@
                                     </span>
                                 </div>
                             </div>
-                            {% else %}
-                            <span class="gcash-label">Amount</span>
-                            <span class="gcash-amount">
-                                {% if req.cat_fee is not none and req.cat_fee == 0 %}Free
-                                {% elif req.cat_fee %}&#8369;{{ req.cat_fee | int }}
-                                {% else %}Free{% endif %}
-                            </span>
                             {% endif %}
                         </div>
                         <div class="upload-zone" onclick="document.getElementById('receipt_{{ req.id }}').click()">

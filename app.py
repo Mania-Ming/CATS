@@ -692,6 +692,30 @@ def api_cat_delete():
         return jsonify({"error": str(e)}), 500
 
 
+# ------------------------------------------------------------------ select payment method --
+
+@app.route("/select_payment_method/<int:req_id>", methods=["POST"])
+def select_payment_method(req_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    method = request.form.get("payment_method", "GCash")
+    if method not in ("GCash", "COD"):
+        flash("Invalid payment method.", "error")
+        return redirect(url_for("history"))
+    try:
+        update = {"payment_method": method}
+        if method == "COD":
+            # COD doesn't need a receipt — mark as For Verification immediately
+            update["payment_status"] = "For Verification"
+        supabase.table("adoption_requests").update(update).eq(
+            "id", req_id).eq("user_id", session["user_id"]).execute()
+        flash(f"Payment method set to {method}.", "success")
+    except Exception as e:
+        log.error("select_payment_method(%s) failed: %s", req_id, e)
+        flash("Failed to save payment method.", "error")
+    return redirect(url_for("history"))
+
+
 # ------------------------------------------------------------------ upload payment receipt --
 
 @app.route("/upload_receipt/<int:req_id>", methods=["POST"])
