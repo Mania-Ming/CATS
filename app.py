@@ -43,7 +43,7 @@ STORAGE_BUCKET = "valid-ids"
 AVATAR_BUCKET  = "avatars"
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2 MB
 
-PAYMENT_BUCKET = "payment-receipts"
+PAYMENT_BUCKET = "receipts"
 GCASH_NUMBER   = os.environ.get("GCASH_NUMBER", "09XX-XXX-XXXX")
 GCASH_NAME     = os.environ.get("GCASH_NAME",   "Cat Adoption PH")
 
@@ -728,7 +728,7 @@ def upload_receipt(req_id):
         return jsonify({"error": "No file provided"}), 400
     ext = file.filename.rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXTENSIONS:
-        return jsonify({"error": "Invalid file type"}), 400
+        return jsonify({"error": "Invalid file type. Use JPG, PNG, or PDF."}), 400
     file_bytes = file.read()
     if len(file_bytes) > MAX_AVATAR_BYTES:
         return jsonify({"error": "File exceeds 2 MB"}), 400
@@ -740,15 +740,18 @@ def upload_receipt(req_id):
             {"content-type": file.content_type, "upsert": "true"}
         )
         public_url = storage_client.storage.from_(PAYMENT_BUCKET).get_public_url(path)
+        # Preserve existing payment_method — do not overwrite it
         supabase.table("adoption_requests").update({
             "payment_proof":  public_url,
             "payment_status": "For Verification",
-            "payment_method": "GCash",
         }).eq("id", req_id).eq("user_id", session["user_id"]).execute()
         return jsonify({"ok": True, "url": public_url})
     except Exception as e:
-        log.error("upload_receipt(%s) failed: %s", req_id, e)
-        return jsonify({"error": str(e)}), 500
+        err = str(e)
+        log.error("upload_receipt(%s) failed: %s", req_id, err)
+        if "bucket" in err.lower() or "not found" in err.lower():
+            return jsonify({"error": f"Storage bucket '{PAYMENT_BUCKET}' not found. Create it in Supabase Storage."}), 500
+        return jsonify({"error": err}), 500
 
 
 # ------------------------------------------------------------------ admin update payment status --
