@@ -72,8 +72,10 @@
                  onkeydown="if(event.key==='Enter'||event.key===' ')openBreedDetail({{ cat.id }})"
                  {% endif %}>
                 <div class="cat-card-img-wrap">
-                    <img src="{{ url_for('static', filename='images/' + (cat.image or 'cat1.jpg')) }}"
-                         alt="{{ cat.name }}">
+                    {% set img = cat.image or 'cat1.jpg' %}
+                    <img src="{% if img.startswith('http') %}{{ img }}{% else %}{{ url_for('static', filename='images/' ~ img) }}{% endif %}"
+                         alt="{{ cat.name }}"
+                         onerror="this.src='{{ url_for('static', filename='images/cat1.jpg') }}'">
                     {% if is_adopted %}
                     <div class="cat-card-overlay" style="opacity:1;background:rgba(26,29,46,0.55);">
                         <span style="background:var(--danger);border-color:var(--danger);">Adopted</span>
@@ -276,6 +278,7 @@ function openAdoptFromDetail() {
 
 function buildDetailHTML(cat) {
     const img    = cat.image || "cat1.jpg";
+    const imgSrc = img.startsWith('http') ? img : '/static/images/' + img;
     const weight = cat.weight_range || cat.weight || "—";
 
     const rows = [
@@ -300,7 +303,8 @@ function buildDetailHTML(cat) {
     return `
     <div class="bd-layout">
         <div class="bd-images">
-            <img src="/static/images/${img}" alt="${cat.breed}" class="bd-main-img">
+            <img src="${imgSrc}" alt="${cat.breed}" class="bd-main-img"
+                 onerror="this.src='/static/images/cat1.jpg'">
         </div>
         <div class="bd-info">
             ${cat.description ? `<p class="bd-desc">${cat.description}</p>` : ""}

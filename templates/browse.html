@@ -93,8 +93,10 @@
              {% endif %}>
 
             <div class="bcard-img-wrap">
-                <img src="{{ url_for('static', filename='images/' + cat[5]) }}"
-                     alt="{{ cat[1] }}" loading="lazy">
+                {% set img = cat[5] or 'cat1.jpg' %}
+                <img src="{% if img.startswith('http') %}{{ img }}{% else %}{{ url_for('static', filename='images/' ~ img) }}{% endif %}"
+                     alt="{{ cat[1] }}" loading="lazy"
+                     onerror="this.src='{{ url_for('static', filename='images/cat1.jpg') }}'">
                 <div class="bcard-overlay" {% if is_adopted %}style="opacity:1;background:rgba(26,29,46,0.55);"{% endif %}>
                     {% if is_adopted %}
                     <span style="background:var(--danger);border-color:var(--danger);">Adopted</span>
