@@ -140,6 +140,39 @@
     </div>
 </div>
 
+<!-- ================= PAYMENT MODAL ================= -->
+<div id="paymentModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:480px;">
+        <div class="modal-header">
+            <h3>GCash Payment</h3>
+            <button type="button" class="modal-close" onclick="closePaymentModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;margin-bottom:18px;">
+                <p style="font-size:13px;font-weight:600;color:#15803d;margin-bottom:6px;">&#128722; Send payment via GCash</p>
+                <p style="font-size:13px;color:var(--text);">GCash Number: <strong id="gcashNumber">Loading...</strong></p>
+                <p style="font-size:13px;color:var(--text);">Account Name: <strong id="gcashName">Loading...</strong></p>
+                <p style="font-size:13px;color:var(--text);">Amount: <strong id="gcashAmount"></strong></p>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">
+                After sending payment, upload your GCash screenshot or receipt below. Your request will be marked <em>For Verification</em>.
+            </p>
+            <div class="form-group">
+                <label style="font-size:13px;font-weight:600;">Upload Receipt (JPG, PNG, PDF)</label>
+                <input type="file" id="receiptFile" accept=".jpg,.jpeg,.png,.pdf"
+                       style="display:block;width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+            </div>
+            <div id="receiptStatus" style="font-size:12px;min-height:18px;margin-top:6px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" id="uploadReceiptBtn" onclick="submitReceipt()">
+                <i class="fas fa-upload"></i> Upload Receipt
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ================= BREED DETAIL MODAL ================= -->
 <div id="breedModal" class="modal-overlay">
     <div class="modal-box modal-box-wide">
@@ -152,7 +185,9 @@
         </div>
         <div class="modal-footer" id="bdFooter">
             <button type="button" onclick="closeBreedDetail()" class="btn btn-secondary">Close</button>
-            <button type="button" onclick="openAdoptFromDetail()" class="btn btn-primary" id="adoptFromDetailBtn">❤ Adopt Me</button>
+            <button type="button" onclick="openAdoptFromDetail()" class="btn btn-primary" id="adoptFromDetailBtn">&#10084; Adopt Me</button>
+            <button type="button" onclick="openPaymentModal(_currentReqId, _currentCat && _currentCat.adoption_fee)" class="btn btn-sm" id="payNowBtn"
+                    style="display:none;background:#16a34a;color:white;">&#128722; Pay Now</button>
         </div>
     </div>
 </div>
@@ -225,8 +260,57 @@ document.getElementById("menuToggle").addEventListener("click", function() {
     document.getElementById("sidebar").classList.toggle("open");
 });
 
+// ── Payment modal ───────────────────────────────────────────
+let _paymentReqId = null;
+
+function openPaymentModal(reqId, fee) {
+    _paymentReqId = reqId;
+    document.getElementById('gcashAmount').textContent =
+        (fee === 0 || fee === null || fee === undefined) ? 'Free' : '\u20b1' + parseInt(fee).toLocaleString();
+    document.getElementById('receiptStatus').textContent = '';
+    document.getElementById('receiptFile').value = '';
+    document.getElementById('paymentModal').classList.add('open');
+    // Fetch GCash info
+    fetch('/api/gcash_info')
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById('gcashNumber').textContent = d.number || '—';
+            document.getElementById('gcashName').textContent   = d.name   || '—';
+        })
+        .catch(() => {});
+}
+function closePaymentModal() {
+    document.getElementById('paymentModal').classList.remove('open');
+}
+function submitReceipt() {
+    const file = document.getElementById('receiptFile').files[0];
+    if (!file) { alert('Please select a receipt file.'); return; }
+    const statusEl = document.getElementById('receiptStatus');
+    const btn = document.getElementById('uploadReceiptBtn');
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.textContent = 'Uploading...';
+    btn.disabled = true;
+    const fd = new FormData();
+    fd.append('receipt', file);
+    fetch('/upload_receipt/' + _paymentReqId, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            btn.disabled = false;
+            if (res.ok) {
+                statusEl.style.color = '#15803d';
+                statusEl.textContent = '\u2713 Receipt uploaded! Status set to For Verification.';
+                setTimeout(closePaymentModal, 2000);
+            } else {
+                statusEl.style.color = '#dc2626';
+                statusEl.textContent = 'Error: ' + (res.error || 'Upload failed');
+            }
+        })
+        .catch(() => { btn.disabled = false; statusEl.style.color='#dc2626'; statusEl.textContent='Upload failed.'; });
+}
+
 // ── Adopt modal ──────────────────────────────────────────────
 let _currentCat = null;
+let _currentReqId = null;
 
 function openAdoptModal(id, name, breed, age, gender) {
     _currentCat = { id, name, breed, age, gender };
@@ -259,7 +343,10 @@ function openBreedDetail(catId) {
             _currentCat = cat;
             document.getElementById("bdTitle").innerText = cat.name + " — " + cat.breed;
             document.getElementById("bdBody").innerHTML  = buildDetailHTML(cat);
-            const adoptBtn = document.getElementById("adoptFromDetailBtn");
+            const adoptBtn  = document.getElementById("adoptFromDetailBtn");
+            const payNowBtn = document.getElementById("payNowBtn");
+            _currentReqId = null;
+            payNowBtn.style.display = 'none';
             if (cat.status === "adopted") {
                 adoptBtn.disabled = true;
                 adoptBtn.textContent = "Already Adopted";
@@ -271,6 +358,33 @@ function openBreedDetail(catId) {
                 adoptBtn.style.opacity = "";
                 adoptBtn.style.cursor = "";
             }
+            // Check if user already has an approved request for this cat
+            fetch('/api/my_requests')
+                .then(r => r.json())
+                .then(reqs => {
+                    const match = Array.isArray(reqs) && reqs.find(r => r.cat_id === cat.id);
+                    if (match) {
+                        _currentReqId = match.id;
+                        if (match.status === 'Approved' && cat.adoption_fee > 0
+                            && match.payment_status !== 'Payment Approved') {
+                            payNowBtn.style.display = 'inline-flex';
+                        }
+                        if (match.payment_status === 'For Verification') {
+                            payNowBtn.textContent = '\u23f3 Awaiting Verification';
+                            payNowBtn.disabled = true;
+                            payNowBtn.style.display = 'inline-flex';
+                            payNowBtn.style.opacity = '0.6';
+                        }
+                        if (match.payment_status === 'Payment Approved') {
+                            payNowBtn.textContent = '\u2713 Payment Approved';
+                            payNowBtn.disabled = true;
+                            payNowBtn.style.display = 'inline-flex';
+                            payNowBtn.style.background = '#15803d';
+                            payNowBtn.style.opacity = '0.8';
+                        }
+                    }
+                })
+                .catch(() => {});
         })
         .catch(err => {
             console.error("breed detail fetch error:", err);

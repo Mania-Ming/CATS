@@ -43,6 +43,10 @@ STORAGE_BUCKET = "valid-ids"
 AVATAR_BUCKET  = "avatars"
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2 MB
 
+PAYMENT_BUCKET = "payment-receipts"
+GCASH_NUMBER   = os.environ.get("GCASH_NUMBER", "09XX-XXX-XXXX")
+GCASH_NAME     = os.environ.get("GCASH_NAME",   "Cat Adoption PH")
+
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
@@ -240,7 +244,7 @@ def admin_dashboard():
         pending_count = 0
     try:
         ar_res = _admin_db().table("adoption_requests").select(
-            "id, status, created_at, cat_id, user_id"
+            "id, status, created_at, cat_id, user_id, payment_status, payment_proof"
         ).order("created_at", desc=True).limit(5).execute()
         requests_list = _build_requests_list(ar_res.data or [])
     except Exception as e:
@@ -285,6 +289,8 @@ def _build_requests_list(ar_data):
             ar.get("status", "Pending"),
             parse_dt(ar.get("created_at")),
             valid_id, user_email,
+            ar.get("payment_status"),   # r[10]
+            ar.get("payment_proof"),    # r[11]
         ))
     return result
 
@@ -335,7 +341,7 @@ def admin_requests():
         return redirect(url_for("login"))
     try:
         ar_res = _admin_db().table("adoption_requests").select(
-            "id, status, created_at, cat_id, user_id"
+            "id, status, created_at, cat_id, user_id, payment_status, payment_proof"
         ).order("created_at", desc=True).execute()
         requests_list = _build_requests_list(ar_res.data or [])
     except Exception as e:
@@ -683,6 +689,89 @@ def api_cat_delete():
         return jsonify({"ok": True})
     except Exception as e:
         log.error("api_cat_delete(%s) failed: %s", cat_id, e)
+        return jsonify({"error": str(e)}), 500
+
+
+# ------------------------------------------------------------------ upload payment receipt --
+
+@app.route("/upload_receipt/<int:req_id>", methods=["POST"])
+def upload_receipt(req_id):
+    from flask import jsonify
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    file = request.files.get("receipt")
+    if not file or not file.filename:
+        return jsonify({"error": "No file provided"}), 400
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({"error": "Invalid file type"}), 400
+    file_bytes = file.read()
+    if len(file_bytes) > MAX_AVATAR_BYTES:
+        return jsonify({"error": "File exceeds 2 MB"}), 400
+    try:
+        storage_client = supabase_admin or supabase
+        path = f"receipt_{req_id}_{session['user_id']}.{ext}"
+        storage_client.storage.from_(PAYMENT_BUCKET).upload(
+            path, file_bytes,
+            {"content-type": file.content_type, "upsert": "true"}
+        )
+        public_url = storage_client.storage.from_(PAYMENT_BUCKET).get_public_url(path)
+        supabase.table("adoption_requests").update({
+            "payment_proof":  public_url,
+            "payment_status": "For Verification",
+            "payment_method": "GCash",
+        }).eq("id", req_id).eq("user_id", session["user_id"]).execute()
+        return jsonify({"ok": True, "url": public_url})
+    except Exception as e:
+        log.error("upload_receipt(%s) failed: %s", req_id, e)
+        return jsonify({"error": str(e)}), 500
+
+
+# ------------------------------------------------------------------ admin update payment status --
+
+@app.route("/admin/update_payment/<int:req_id>", methods=["POST"])
+def admin_update_payment(req_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+    new_payment_status = request.form.get("payment_status")
+    valid = {"Pending Payment", "For Verification", "Payment Approved", "Payment Rejected"}
+    if new_payment_status not in valid:
+        flash("Invalid payment status.", "error")
+        return redirect(url_for("admin_requests"))
+    try:
+        _admin_db().table("adoption_requests").update(
+            {"payment_status": new_payment_status}
+        ).eq("id", req_id).execute()
+        flash(f"Payment status updated to {new_payment_status}.", "success")
+    except Exception as e:
+        log.error("admin_update_payment(%s) failed: %s", req_id, e)
+        flash(f"Failed: {e}", "error")
+    return redirect(url_for("admin_requests"))
+
+
+# ------------------------------------------------------------------ gcash info API --
+
+@app.route("/api/gcash_info")
+def api_gcash_info():
+    from flask import jsonify
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify({"number": GCASH_NUMBER, "name": GCASH_NAME})
+
+
+# ------------------------------------------------------------------ user payment status API --
+
+@app.route("/api/my_requests")
+def api_my_requests():
+    from flask import jsonify
+    if "user_id" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        res = supabase.table("adoption_requests").select(
+            "id, cat_id, status, payment_status, payment_proof, payment_method"
+        ).eq("user_id", session["user_id"]).execute()
+        return jsonify(res.data or [])
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
