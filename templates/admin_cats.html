@@ -20,6 +20,25 @@
             background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;
             font-size:11px;font-weight:600;
         }
+        /* Compact table — no horizontal scroll */
+        .cats-table th, .cats-table td {
+            padding: 10px 12px;
+            font-size: 12px;
+            vertical-align: middle;
+        }
+        .cats-table th { font-size: 11px; }
+        .cat-thumb { width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0; }
+        .cat-meta-pills { display:flex;flex-wrap:wrap;gap:4px;margin-top:4px; }
+        .cat-pill {
+            display:inline-block;padding:1px 7px;border-radius:20px;
+            font-size:10px;font-weight:500;
+            background:var(--bg);color:var(--text-muted);border:1px solid var(--border);
+        }
+        .cat-pill.vax  { background:#f0fdf4;color:#15803d;border-color:#bbf7d0; }
+        .cat-pill.novax{ background:#fef2f2;color:#dc2626;border-color:#fecaca; }
+        .cat-pill.hlth { background:#eff6ff;color:#2563eb;border-color:#bfdbfe; }
+        .cat-pill.spay { background:#f5f3ff;color:#7c3aed;border-color:#ddd6fe; }
+        .action-btns { display:flex;gap:5px;align-items:center; }
     </style>
 </head>
 <body>
@@ -62,12 +81,14 @@
 
             {% if cats %}
             <div class="table-card">
-                <div style="overflow-x:auto;">
-                <table>
+                <table class="cats-table">
                     <thead>
                         <tr>
-                            <th>Image</th><th>Name</th><th>Breed</th><th>Age</th><th>Gender</th>
-                            <th>Fee</th><th>Vaccination</th><th>Health</th><th>Spayed</th><th>Status</th><th>Actions</th>
+                            <th style="width:56px;"></th>
+                            <th>Cat</th>
+                            <th>Fee</th>
+                            <th>Status</th>
+                            <th style="width:110px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -76,11 +97,34 @@
                         {% set img_src = img if img.startswith('http') else url_for('static', filename='images/' ~ img) %}
                         {% set st = cat.status or 'available' %}
                         <tr>
-                            <td><img src="{{ img_src }}" alt="{{ cat.name }}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--border);" onerror="this.src='{{ url_for('static', filename='images/cat1.jpg') }}'"></td>
-                            <td><strong>{{ cat.name }}</strong><br><span style="font-size:11px;color:var(--text-muted);">ID #{{ cat.id }}</span></td>
-                            <td style="font-size:12px;">{{ cat.breed or '—' }}</td>
-                            <td style="font-size:12px;">{{ cat.age if cat.age is not none else '—' }}</td>
-                            <td style="font-size:12px;">{{ cat.gender or '—' }}</td>
+                            <!-- Image -->
+                            <td style="padding:8px 10px;">
+                                <img src="{{ img_src }}" alt="{{ cat.name }}" class="cat-thumb"
+                                     onerror="this.onerror=null;this.src='/static/images/cat1.jpg';">
+                            </td>
+
+                            <!-- Name + stacked details -->
+                            <td>
+                                <strong style="font-size:13px;">{{ cat.name }}</strong>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">
+                                    {{ cat.breed or '' }}{% if cat.age is not none %} &middot; {{ cat.age }} yr{% endif %}{% if cat.gender %} &middot; {{ cat.gender }}{% endif %}
+                                </div>
+                                <div class="cat-meta-pills">
+                                    {% if cat.vaccination_status == 'Vaccinated' %}
+                                    <span class="cat-pill vax">Vaccinated</span>
+                                    {% elif cat.vaccination_status %}
+                                    <span class="cat-pill novax">Not Vaccinated</span>
+                                    {% endif %}
+                                    {% if cat.health_status %}
+                                    <span class="cat-pill hlth">{{ cat.health_status }}</span>
+                                    {% endif %}
+                                    {% if cat.spayed_neutered %}
+                                    <span class="cat-pill spay">Spayed</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- Fee -->
                             <td>
                                 {% if cat.adoption_fee is not none and cat.adoption_fee == 0 %}
                                 <span class="fee-badge">Free</span>
@@ -90,45 +134,49 @@
                                 <span class="fee-badge">Free</span>
                                 {% endif %}
                             </td>
-                            <td style="font-size:12px;">{{ cat.vaccination_status or '—' }}</td>
-                            <td style="font-size:12px;">{{ cat.health_status or '—' }}</td>
-                            <td style="font-size:12px;">{% if cat.spayed_neutered is not none %}{{ 'Yes' if cat.spayed_neutered else 'No' }}{% else %}—{% endif %}</td>
+
+                            <!-- Status -->
                             <td>
                                 <span class="badge badge-{{ 'approved' if st == 'available' else 'rejected' if st == 'adopted' else 'pending' }}">{{ st.title() }}</span>
                             </td>
-                            <td style="vertical-align:middle;">
-                                <div style="display:flex;align-items:center;gap:6px;">
-                                <button class="btn btn-outline btn-sm edit-cat-btn"
-                                    data-id="{{ cat.id }}"
-                                    data-name={{ cat.name | tojson }}
-                                    data-breed={{ (cat.breed or '') | tojson }}
-                                    data-age="{{ cat.age if cat.age is not none else '' }}"
-                                    data-gender={{ (cat.gender or '') | tojson }}
-                                    data-status={{ (cat.status or 'available') | tojson }}
-                                    data-image={{ (cat.image or 'cat1.jpg') | tojson }}
-                                    data-origin={{ (cat.origin or '') | tojson }}
-                                    data-weight={{ (cat.weight or '') | tojson }}
-                                    data-size={{ (cat.size or '') | tojson }}
-                                    data-lifespan={{ (cat.lifespan or '') | tojson }}
-                                    data-coat_colors={{ (cat.coat_colors or '') | tojson }}
-                                    data-temperament={{ (cat.temperament or '') | tojson }}
-                                    data-about={{ (cat.about or '') | tojson }}
-                                    data-adoption_fee="{{ cat.adoption_fee if cat.adoption_fee is not none else '' }}"
-                                    data-vaccination_status={{ (cat.vaccination_status or '') | tojson }}
-                                    data-health_status={{ (cat.health_status or '') | tojson }}
-                                    data-spayed_neutered="{{ 'yes' if cat.spayed_neutered else 'no' }}"
-                                ><i class="fas fa-pen"></i> Edit</button>
-                                <form method="POST" action="{{ url_for('admin_cats_delete', cat_id=cat.id) }}"
-                                      onsubmit="return confirm('Delete {{ cat.name }}?')">
-                                    <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button>
-                                </form>
+
+                            <!-- Actions -->
+                            <td>
+                                <div class="action-btns">
+                                    <button class="btn btn-outline btn-sm edit-cat-btn"
+                                        style="padding:5px 10px;font-size:11px;"
+                                        data-id="{{ cat.id }}"
+                                        data-name={{ cat.name | tojson }}
+                                        data-breed={{ (cat.breed or '') | tojson }}
+                                        data-age="{{ cat.age if cat.age is not none else '' }}"
+                                        data-gender={{ (cat.gender or '') | tojson }}
+                                        data-status={{ (cat.status or 'available') | tojson }}
+                                        data-image={{ (cat.image or 'cat1.jpg') | tojson }}
+                                        data-origin={{ (cat.origin or '') | tojson }}
+                                        data-weight={{ (cat.weight or '') | tojson }}
+                                        data-size={{ (cat.size or '') | tojson }}
+                                        data-lifespan={{ (cat.lifespan or '') | tojson }}
+                                        data-coat_colors={{ (cat.coat_colors or '') | tojson }}
+                                        data-temperament={{ (cat.temperament or '') | tojson }}
+                                        data-about={{ (cat.about or '') | tojson }}
+                                        data-adoption_fee="{{ cat.adoption_fee if cat.adoption_fee is not none else '' }}"
+                                        data-vaccination_status={{ (cat.vaccination_status or '') | tojson }}
+                                        data-health_status={{ (cat.health_status or '') | tojson }}
+                                        data-spayed_neutered="{{ 'yes' if cat.spayed_neutered else 'no' }}"
+                                    ><i class="fas fa-pen"></i></button>
+                                    <form method="POST" action="{{ url_for('admin_cats_delete', cat_id=cat.id) }}"
+                                          onsubmit="return confirm('Delete {{ cat.name }}?')">
+                                        <button type="submit" class="btn btn-danger btn-sm"
+                                                style="padding:5px 10px;font-size:11px;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                </div>
             </div>
             {% else %}
             <div class="empty-state">
