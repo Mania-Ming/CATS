@@ -7,13 +7,40 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
     <style>
-        .action-row { display:flex; align-items:center; gap:6px; flex-wrap:nowrap; }
-        .action-row .status-select { min-width:100px; }
-        .pay-select { min-width:130px; }
-        .badge-pay-pending   { background:#f1f5f9;color:#475569;border:1px solid #cbd5e1; }
-        .badge-pay-verify    { background:#fef9c3;color:#854d0e;border:1px solid #fde047; }
-        .badge-pay-approved  { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
-        .badge-pay-rejected  { background:#fef2f2;color:#dc2626;border:1px solid #fecaca; }
+        .req-table th, .req-table td { padding:10px 12px; font-size:12px; vertical-align:top; }
+        .req-table th { font-size:11px; }
+
+        .badge-pay-pending  { background:#f1f5f9;color:#475569;border:1px solid #cbd5e1; }
+        .badge-pay-verify   { background:#fef9c3;color:#854d0e;border:1px solid #fde047; }
+        .badge-pay-approved { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
+        .badge-pay-rejected { background:#fef2f2;color:#dc2626;border:1px solid #fecaca; }
+
+        .mini-link {
+            display:inline-flex;align-items:center;gap:3px;
+            padding:3px 7px;border-radius:5px;font-size:11px;font-weight:600;
+            text-decoration:none;border:1px solid;transition:background 0.15s;
+        }
+        .mini-link-orange { border-color:#fb923c;color:#ea580c; }
+        .mini-link-orange:hover { background:#fff7ed; }
+        .mini-link-green  { border-color:#22c55e;color:#15803d; }
+        .mini-link-green:hover  { background:#f0fdf4; }
+
+        .act-select {
+            width:100%;padding:5px 8px;border:1.5px solid var(--border);
+            border-radius:7px;font-size:11px;font-family:inherit;
+            background:var(--surface);color:var(--text);outline:none;
+        }
+        .act-btn {
+            width:100%;padding:5px 0;border:none;border-radius:7px;
+            font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;
+        }
+        .act-btn-blue   { background:#6366f1;color:white; }
+        .act-btn-green  { background:#16a34a;color:white; }
+        .act-btn-red    { background:var(--danger);color:white; }
+        .act-btn:hover  { opacity:0.88; }
+
+        .actions-col { width:160px; }
+        .actions-stack { display:flex;flex-direction:column;gap:5px; }
     </style>
 </head>
 <body>
@@ -45,108 +72,90 @@
         <div class="page-content">
             {% if requests %}
             <div class="table-card">
-                <div style="overflow-x:auto;width:100%;">
-                <table>
+                <table class="req-table">
                     <thead>
                         <tr>
-                            <th>#</th>
-                            <th>Cat</th>
                             <th>Applicant</th>
-                            <th>Contact</th>
-                            <th>Valid ID</th>
+                            <th>Cat</th>
                             <th>Status</th>
                             <th>Payment</th>
-                            <th>Receipt</th>
-                            <th>Date</th>
-                            <th>Actions</th>
+                            <th class="actions-col">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for r in requests %}
                         {% set pay_st = r[10] or 'Pending Payment' %}
-                        {% if pay_st == 'For Verification' %}
-                            {% set pay_cls = 'badge-pay-verify' %}
-                        {% elif pay_st == 'Payment Approved' %}
-                            {% set pay_cls = 'badge-pay-approved' %}
-                        {% elif pay_st == 'Payment Rejected' %}
-                            {% set pay_cls = 'badge-pay-rejected' %}
-                        {% else %}
-                            {% set pay_cls = 'badge-pay-pending' %}
-                        {% endif %}
+                        {% if pay_st == 'For Verification' %}{% set pay_cls = 'badge-pay-verify' %}
+                        {% elif pay_st == 'Payment Approved' %}{% set pay_cls = 'badge-pay-approved' %}
+                        {% elif pay_st == 'Payment Rejected' %}{% set pay_cls = 'badge-pay-rejected' %}
+                        {% else %}{% set pay_cls = 'badge-pay-pending' %}{% endif %}
                         <tr>
-                            <td style="padding:8px 6px;font-size:12px;color:var(--text-muted);">{{ r[0] }}</td>
-                            <td style="padding:8px 6px;font-size:12px;">
-                                <strong>{{ r[1] or '—' }}</strong><br>
-                                <span style="font-size:11px;color:var(--text-muted);">{{ r[2] or '' }}</span>
+                            <!-- Applicant: name + email + phone + date + ID link -->
+                            <td>
+                                <strong>{{ r[3] or '—' }}</strong>
+                                <div style="color:var(--text-muted);margin-top:2px;">{{ r[9] or '' }}</div>
+                                <div style="color:var(--text-muted);margin-top:1px;">{{ r[4] or '' }}</div>
+                                <div style="color:var(--text-muted);font-size:11px;margin-top:3px;">
+                                    {{ r[7].strftime('%b %d, %Y') if r[7] else '' }}
+                                </div>
+                                <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap;">
+                                    {% if r[8] %}
+                                    <a href="{{ r[8] }}" target="_blank" class="mini-link mini-link-orange">
+                                        <i class="fas fa-eye" style="font-size:9px;"></i> ID
+                                    </a>
+                                    {% endif %}
+                                    {% if r[11] %}
+                                    <a href="{{ r[11] }}" target="_blank" class="mini-link mini-link-green">
+                                        <i class="fas fa-receipt" style="font-size:9px;"></i> Receipt
+                                    </a>
+                                    {% endif %}
+                                </div>
                             </td>
-                            <td style="padding:8px 6px;font-size:12px;">
-                                <strong>{{ r[3] or '—' }}</strong><br>
-                                <span style="font-size:11px;color:var(--text-muted);">{{ r[9] or '' }}</span>
+
+                            <!-- Cat: name + breed -->
+                            <td>
+                                <strong>{{ r[1] or '—' }}</strong>
+                                <div style="color:var(--text-muted);margin-top:2px;">{{ r[2] or '' }}</div>
                             </td>
-                            <td style="padding:8px 6px;font-size:12px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                {{ r[4] or '—' }}<br>
-                                <span style="color:var(--text-muted);">{{ r[5] or '' }}</span>
-                            </td>
-                            <td style="padding:8px 6px;font-size:12px;">
-                                {% if r[8] %}
-                                <a href="{{ r[8] }}" target="_blank"
-                                   style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid #fb923c;color:#ea580c;background:transparent;font-size:11px;font-weight:600;text-decoration:none;"
-                                   onmouseover="this.style.background='#fff7ed'"
-                                   onmouseout="this.style.background='transparent'">
-                                    <i class="fas fa-eye" style="font-size:10px;"></i> View ID
-                                </a>
-                                {% else %}
-                                <span style="color:var(--text-muted);font-size:11px;">—</span>
-                                {% endif %}
-                            </td>
-                            <td style="padding:8px 6px;">
+
+                            <!-- Adoption status badge -->
+                            <td>
                                 <span class="badge badge-{{ r[6]|lower }}">{{ r[6] }}</span>
                             </td>
-                            <td style="padding:8px 6px;">
-                                <span class="badge {{ pay_cls }}" style="font-size:11px;">{{ pay_st }}</span>
+
+                            <!-- Payment status badge -->
+                            <td>
+                                <span class="badge {{ pay_cls }}" style="font-size:11px;white-space:nowrap;">{{ pay_st }}</span>
                             </td>
-                            <td style="padding:8px 6px;font-size:12px;">
-                                {% if r[11] %}
-                                <a href="{{ r[11] }}" target="_blank"
-                                   style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid #22c55e;color:#15803d;background:transparent;font-size:11px;font-weight:600;text-decoration:none;"
-                                   onmouseover="this.style.background='#f0fdf4'"
-                                   onmouseout="this.style.background='transparent'">
-                                    <i class="fas fa-receipt" style="font-size:10px;"></i> Receipt
-                                </a>
-                                {% else %}
-                                <span style="color:var(--text-muted);font-size:11px;">—</span>
-                                {% endif %}
-                            </td>
-                            <td style="padding:8px 6px;font-size:12px;color:var(--text-muted);white-space:nowrap;">
-                                {{ r[7].strftime('%b %d, %Y') if r[7] else '—' }}
-                            </td>
-                            <td style="padding:8px 6px;">
-                                <div style="display:flex;flex-direction:column;gap:6px;">
+
+                            <!-- Actions: stacked selects + buttons -->
+                            <td class="actions-col">
+                                <div class="actions-stack">
                                     <!-- Adoption status -->
-                                    <form method="POST" action="{{ url_for('update_status', req_id=r[0]) }}"
-                                          style="display:flex;align-items:center;gap:5px;">
-                                        <select name="status" class="status-select">
+                                    <form method="POST" action="{{ url_for('update_status', req_id=r[0]) }}">
+                                        <select name="status" class="act-select" style="margin-bottom:4px;">
                                             <option value="Pending"  {% if r[6]=='Pending'  %}selected{% endif %}>Pending</option>
                                             <option value="Approved" {% if r[6]=='Approved' %}selected{% endif %}>Approved</option>
                                             <option value="Rejected" {% if r[6]=='Rejected' %}selected{% endif %}>Rejected</option>
                                         </select>
-                                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                        <button type="submit" class="act-btn act-btn-green">Save Status</button>
                                     </form>
+
                                     <!-- Payment status -->
-                                    <form method="POST" action="{{ url_for('admin_update_payment', req_id=r[0]) }}"
-                                          style="display:flex;align-items:center;gap:5px;">
-                                        <select name="payment_status" class="status-select pay-select">
+                                    <form method="POST" action="{{ url_for('admin_update_payment', req_id=r[0]) }}">
+                                        <select name="payment_status" class="act-select" style="margin-bottom:4px;">
                                             <option value="Pending Payment"  {% if pay_st=='Pending Payment'  %}selected{% endif %}>Pending Payment</option>
                                             <option value="For Verification" {% if pay_st=='For Verification' %}selected{% endif %}>For Verification</option>
                                             <option value="Payment Approved" {% if pay_st=='Payment Approved' %}selected{% endif %}>Payment Approved</option>
                                             <option value="Payment Rejected" {% if pay_st=='Payment Rejected' %}selected{% endif %}>Payment Rejected</option>
                                         </select>
-                                        <button type="submit" class="btn btn-sm" style="background:#6366f1;color:white;box-shadow:none;">Pay</button>
+                                        <button type="submit" class="act-btn act-btn-blue">Save Payment</button>
                                     </form>
+
                                     <!-- Delete -->
                                     <form method="POST" action="{{ url_for('admin_delete_request', req_id=r[0]) }}"
                                           onsubmit="return confirm('Delete request #{{ r[0] }}?')">
-                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                        <button type="submit" class="act-btn act-btn-red">Delete</button>
                                     </form>
                                 </div>
                             </td>
@@ -154,7 +163,6 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                </div>
             </div>
             {% else %}
             <div class="empty-state">
