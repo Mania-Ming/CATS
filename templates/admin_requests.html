@@ -312,14 +312,14 @@
                             <div class="act-divider"></div>
 
                             <!-- Complete + Delete -->
-                            <div class="act-row">
+                            <div class="act-row" style="flex-wrap:nowrap;">
                                 {% if r.status != 'Completed' %}
-                                <form method="POST" action="{{ url_for('admin_complete', req_id=r.id) }}" onsubmit="return confirm('Mark as completed?')" style="flex:1;">
+                                <form method="POST" action="{{ url_for('admin_complete', req_id=r.id) }}" onsubmit="return confirm('Mark as completed?')" style="flex:1;min-width:0;">
                                     <button type="submit" class="act-btn ab-gray" style="width:100%;justify-content:center;"><i class="fas fa-flag-checkered"></i> Complete</button>
                                 </form>
                                 {% endif %}
-                                <form method="POST" action="{{ url_for('admin_delete_request', req_id=r.id) }}" onsubmit="return confirm('Delete this request?')">
-                                    <button type="submit" class="act-btn ab-red"><i class="fas fa-trash"></i></button>
+                                <form method="POST" action="{{ url_for('admin_delete_request', req_id=r.id) }}" onsubmit="return confirm('Delete this request?')" style="flex-shrink:0;">
+                                    <button type="submit" class="act-btn ab-red" style="padding:0 14px;"><i class="fas fa-trash"></i> Delete</button>
                                 </form>
                             </div>
 
@@ -374,8 +374,29 @@
             {% endif %}
         </div>
 
-        <footer class="page-footer">
-            &copy; 2026 Cat Adoption System &nbsp;|&nbsp; All Rights Reserved
+        <footer class="site-footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <h3>Cat Adoption</h3>
+                    <p>Connecting loving families with cats in need of a forever home.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Admin</h4>
+                    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('admin_cats') }}">Manage Cats</a>
+                    <a href="{{ url_for('admin_users') }}">Manage Users</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Account</h4>
+                    <a href="{{ url_for('logout') }}">Sign Out</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact</h4>
+                    <a href="#">support@catadoption.ph</a>
+                    <a href="#">Manila, Philippines</a>
+                </div>
+            </div>
+            <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
         </footer>
     </div>
 </div>
