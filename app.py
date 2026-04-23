@@ -229,6 +229,25 @@ def _fetch_requests(db, filters=None, order_desc=True, limit=None):
     return []
 
 
+def fetch_request_row(request_id, user_id=None, admin=False):
+    """Fetch a single adoption_requests row by id, with fallback for missing extended columns."""
+    db = _admin_db() if admin else supabase
+    for cols in (
+        ADOPTION_REQUEST_COLUMNS + ", " + ADOPTION_REQUEST_COLUMNS_EXT,
+        ADOPTION_REQUEST_COLUMNS,
+    ):
+        try:
+            query = db.table("adoption_requests").select(cols).eq("id", request_id)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            result = query.single().execute().data
+            if result is not None:
+                return result
+        except Exception:
+            continue
+    log.error("fetch_request_row(%s) failed with all column sets", request_id)
+    return None
+
 
     db = _admin_db() if admin else supabase
     for cols in (
