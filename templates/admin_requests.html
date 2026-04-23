@@ -165,8 +165,57 @@
         /* Divider between action groups */
         .act-divider { height:1px; background:var(--border); margin:2px 0; }
 
+        /* Photo modal */
+        .photo-modal-overlay {
+            display:none; position:fixed; inset:0;
+            background:rgba(0,0,0,0.75); z-index:500;
+            align-items:center; justify-content:center; padding:20px;
+        }
+        .photo-modal-overlay.open { display:flex; }
+        .photo-modal-box {
+            background:var(--surface); border-radius:14px;
+            max-width:560px; width:100%;
+            box-shadow:0 20px 60px rgba(0,0,0,0.35);
+            animation:slideUp .22s ease;
+            overflow:hidden;
+        }
+        @keyframes slideUp {
+            from { transform:translateY(16px); opacity:0; }
+            to   { transform:translateY(0);    opacity:1; }
+        }
+        .photo-modal-head {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:12px 16px; border-bottom:1px solid var(--border);
+            background:#f8fafc;
+        }
+        .photo-modal-head h4 { font-size:13px; font-weight:700; color:var(--text); }
+        .photo-modal-close {
+            background:var(--bg); border:none; width:28px; height:28px;
+            border-radius:50%; cursor:pointer; font-size:15px;
+            display:flex; align-items:center; justify-content:center;
+            color:var(--text-muted); transition:background .15s;
+        }
+        .photo-modal-close:hover { background:var(--border); }
+        .photo-modal-img {
+            width:100%; max-height:420px; object-fit:contain;
+            display:block; background:#000;
+        }
+        .photo-modal-foot {
+            padding:10px 16px; display:flex; justify-content:flex-end; gap:8px;
+            border-top:1px solid var(--border);
+        }
+
         /* Receipt link */
         .receipt-link { font-size:10px; color:#2563eb; text-decoration:underline; }
+
+        /* Completion photo thumbnail */
+        .completion-thumb {
+            width:48px; height:48px; border-radius:7px;
+            object-fit:cover; border:2px solid #bbf7d0;
+            cursor:pointer; transition:transform .15s, box-shadow .15s;
+            display:block;
+        }
+        .completion-thumb:hover { transform:scale(1.08); box-shadow:0 4px 12px rgba(0,0,0,0.18); }
 
         /* Bottom action bar */
         .req-bottom-bar {
@@ -248,6 +297,23 @@
                             {% endif %}
                             {% if r.payment_proof %}
                             <a href="{{ r.payment_proof }}" target="_blank" rel="noopener" class="receipt-link"><i class="fas fa-receipt"></i> View Receipt</a>
+                            {% endif %}
+                            {% if r.completion_photo_url %}
+                            <div style="margin-top:6px;display:flex;align-items:center;gap:7px;">
+                                <img src="{{ r.completion_photo_url }}" alt="Completion photo"
+                                     class="completion-thumb"
+                                     onclick="openPhotoModal('{{ r.completion_photo_url }}', '{{ r.full_name or r.cat_name }}')"
+                                     onerror="this.style.display='none'">
+                                <button type="button" class="act-btn ab-green" style="height:24px;font-size:10px;padding:0 10px;"
+                                        onclick="openPhotoModal('{{ r.completion_photo_url }}', '{{ r.full_name or r.cat_name }}')"
+                                ><i class="fas fa-image"></i> View Photo</button>
+                            </div>
+                            {% else %}
+                            {% if r.status == 'Completed' %}
+                            <div style="margin-top:5px;font-size:10px;color:#94a3b8;display:flex;align-items:center;gap:4px;">
+                                <i class="fas fa-image"></i> No photo uploaded yet
+                            </div>
+                            {% endif %}
                             {% endif %}
                             {% if r.reason or r.experience_with_pets %}
                             <div style="margin-top:5px;">
@@ -384,6 +450,23 @@
     </div>
 </div>
 
+<!-- Photo Modal -->
+<div class="photo-modal-overlay" id="photoModal" onclick="closePhotoModal(event)">
+    <div class="photo-modal-box">
+        <div class="photo-modal-head">
+            <h4><i class="fas fa-image" style="color:#15803d;margin-right:5px;"></i> <span id="photoModalTitle">Completion Photo</span></h4>
+            <button class="photo-modal-close" onclick="closePhotoModal()">&times;</button>
+        </div>
+        <img id="photoModalImg" src="" alt="Completion photo" class="photo-modal-img">
+        <div class="photo-modal-foot">
+            <a id="photoModalDownload" href="" target="_blank" rel="noopener" class="act-btn ab-green" style="text-decoration:none;">
+                <i class="fas fa-download"></i> Download
+            </a>
+            <button class="act-btn ab-ghost" onclick="closePhotoModal()">Close</button>
+        </div>
+    </div>
+</div>
+
 <script>
 document.getElementById('menuToggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open'));
@@ -402,6 +485,17 @@ function toggleMeetup(id) {
 function toggleChat(id) {
     const el = document.getElementById('chat-' + id);
     el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function openPhotoModal(url, name) {
+    document.getElementById('photoModalImg').src = url;
+    document.getElementById('photoModalTitle').textContent = (name || 'Completion') + ' — Photo';
+    document.getElementById('photoModalDownload').href = url;
+    document.getElementById('photoModal').classList.add('open');
+}
+function closePhotoModal(e) {
+    if (e && e.target !== document.getElementById('photoModal')) return;
+    document.getElementById('photoModal').classList.remove('open');
+    document.getElementById('photoModalImg').src = '';
 }
 </script>
 </body>
