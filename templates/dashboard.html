@@ -243,7 +243,7 @@ document.getElementById("menuToggle").addEventListener("click", function() {
 });
 
 // ── Delivery method + fee ──────────────────────────────────
-const DELIVERY_FEE = {{ delivery_fee }};
+const DELIVERY_FEE = parseInt("{{ delivery_fee }}", 10) || 0;
 function onDeliveryChange(val) {
     const info = document.getElementById('paymentInfo');
     if (!val) { info.style.display = 'none'; return; }
@@ -264,57 +264,10 @@ function onDeliveryChange(val) {
     }
 }
 
-// placeholder to keep variable
 
-function openPaymentModal(reqId, fee) {
-    _paymentReqId = reqId;
-    document.getElementById('gcashAmount').textContent =
-        (fee === 0 || fee === null || fee === undefined) ? 'Free' : '\u20b1' + parseInt(fee).toLocaleString();
-    document.getElementById('receiptStatus').textContent = '';
-    document.getElementById('receiptFile').value = '';
-    document.getElementById('paymentModal').classList.add('open');
-    // Fetch GCash info
-    fetch('/api/gcash_info')
-        .then(r => r.json())
-        .then(d => {
-            document.getElementById('gcashNumber').textContent = d.number || '—';
-            document.getElementById('gcashName').textContent   = d.name   || '—';
-        })
-        .catch(() => {});
-}
-function closePaymentModal() {
-    document.getElementById('paymentModal').classList.remove('open');
-}
-function submitReceipt() {
-    const file = document.getElementById('receiptFile').files[0];
-    if (!file) { alert('Please select a receipt file.'); return; }
-    const statusEl = document.getElementById('receiptStatus');
-    const btn = document.getElementById('uploadReceiptBtn');
-    statusEl.style.color = 'var(--text-muted)';
-    statusEl.textContent = 'Uploading...';
-    btn.disabled = true;
-    const fd = new FormData();
-    fd.append('receipt', file);
-    fetch('/upload_receipt/' + _paymentReqId, { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(res => {
-            btn.disabled = false;
-            if (res.ok) {
-                statusEl.style.color = '#15803d';
-                statusEl.textContent = '\u2713 Receipt uploaded! Status set to For Verification.';
-                setTimeout(closePaymentModal, 2000);
-            } else {
-                statusEl.style.color = '#dc2626';
-                statusEl.textContent = 'Error: ' + (res.error || 'Upload failed');
-            }
-        })
-        .catch(() => { btn.disabled = false; statusEl.style.color='#dc2626'; statusEl.textContent='Upload failed.'; });
-}
 
-// ── Delivery method toggle ──────────────────────────────────
-function onDeliveryChange(val) {
-    document.getElementById('meetupNote').style.display = val === 'Meet-up' ? 'block' : 'none';
-}
+
+
 
 // ── Adopt modal ──────────────────────────────────────────────
 let _currentCat = null;
