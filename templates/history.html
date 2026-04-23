@@ -74,38 +74,38 @@
         /* GCash 2-col layout */
         .gcash-layout {
             display:grid;
-            grid-template-columns:1fr auto;
-            gap:10px 18px;
+            grid-template-columns:1fr 180px;
+            gap:12px;
             align-items:center;
             margin-top:8px;
         }
-        .gcash-grid { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:12px; }
+        .gcash-grid {
+            display:grid; grid-template-columns:auto 1fr;
+            gap:4px 10px; font-size:12px; margin-bottom:8px;
+        }
         .gcash-label { color:var(--text-muted); font-weight:600; }
         .gcash-qr-wrap {
-            display:flex; flex-direction:column; align-items:center; gap:5px;
-            flex-shrink:0;
-            background:#f9fafb;
-            border:1px solid var(--border);
-            border-radius:12px;
-            padding:12px;
-            box-shadow:0 1px 4px rgba(0,0,0,0.06);
+            display:flex; flex-direction:column; align-items:center; gap:4px;
+            background:#f9fafb; border:1px solid var(--border);
+            border-radius:10px; padding:8px;
+            box-shadow:0 1px 3px rgba(0,0,0,0.05);
         }
         .gcash-qr-wrap img {
-            width:180px; height:auto; object-fit:contain;
-            border-radius:8px; display:block;
+            width:160px; height:160px; object-fit:contain;
+            border-radius:6px; display:block;
         }
         .gcash-qr-label {
             font-size:10px; color:var(--text-muted); font-weight:700;
-            text-align:center; letter-spacing:0.3px;
+            text-align:center;
         }
         @media (max-width:540px) {
             .gcash-layout { grid-template-columns:1fr; }
-            .gcash-qr-wrap { align-self:center; width:fit-content; margin:0 auto; }
+            .gcash-qr-wrap { width:fit-content; margin:0 auto; }
         }
 
         /* Upload row */
-        .upload-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; }
-        .upload-row input[type="file"] { font-size:11px; max-width:200px; }
+        .upload-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
+        .upload-row input[type="file"] { font-size:11px; max-width:180px; }
 
         /* Delivery status pill */
         .delivery-pill {
