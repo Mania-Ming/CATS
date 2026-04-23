@@ -244,6 +244,18 @@ create policy "avatars_anon_delete"
   using ( bucket_id = 'avatars' );
 
 -- ============================================================
+-- DELIVERY SCHEDULING COLUMNS
+-- Run in Supabase SQL Editor
+-- ============================================================
+alter table adoption_requests add column if not exists delivery_date date;
+alter table adoption_requests add column if not exists delivery_time_start text;
+alter table adoption_requests add column if not exists delivery_time_end text;
+alter table adoption_requests add column if not exists delivery_address text;
+alter table adoption_requests add column if not exists rider_name text;
+alter table adoption_requests add column if not exists rider_contact text;
+alter table adoption_requests add column if not exists delivery_photo_url text;
+
+-- ============================================================
 -- DELIVERY METHOD CONSTRAINT FIX
 -- Run this in Supabase SQL Editor to fix the check constraint
 -- ============================================================

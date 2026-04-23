@@ -61,7 +61,9 @@ ADOPTION_REQUEST_COLUMNS = (
     "id, user_id, cat_id, status, created_at, payment_status, payment_proof, payment_method, "
     "delivery_method, delivery_status, meetup_location, meetup_map_link, meetup_date, meetup_time, "
     "schedule_date, schedule_time, full_name, email, contact_number, address, reason, "
-    "experience_with_pets, completion_photo_url"
+    "experience_with_pets, completion_photo_url, "
+    "delivery_date, delivery_time_start, delivery_time_end, delivery_address, "
+    "rider_name, rider_contact, delivery_photo_url"
 )
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
@@ -273,6 +275,13 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
             "experience_with_pets": row.get("experience_with_pets") or "",
             "valid_id_url": user.get("valid_id_url"),
             "completion_photo_url": row.get("completion_photo_url"),
+            "delivery_date": row.get("delivery_date"),
+            "delivery_time_start": row.get("delivery_time_start"),
+            "delivery_time_end": row.get("delivery_time_end"),
+            "delivery_address": row.get("delivery_address") or row.get("address") or "",
+            "rider_name": row.get("rider_name"),
+            "rider_contact": row.get("rider_contact"),
+            "delivery_photo_url": row.get("delivery_photo_url"),
             "messages": messages_by_request.get(row.get("id"), []),
         }
         cards.append(card)
@@ -1043,6 +1052,72 @@ def admin_update_delivery(req_id):
     except Exception as e:
         log.error("admin_update_delivery(%s) failed: %s", req_id, e)
         flash(f"Failed to update delivery status: {e}", "error")
+    return redirect(url_for("admin_requests"))
+
+
+# ------------------------------------------------------------------ admin schedule delivery --
+
+@app.route("/admin/schedule_delivery/<int:req_id>", methods=["POST"])
+def admin_schedule_delivery(req_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+    delivery_date      = request.form.get("delivery_date", "").strip() or None
+    delivery_time_start = request.form.get("delivery_time_start", "").strip() or None
+    delivery_time_end   = request.form.get("delivery_time_end", "").strip() or None
+    delivery_address   = request.form.get("delivery_address", "").strip() or None
+    rider_name         = request.form.get("rider_name", "").strip() or None
+    rider_contact      = request.form.get("rider_contact", "").strip() or None
+    if not delivery_date:
+        flash("Delivery date is required.", "error")
+        return redirect(url_for("admin_requests"))
+    try:
+        _admin_db().table("adoption_requests").update({
+            "status": "Scheduled",
+            "delivery_status": "Preparing",
+            "delivery_date": delivery_date,
+            "delivery_time_start": delivery_time_start,
+            "delivery_time_end": delivery_time_end,
+            "delivery_address": delivery_address,
+            "rider_name": rider_name,
+            "rider_contact": rider_contact,
+        }).eq("id", req_id).execute()
+        flash("Delivery scheduled.", "success")
+    except Exception as e:
+        log.error("admin_schedule_delivery(%s) failed: %s", req_id, e)
+        flash(f"Failed to schedule delivery: {e}", "error")
+    return redirect(url_for("admin_requests"))
+
+
+# ------------------------------------------------------------------ admin upload delivery photo --
+
+@app.route("/admin/upload_delivery_photo/<int:req_id>", methods=["POST"])
+def admin_upload_delivery_photo(req_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+    file = request.files.get("delivery_photo")
+    if not file or not file.filename:
+        flash("Please choose a photo.", "error")
+        return redirect(url_for("admin_requests"))
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_AVATAR_EXTENSIONS:
+        flash("Only JPG and PNG files are allowed.", "error")
+        return redirect(url_for("admin_requests"))
+    file_bytes = file.read()
+    if len(file_bytes) > MAX_AVATAR_BYTES:
+        flash("Photo exceeds 2 MB limit.", "error")
+        return redirect(url_for("admin_requests"))
+    try:
+        path = f"delivery_{req_id}.{ext}"
+        public_url = upload_public_file(COMPLETE_PHOTO_BUCKET, path, file_bytes, file.content_type)
+        _admin_db().table("adoption_requests").update({
+            "delivery_photo_url": public_url,
+            "delivery_status": "Delivered",
+            "status": "Completed",
+        }).eq("id", req_id).execute()
+        flash("Delivery photo uploaded and status set to Delivered.", "success")
+    except Exception as e:
+        log.error("admin_upload_delivery_photo(%s) failed: %s", req_id, e)
+        flash(f"Failed to upload photo: {e}", "error")
     return redirect(url_for("admin_requests"))
 
 

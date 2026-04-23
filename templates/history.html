@@ -296,6 +296,77 @@
                         </div>
                         {% endif %}
 
+                        <!-- Delivery Details (collapsible, default CLOSED) -->
+                        {% if req.delivery_method and req.delivery_method != 'Meet-up' %}
+                        <div class="meetup-section" style="background:#fff7ed;border-color:#fed7aa;">
+                            <div class="hsection-toggle meetup-section-title" onclick="toggleSection(this)" style="margin-bottom:0;color:#c2410c;">
+                                <span><i class="fas fa-box" style="color:#ea580c;"></i> Delivery Details</span>
+                                <i class="fas fa-chevron-down toggle-chevron"></i>
+                            </div>
+                            <div class="hsection-body">
+                                {% if req.delivery_date or req.delivery_address or req.rider_name %}
+                                {% if req.delivery_address %}
+                                <div class="meetup-row-item">
+                                    <div class="meetup-icon" style="background:#fed7aa;"><i class="fas fa-map-marker-alt" style="color:#c2410c;"></i></div>
+                                    <div>
+                                        <span class="meetup-field-label">Delivery Address</span>
+                                        <span class="meetup-field-value">{{ req.delivery_address }}</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if req.delivery_date %}
+                                <div class="meetup-row-item">
+                                    <div class="meetup-icon" style="background:#fed7aa;"><i class="fas fa-calendar" style="color:#c2410c;"></i></div>
+                                    <div>
+                                        <span class="meetup-field-label">Delivery Date</span>
+                                        <span class="meetup-field-value">
+                                            {% set p = req.delivery_date.split('-') %}{% if p|length == 3 %}{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][p[1]|int-1] }} {{ p[2]|int }}, {{ p[0] }}{% else %}{{ req.delivery_date }}{% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if req.delivery_time_start or req.delivery_time_end %}
+                                <div class="meetup-row-item">
+                                    <div class="meetup-icon" style="background:#fed7aa;"><i class="fas fa-clock" style="color:#c2410c;"></i></div>
+                                    <div>
+                                        <span class="meetup-field-label">Time Window</span>
+                                        <span class="meetup-field-value">
+                                            {% macro fmt_time(t) %}{% if t %}{% set parts = t.split(':') %}{% set h = parts[0]|int %}{% set m = parts[1] if parts|length > 1 else '00' %}{% set h12 = h % 12 or 12 %}{{ h12 }}:{{ m }} {{ 'AM' if h < 12 else 'PM' }}{% endif %}{% endmacro %}
+                                            {{ fmt_time(req.delivery_time_start) }}{% if req.delivery_time_start and req.delivery_time_end %} &ndash; {% endif %}{{ fmt_time(req.delivery_time_end) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if req.rider_name %}
+                                <div class="meetup-row-item">
+                                    <div class="meetup-icon" style="background:#fed7aa;"><i class="fas fa-person-biking" style="color:#c2410c;"></i></div>
+                                    <div>
+                                        <span class="meetup-field-label">Rider</span>
+                                        <span class="meetup-field-value">{{ req.rider_name }}{% if req.rider_contact %} &middot; {{ req.rider_contact }}{% endif %}</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if req.delivery_photo_url %}
+                                <div class="meetup-row-item">
+                                    <div class="meetup-icon" style="background:#fed7aa;"><i class="fas fa-camera" style="color:#c2410c;"></i></div>
+                                    <div>
+                                        <span class="meetup-field-label">Proof of Delivery</span>
+                                        <a href="{{ req.delivery_photo_url }}" target="_blank" rel="noopener" class="meetup-field-value" style="color:#2563eb;text-decoration:underline;">
+                                            View Delivery Photo <i class="fas fa-external-link-alt" style="font-size:9px;"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                <div class="meetup-not-scheduled">
+                                    <i class="fas fa-hourglass-half" style="color:#94a3b8;"></i>
+                                    Delivery not yet scheduled. The admin will update this soon.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
                         <!-- Meet-up Details (collapsible, default CLOSED) -->
                         {% if req.delivery_method == 'Meet-up' %}
                         <div class="meetup-section">
