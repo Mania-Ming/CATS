@@ -278,29 +278,24 @@
                         <!-- Delivery info -->
                         {% if req.delivery_method %}
                         <div class="hsection">
-                            <div class="hsection-toggle hsection-title open" onclick="toggleSection(this)">
-                                <span>
-                                    <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}" style="color:var(--primary);"></i>
-                                    {{ req.delivery_method }}
-                                    {% if req.delivery_method != 'Meet-up' and req.delivery_status %}
-                                    <span style="margin-left:5px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;">{{ req.delivery_status }}</span>
-                                    {% endif %}
-                                </span>
-                                <i class="fas fa-chevron-down toggle-chevron"></i>
-                            </div>
-                            <div class="hsection-body open">
+                            <div class="hsection-title">
+                                <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}" style="color:var(--primary);"></i>
+                                {{ req.delivery_method }}
                                 {% if req.delivery_method != 'Meet-up' and req.delivery_status %}
-                                <div class="hinfo-row" style="padding-top:2px;">
-                                    <i class="fas fa-circle-dot" style="color:#1d4ed8;"></i>
-                                    <span>Status: <strong>{{ req.delivery_status }}</strong></span>
-                                </div>
-                                {% elif req.delivery_method != 'Meet-up' %}
-                                <div class="hinfo-row" style="padding-top:2px;">
-                                    <i class="fas fa-hourglass-half" style="color:#94a3b8;"></i>
-                                    <span style="color:var(--text-muted);">Delivery details will be updated by the admin.</span>
-                                </div>
+                                <span style="margin-left:5px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;">{{ req.delivery_status }}</span>
                                 {% endif %}
                             </div>
+                            {% if req.delivery_method != 'Meet-up' %}
+                            <div class="hinfo-row" style="padding-top:2px;">
+                                {% if req.delivery_status %}
+                                <i class="fas fa-circle-dot" style="color:#1d4ed8;"></i>
+                                <span>Status: <strong>{{ req.delivery_status }}</strong></span>
+                                {% else %}
+                                <i class="fas fa-hourglass-half" style="color:#94a3b8;"></i>
+                                <span style="color:var(--text-muted);">Delivery details will be updated by the admin.</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                         {% endif %}
 
@@ -308,12 +303,10 @@
                         {% if req.delivery_method == 'Meet-up' %}
                         {% set is_scheduled = req.status == 'Scheduled' or req.meetup_location or req.meetup_date %}
                         <div class="meetup-section">
-                            <div class="hsection-toggle {% if is_scheduled %}open{% endif %} meetup-section-title"
-                                 onclick="toggleSection(this)" style="margin-bottom:0;">
-                                <span><i class="fas fa-calendar-check"></i> Meet-up Details</span>
-                                <i class="fas fa-chevron-down toggle-chevron"></i>
+                            <div class="meetup-section-title">
+                                <i class="fas fa-calendar-check"></i> Meet-up Details
                             </div>
-                            <div class="hsection-body {% if is_scheduled %}open{% endif %}">
+                            <div style="margin-top:9px;">
                                 {% if req.meetup_location or req.meetup_date or req.meetup_time %}
                                 <div class="meetup-row-item">
                                     <div class="meetup-icon"><i class="fas fa-map-marker-alt"></i></div>
