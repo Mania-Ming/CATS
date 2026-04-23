@@ -61,7 +61,11 @@ ADOPTION_REQUEST_COLUMNS = (
     "id, user_id, cat_id, status, created_at, payment_status, payment_proof, payment_method, "
     "delivery_method, delivery_status, meetup_location, meetup_map_link, meetup_date, meetup_time, "
     "schedule_date, schedule_time, full_name, email, contact_number, address, reason, "
-    "experience_with_pets, completion_photo_url, "
+    "experience_with_pets, completion_photo_url"
+)
+
+# Extended columns added later — fetched separately so old DBs still work
+ADOPTION_REQUEST_COLUMNS_EXT = (
     "delivery_date, delivery_time_start, delivery_time_end, delivery_address, "
     "rider_name, rider_contact, delivery_photo_url"
 )
@@ -201,16 +205,47 @@ def fetch_messages_for_requests(request_ids, admin=False):
     return grouped
 
 
-def fetch_request_row(request_id, user_id=None, admin=False):
+def _fetch_requests(db, filters=None, order_desc=True, limit=None):
+    """Fetch adoption_requests rows, falling back to base columns if extended ones don't exist."""
+    for cols in (
+        ADOPTION_REQUEST_COLUMNS + ", " + ADOPTION_REQUEST_COLUMNS_EXT,
+        ADOPTION_REQUEST_COLUMNS,
+    ):
+        try:
+            q = db.table("adoption_requests").select(cols)
+            for col, val in (filters or {}).items():
+                q = q.eq(col, val)
+            if order_desc:
+                q = q.order("created_at", desc=True)
+            if limit:
+                q = q.limit(limit)
+            result = q.execute().data
+            if result is not None:
+                return result
+        except Exception as e:
+            log.warning("_fetch_requests with cols failed (%s), retrying", e)
+            continue
+    log.error("_fetch_requests failed with all column sets")
+    return []
+
+
+
     db = _admin_db() if admin else supabase
-    try:
-        query = db.table("adoption_requests").select(ADOPTION_REQUEST_COLUMNS).eq("id", request_id)
-        if user_id:
-            query = query.eq("user_id", user_id)
-        return query.single().execute().data
-    except Exception as e:
-        log.error("fetch_request_row(%s) failed: %s", request_id, e)
-        return None
+    for cols in (
+        ADOPTION_REQUEST_COLUMNS + ", " + ADOPTION_REQUEST_COLUMNS_EXT,
+        ADOPTION_REQUEST_COLUMNS,
+    ):
+        try:
+            query = db.table("adoption_requests").select(cols).eq("id", request_id)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            result = query.single().execute().data
+            if result is not None:
+                return result
+        except Exception:
+            continue
+    log.error("fetch_request_row(%s) failed with all column sets", request_id)
+    return None
 
 
 def build_request_cards(ar_rows, admin=False, include_messages=True):
@@ -448,10 +483,8 @@ def admin_dashboard():
     except Exception:
         pending_count = 0
     try:
-        ar_res = _admin_db().table("adoption_requests").select(
-            ADOPTION_REQUEST_COLUMNS
-        ).order("created_at", desc=True).limit(5).execute()
-        requests_list = build_request_cards(ar_res.data or [], admin=True, include_messages=False)
+        ar_data = _fetch_requests(_admin_db(), limit=5)
+        requests_list = build_request_cards(ar_data, admin=True, include_messages=False)
     except Exception as e:
         log.error("admin_dashboard requests failed: %s", e)
         requests_list = []
@@ -571,10 +604,8 @@ def admin_requests():
     if not admin_required():
         return redirect(url_for("login"))
     try:
-        ar_res = _admin_db().table("adoption_requests").select(
-            ADOPTION_REQUEST_COLUMNS
-        ).order("created_at", desc=True).execute()
-        requests_list = build_request_cards(ar_res.data or [], admin=True)
+        ar_data = _fetch_requests(_admin_db())
+        requests_list = build_request_cards(ar_data, admin=True)
     except Exception as e:
         log.error("admin_requests failed: %s", e)
         requests_list = []
@@ -1197,10 +1228,8 @@ def api_my_requests():
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     try:
-        res = supabase.table("adoption_requests").select(
-            ADOPTION_REQUEST_COLUMNS
-        ).eq("user_id", session["user_id"]).execute()
-        return jsonify(build_request_cards(res.data or [], include_messages=False))
+        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
+        return jsonify(build_request_cards(ar_data, include_messages=False))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1288,10 +1317,8 @@ def history():
     if "user_id" not in session:
         return redirect(url_for("login"))
     try:
-        ar_res = supabase.table("adoption_requests").select(
-            ADOPTION_REQUEST_COLUMNS
-        ).eq("user_id", session["user_id"]).order("created_at", desc=True).execute()
-        requests = build_request_cards(ar_res.data or [])
+        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
+        requests = build_request_cards(ar_data)
     except Exception as e:
         log.error("history failed: %s", e)
         requests = []
