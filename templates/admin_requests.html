@@ -14,7 +14,7 @@
             background:var(--surface);
             border:1px solid var(--border);
             border-radius:12px;
-            overflow:hidden;
+            overflow:visible;
             box-shadow:0 1px 3px rgba(0,0,0,0.05);
             transition:box-shadow .18s, transform .15s;
         }
@@ -80,12 +80,18 @@
         .req-actions-col {
             padding:10px 12px;
             display:flex; flex-direction:column; gap:6px;
-            min-width:260px; max-width:300px;
+            min-width:280px; max-width:320px;
+            overflow:visible;
         }
 
         /* Inline form row */
         .act-row { display:flex; gap:4px; align-items:center; flex-wrap:nowrap; }
         .act-row form { display:contents; }
+
+        /* Complete + Delete row — forms must be real flex children */
+        .act-row-btns { display:flex; gap:6px; align-items:center; width:100%; }
+        .act-row-btns form { flex:1; min-width:0; }
+        .act-row-btns form.delete-form { flex:0 0 auto; }
 
         .act-sel {
             height:28px; padding:0 6px;
@@ -312,14 +318,14 @@
                             <div class="act-divider"></div>
 
                             <!-- Complete + Delete -->
-                            <div class="act-row" style="flex-wrap:nowrap;">
+                            <div class="act-row-btns">
                                 {% if r.status != 'Completed' %}
-                                <form method="POST" action="{{ url_for('admin_complete', req_id=r.id) }}" onsubmit="return confirm('Mark as completed?')" style="flex:1;min-width:0;">
+                                <form method="POST" action="{{ url_for('admin_complete', req_id=r.id) }}" onsubmit="return confirm('Mark as completed?')">
                                     <button type="submit" class="act-btn ab-gray" style="width:100%;justify-content:center;"><i class="fas fa-flag-checkered"></i> Complete</button>
                                 </form>
                                 {% endif %}
-                                <form method="POST" action="{{ url_for('admin_delete_request', req_id=r.id) }}" onsubmit="return confirm('Delete this request?')" style="flex-shrink:0;">
-                                    <button type="submit" class="act-btn ab-red" style="padding:0 14px;"><i class="fas fa-trash"></i> Delete</button>
+                                <form method="POST" action="{{ url_for('admin_delete_request', req_id=r.id) }}" onsubmit="return confirm('Delete this request?')" class="delete-form">
+                                    <button type="submit" class="act-btn ab-red" style="width:100%;justify-content:center;padding:0 16px;"><i class="fas fa-trash"></i> Delete</button>
                                 </form>
                             </div>
 
