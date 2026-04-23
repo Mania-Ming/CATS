@@ -244,7 +244,7 @@ def admin_dashboard():
         pending_count = 0
     try:
         ar_res = _admin_db().table("adoption_requests").select(
-            "id, status, created_at, cat_id, user_id, payment_status, payment_proof, payment_method"
+            "id, status, created_at, cat_id, user_id, payment_status, payment_proof, payment_method, schedule_date, schedule_time"
         ).order("created_at", desc=True).limit(5).execute()
         requests_list = _build_requests_list(ar_res.data or [])
     except Exception as e:
@@ -292,8 +292,53 @@ def _build_requests_list(ar_data):
             ar.get("payment_status"),   # r[10]
             ar.get("payment_proof"),    # r[11]
             ar.get("payment_method"),   # r[12]
+            ar.get("schedule_date"),    # r[13]
+            ar.get("schedule_time"),    # r[14]
         ))
     return result
+
+
+# ------------------------------------------------------------------ admin schedule meet-up --
+
+@app.route("/admin/schedule/<int:req_id>", methods=["POST"])
+def admin_schedule(req_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+    schedule_date = request.form.get("schedule_date", "").strip()
+    schedule_time = request.form.get("schedule_time", "").strip()
+    if not schedule_date or not schedule_time:
+        flash("Date and time are required.", "error")
+        return redirect(url_for("admin_requests"))
+    try:
+        _admin_db().table("adoption_requests").update({
+            "status":        "Scheduled",
+            "schedule_date": schedule_date,
+            "schedule_time": schedule_time,
+        }).eq("id", req_id).execute()
+        flash("Meet-up scheduled.", "success")
+    except Exception as e:
+        log.error("admin_schedule(%s) failed: %s", req_id, e)
+        flash(f"Failed to schedule: {e}", "error")
+    return redirect(url_for("admin_requests"))
+
+
+# ------------------------------------------------------------------ admin mark completed --
+
+@app.route("/admin/complete/<int:req_id>", methods=["POST"])
+def admin_complete(req_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+    try:
+        db = _admin_db()
+        ar = db.table("adoption_requests").select("cat_id").eq("id", req_id).single().execute().data
+        db.table("adoption_requests").update({"status": "Completed"}).eq("id", req_id).execute()
+        if ar and ar.get("cat_id"):
+            db.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
+        flash("Adoption marked as Completed.", "success")
+    except Exception as e:
+        log.error("admin_complete(%s) failed: %s", req_id, e)
+        flash(f"Failed: {e}", "error")
+    return redirect(url_for("admin_requests"))
 
 
 # ------------------------------------------------------------------ admin update status --
@@ -312,6 +357,8 @@ def update_status(req_id):
                 db.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
             elif new_status == "Rejected":
                 db.table("cats").update({"status": "available"}).eq("id", ar["cat_id"]).execute()
+            elif new_status == "Completed":
+                db.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
         flash(f"Request updated to {new_status}.", "success")
     except Exception as e:
         log.error("update_status(%s) failed: %s", req_id, e)
@@ -342,7 +389,7 @@ def admin_requests():
         return redirect(url_for("login"))
     try:
         ar_res = _admin_db().table("adoption_requests").select(
-            "id, status, created_at, cat_id, user_id, payment_status, payment_proof, payment_method"
+            "id, status, created_at, cat_id, user_id, payment_status, payment_proof, payment_method, schedule_date, schedule_time"
         ).order("created_at", desc=True).execute()
         requests_list = _build_requests_list(ar_res.data or [])
     except Exception as e:
@@ -867,7 +914,7 @@ def history():
         return redirect(url_for("login"))
     try:
         ar_res = supabase.table("adoption_requests").select(
-            "id, status, created_at, cat_id, payment_status, payment_proof, payment_method"
+            "id, status, created_at, cat_id, payment_status, payment_proof, payment_method, schedule_date, schedule_time"
         ).eq("user_id", session["user_id"]).order("created_at", desc=True).execute()
 
         requests = []
@@ -891,6 +938,8 @@ def history():
                 "payment_proof":  ar.get("payment_proof"),
                 "payment_method": ar.get("payment_method") or "GCash",
                 "created_at":     parse_dt(ar.get("created_at")),
+                "schedule_date":  ar.get("schedule_date"),
+                "schedule_time":  ar.get("schedule_time"),
             })
     except Exception as e:
         log.error("history failed: %s", e)

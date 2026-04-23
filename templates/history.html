@@ -12,6 +12,9 @@
         .badge-pay-verify   { background:#fef9c3;color:#854d0e;border:1px solid #fde047; }
         .badge-pay-approved { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
         .badge-pay-rejected { background:#fef2f2;color:#dc2626;border:1px solid #fecaca; }
+        /* Adoption status overrides for Scheduled/Completed */
+        .badge-scheduled { background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe; }
+        .badge-completed { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
 
         /* Payment card */
         .payment-card {
@@ -142,7 +145,13 @@
                         </div>
                     </div>
                     <div class="request-badges">
+                        {% if req.status == 'Scheduled' %}
+                        <span class="badge badge-scheduled">Scheduled</span>
+                        {% elif req.status == 'Completed' %}
+                        <span class="badge badge-completed">Completed</span>
+                        {% else %}
                         <span class="badge badge-{{ req.status|lower }}">{{ req.status }}</span>
+                        {% endif %}
                         <span class="badge {{ pay_cls }}">{{ ps }}</span>
                     </div>
                 </div>
@@ -275,6 +284,42 @@
                     </div>
 
                     {% endif %}
+
+                {% elif req.status == 'Scheduled' %}
+                {# ── Meet-up scheduled ── #}
+                <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:16px 18px;margin-top:10px;">
+                    <p style="font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:10px;">
+                        <i class="fas fa-calendar-check"></i> Meet-up Scheduled
+                    </p>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;">
+                        <span style="color:#64748b;font-weight:600;">Date</span>
+                        <span style="color:#1e293b;font-weight:700;">
+                            {% if req.schedule_date %}
+                            {{ req.schedule_date }}
+                            {% else %}TBA{% endif %}
+                        </span>
+                        <span style="color:#64748b;font-weight:600;">Time</span>
+                        <span style="color:#1e293b;font-weight:700;">
+                            {% if req.schedule_time %}
+                            {{ req.schedule_time }}
+                            {% else %}TBA{% endif %}
+                        </span>
+                    </div>
+                    <p style="font-size:12px;color:#3b82f6;margin-top:10px;">
+                        <i class="fas fa-info-circle"></i> Please be ready on the scheduled date. Our team will contact you to confirm the location.
+                    </p>
+                </div>
+
+                {% elif req.status == 'Completed' %}
+                {# ── Adoption completed ── #}
+                <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:16px 18px;margin-top:10px;">
+                    <p style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:6px;">
+                        <i class="fas fa-paw"></i> Adoption Completed!
+                    </p>
+                    <p style="font-size:12px;color:#166534;">
+                        Congratulations! Your cat has been successfully adopted. Thank you for giving them a loving home.
+                    </p>
+                </div>
 
                 {% elif req.status == 'Pending' %}
                 <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">
