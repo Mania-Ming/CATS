@@ -244,9 +244,15 @@ create policy "avatars_anon_delete"
   using ( bucket_id = 'avatars' );
 
 -- ============================================================
--- STORAGE: Create buckets named "receipts" and "adoption-completions"
--- Set both to Public in Supabase Storage before using uploads.
+-- DELIVERY METHOD CONSTRAINT FIX
+-- Run this in Supabase SQL Editor to fix the check constraint
 -- ============================================================
+alter table adoption_requests
+  drop constraint if exists adoption_requests_delivery_method_check;
+
+alter table adoption_requests
+  add constraint adoption_requests_delivery_method_check
+  check (delivery_method in ('Meet-up', 'Delivery', 'Pickup'));
 
 create policy "receipts_public_read"
   on storage.objects for select

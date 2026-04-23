@@ -252,7 +252,7 @@
                         <div class="hinfo-row">
                             <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}"></i>
                             <strong>{{ req.delivery_method }}</strong>
-                            {% if req.delivery_method == 'Delivery / Pickup' and req.delivery_status %}
+                            {% if req.delivery_method != 'Meet-up' and req.delivery_status %}
                             &nbsp;·&nbsp;
                             <span class="delivery-pill {% if req.delivery_status == 'Delivered' %}dp-delivered{% elif req.delivery_status == 'Out for Delivery' %}dp-transit{% else %}dp-preparing{% endif %}">
                                 {{ req.delivery_status }}

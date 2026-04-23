@@ -257,11 +257,15 @@
 
                 <div class="form-group" style="margin-bottom:0;">
                     <label style="font-size:12px;margin-bottom:4px;">Delivery Method <span style="color:#dc2626;">*</span></label>
-                    <select name="delivery_method" required style="padding:7px 10px;font-size:12px;">
+                    <select name="delivery_method" id="deliveryMethodSelect" required style="padding:7px 10px;font-size:12px;" onchange="onDeliveryChange(this.value)">
                         <option value="">Choose delivery method</option>
-                        <option value="Meet-up">Meet-up</option>
-                        <option value="Delivery / Pickup">Delivery / Pickup</option>
+                        <option value="Meet-up">Meet-up (pick up in person)</option>
+                        <option value="Delivery">Delivery (we deliver to you)</option>
+                        <option value="Pickup">Pickup (you collect from us)</option>
                     </select>
+                    <div id="meetupNote" style="display:none;margin-top:5px;font-size:11px;color:#0369a1;background:#e0f2fe;border-radius:6px;padding:5px 9px;">
+                        <i class="fas fa-info-circle"></i> The admin will contact you to arrange the meet-up location, date, and time.
+                    </div>
                 </div>
 
                 <div id="adoptValidationMsg" style="display:none;font-size:11px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:7px 10px;margin-top:8px;">
@@ -331,6 +335,11 @@ function submitReceipt() {
         .catch(() => { btn.disabled = false; statusEl.style.color='#dc2626'; statusEl.textContent='Upload failed.'; });
 }
 
+// ── Delivery method toggle ──────────────────────────────────
+function onDeliveryChange(val) {
+    document.getElementById('meetupNote').style.display = val === 'Meet-up' ? 'block' : 'none';
+}
+
 // ── Adopt modal ──────────────────────────────────────────────
 let _currentCat = null;
 let _currentReqId = null;
@@ -345,6 +354,8 @@ function openAdoptModal(id, name, breed, age, gender, img) {
     else { imgEl.style.display = 'none'; }
     document.getElementById("adoptValidationMsg").style.display = "none";
     document.getElementById("adoptModal").classList.add("open");
+    const sel = document.getElementById('deliveryMethodSelect');
+    if (sel) { sel.value = ''; onDeliveryChange(''); }
 }
 function closeAdoptModal() {
     document.getElementById("adoptModal").classList.remove("open");

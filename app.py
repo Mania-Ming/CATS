@@ -246,7 +246,7 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
         user = users_by_id.get(row.get("user_id"), {})
         payment_status = row.get("payment_status") or "Pending Payment"
         delivery_method = row.get("delivery_method") or "Meet-up"
-        delivery_status = row.get("delivery_status") or ("Preparing" if delivery_method == "Delivery / Pickup" else None)
+        delivery_status = row.get("delivery_status") or ("Preparing" if delivery_method in ("Delivery", "Pickup") else None)
         card = {
             "id": row.get("id"),
             "user_id": row.get("user_id"),
@@ -1153,7 +1153,7 @@ def adopt_request():
     if not cat_id or not reason or not experience or not delivery_method:
         flash("Please complete all required fields before submitting.", "error")
         return redirect(url_for("dashboard"))
-    if delivery_method not in ("Meet-up", "Delivery / Pickup"):
+    if delivery_method not in ("Meet-up", "Delivery", "Pickup"):
         flash("Please select a valid delivery method.", "error")
         return redirect(url_for("dashboard"))
     # Fall back to profile data if hidden fields are empty
@@ -1178,7 +1178,7 @@ def adopt_request():
             "payment_status": "Pending Payment",
             "payment_method": "GCash",
             "delivery_method": delivery_method,
-            "delivery_status": "Preparing" if delivery_method == "Delivery / Pickup" else None,
+            "delivery_status": "Preparing" if delivery_method in ("Delivery", "Pickup") else None,
         }
         if living_environment:
             insert_data["living_environment"] = living_environment
