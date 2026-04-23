@@ -889,7 +889,12 @@ def dashboard():
         pending_count = 0
 
     user = get_user_profile(session["user_id"])
-    breeds = sorted({c.get("breed") for c in cats if c.get("breed")})
+    # Fetch ALL breeds independently so filter dropdown is always complete
+    try:
+        all_cats_for_breeds = supabase.table("cats").select("breed").execute().data or []
+        breeds = sorted({c.get("breed") for c in all_cats_for_breeds if c.get("breed")})
+    except Exception:
+        breeds = sorted({c.get("breed") for c in cats if c.get("breed")})
     return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count, active_page="dashboard", breeds=breeds, delivery_fee=DELIVERY_FEE)
 
 

@@ -256,6 +256,17 @@ alter table adoption_requests add column if not exists rider_contact text;
 alter table adoption_requests add column if not exists delivery_photo_url text;
 
 -- ============================================================
+-- PAYMENT METHOD CONSTRAINT FIX
+-- Run in Supabase SQL Editor to allow new payment method values
+-- ============================================================
+ALTER TABLE adoption_requests
+  DROP CONSTRAINT IF EXISTS check_payment_method;
+
+ALTER TABLE adoption_requests
+  ADD CONSTRAINT check_payment_method
+  CHECK (payment_method IN ('Cash on Arrival', 'Cash on Delivery', 'GCash', 'COD'));
+
+-- ============================================================
 -- DELIVERY METHOD CONSTRAINT FIX
 -- Run this in Supabase SQL Editor to fix the check constraint
 -- ============================================================
