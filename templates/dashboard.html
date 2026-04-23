@@ -59,15 +59,12 @@
                  role="{% if is_adopted %}img{% else %}button{% endif %}"
                  tabindex="{% if is_adopted %}-1{% else %}0{% endif %}"
                  aria-label="{{ cat.name }}{% if is_adopted %} — Adopted{% endif %}"
-                 {% if not is_adopted %}
-                 onclick="openBreedDetail({{ cat.id }})"
-                 onkeydown="if(event.key==='Enter'||event.key===' ')openBreedDetail({{ cat.id }})"
-                 {% endif %}>
+                 {% if not is_adopted %}data-cat-id="{{ cat.id }}"{% endif %}>
                 <div class="cat-card-img-wrap">
                     {% set img = cat.image or 'cat1.jpg' %}
                     <img src="{% if img.startswith('http') %}{{ img }}{% else %}{{ url_for('static', filename='images/' ~ img) }}{% endif %}"
                          alt="{{ cat.name }}"
-                         onerror="this.src='{{ url_for('static', filename='images/cat1.jpg') }}'">
+                         onerror="this.src='/static/images/cat1.jpg'">
                     {% if is_adopted %}
                     <div class="cat-card-overlay" style="opacity:1;background:rgba(26,29,46,0.55);">
                         <span style="background:var(--danger);border-color:var(--danger);">Adopted</span>
@@ -240,6 +237,17 @@
 <script>
 document.getElementById("menuToggle").addEventListener("click", function() {
     document.getElementById("sidebar").classList.toggle("open");
+});
+
+// Cat card click via data attribute (avoids Jinja inside inline handlers)
+document.addEventListener('click', function(e) {
+    const card = e.target.closest('[data-cat-id]');
+    if (card) openBreedDetail(parseInt(card.dataset.catId));
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('[data-cat-id]');
+    if (card) openBreedDetail(parseInt(card.dataset.catId));
 });
 
 // ── Delivery method + fee ──────────────────────────────────
