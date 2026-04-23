@@ -92,6 +92,18 @@ def parse_dt(val):
         return None
 
 
+def _first_non_empty(*values):
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                continue
+        return value
+    return None
+
+
 def get_user_profile(user_id):
     try:
         res = supabase.table("users").select("*").eq("id", user_id).single().execute()
@@ -206,6 +218,45 @@ def fetch_messages_for_requests(request_ids, admin=False):
     return grouped
 
 
+def fetch_deliveries_for_requests(request_ids, admin=False):
+    if not request_ids:
+        return {}
+    db = _admin_db() if admin else supabase
+    deliveries_by_request = {}
+    for request_key in ("adoption_request_id", "request_id", "adoption_id"):
+        try:
+            rows = db.table("deliveries").select("*").in_(request_key, request_ids).execute().data or []
+            for row in rows:
+                request_id = row.get(request_key)
+                if request_id is not None and request_id not in deliveries_by_request:
+                    deliveries_by_request[request_id] = row
+            if deliveries_by_request:
+                return deliveries_by_request
+        except Exception:
+            continue
+    return deliveries_by_request
+
+
+def sync_delivery_record(request_id, data):
+    db = _admin_db()
+    payload = {key: value for key, value in (data or {}).items() if value is not None}
+    if not request_id or not payload:
+        return False
+    for request_key in ("adoption_request_id", "request_id", "adoption_id"):
+        try:
+            existing = db.table("deliveries").select("id").eq(request_key, request_id).limit(1).execute().data or []
+            if existing:
+                db.table("deliveries").update(payload).eq("id", existing[0]["id"]).execute()
+            else:
+                insert_payload = dict(payload)
+                insert_payload[request_key] = request_id
+                db.table("deliveries").insert(insert_payload).execute()
+            return True
+        except Exception:
+            continue
+    return False
+
+
 def _fetch_requests(db, filters=None, order_desc=True, limit=None):
     """Fetch adoption_requests rows, falling back to base columns if extended ones don't exist."""
     for cols in (
@@ -280,6 +331,7 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
     cats_by_id = {}
     users_by_id = {}
     messages_by_request = fetch_messages_for_requests(request_ids, admin=admin) if include_messages else {}
+    deliveries_by_request = fetch_deliveries_for_requests(request_ids, admin=admin)
 
     try:
         if cat_ids:
@@ -301,9 +353,50 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
     for row in ar_rows:
         cat = cats_by_id.get(row.get("cat_id"), {})
         user = users_by_id.get(row.get("user_id"), {})
+        delivery = deliveries_by_request.get(row.get("id"), {})
         payment_status = row.get("payment_status") or "Pending Payment"
-        delivery_method = row.get("delivery_method") or "Meet-up"
-        delivery_status = row.get("delivery_status") or ("Preparing" if delivery_method in ("Delivery", "Pickup") else None)
+        raw_delivery_method = _first_non_empty(
+            delivery.get("delivery_method"),
+            delivery.get("method"),
+            row.get("delivery_method"),
+        ) or "Meet-up"
+        delivery_method = "Pick-up" if str(raw_delivery_method).strip().lower() in {"pickup", "pick-up"} else raw_delivery_method
+        delivery_status = _first_non_empty(
+            delivery.get("status"),
+            delivery.get("delivery_status"),
+            row.get("delivery_status"),
+        ) or ("Preparing" if delivery_method in ("Delivery", "Pick-up") else None)
+        estimated_delivery_date = _first_non_empty(
+            delivery.get("estimated_delivery_date"),
+            delivery.get("delivery_date"),
+            delivery.get("scheduled_date"),
+            delivery.get("schedule_date"),
+            delivery.get("eta_date"),
+            row.get("delivery_date"),
+        )
+        rider_name = _first_non_empty(delivery.get("rider_name"), row.get("rider_name"))
+        rider_contact = _first_non_empty(
+            delivery.get("rider_contact"),
+            delivery.get("rider_phone"),
+            row.get("rider_contact"),
+        )
+        pickup_location = _first_non_empty(
+            delivery.get("pickup_location"),
+            delivery.get("location"),
+            row.get("delivery_address"),
+            row.get("address"),
+            user.get("address"),
+        )
+        pickup_contact_person = _first_non_empty(
+            delivery.get("contact_person"),
+            delivery.get("contact_name"),
+            row.get("rider_name"),
+        )
+        pickup_contact_number = _first_non_empty(
+            delivery.get("contact_number"),
+            delivery.get("contact_phone"),
+            row.get("rider_contact"),
+        )
         # Auto-derive payment method from delivery method
         if delivery_method == "Delivery":
             auto_payment = "Cash on Delivery"
@@ -337,12 +430,15 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
             "experience_with_pets": row.get("experience_with_pets") or "",
             "valid_id_url": user.get("valid_id_url"),
             "completion_photo_url": row.get("completion_photo_url"),
-            "delivery_date": row.get("delivery_date"),
+            "delivery_date": estimated_delivery_date,
             "delivery_time_start": row.get("delivery_time_start"),
             "delivery_time_end": row.get("delivery_time_end"),
             "delivery_address": row.get("delivery_address") or row.get("address") or "",
-            "rider_name": row.get("rider_name"),
-            "rider_contact": row.get("rider_contact"),
+            "rider_name": rider_name,
+            "rider_contact": rider_contact,
+            "pickup_location": pickup_location,
+            "pickup_contact_person": pickup_contact_person,
+            "pickup_contact_number": pickup_contact_number,
             "delivery_photo_url": row.get("delivery_photo_url"),
             "messages": messages_by_request.get(row.get("id"), []),
         }
@@ -1120,6 +1216,10 @@ def admin_update_delivery(req_id):
             "status": "Scheduled",
             "delivery_status": delivery_status,
         }).eq("id", req_id).execute()
+        sync_delivery_record(req_id, {
+            "status": delivery_status,
+            "delivery_status": delivery_status,
+        })
         latest = fetch_request_row(req_id, admin=True)
         if latest and delivery_status == "Delivered":
             notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Delivery confirmed")
@@ -1146,6 +1246,8 @@ def admin_schedule_delivery(req_id):
         flash("Delivery date is required.", "error")
         return redirect(url_for("admin_requests"))
     try:
+        row = fetch_request_row(req_id, admin=True) or {}
+        delivery_method = row.get("delivery_method") or "Delivery"
         _admin_db().table("adoption_requests").update({
             "status": "Scheduled",
             "delivery_status": "Preparing",
@@ -1156,6 +1258,24 @@ def admin_schedule_delivery(req_id):
             "rider_name": rider_name,
             "rider_contact": rider_contact,
         }).eq("id", req_id).execute()
+        sync_delivery_record(req_id, {
+            "delivery_method": delivery_method,
+            "method": delivery_method,
+            "status": "Preparing",
+            "delivery_status": "Preparing",
+            "estimated_delivery_date": delivery_date,
+            "delivery_date": delivery_date,
+            "scheduled_date": delivery_date,
+            "pickup_location": delivery_address if delivery_method in ("Pickup", "Pick-up") else None,
+            "location": delivery_address if delivery_method in ("Pickup", "Pick-up") else None,
+            "contact_person": rider_name if delivery_method in ("Pickup", "Pick-up") else None,
+            "contact_name": rider_name if delivery_method in ("Pickup", "Pick-up") else None,
+            "contact_number": rider_contact if delivery_method in ("Pickup", "Pick-up") else None,
+            "contact_phone": rider_contact if delivery_method in ("Pickup", "Pick-up") else None,
+            "rider_name": rider_name if delivery_method == "Delivery" else None,
+            "rider_contact": rider_contact if delivery_method == "Delivery" else None,
+            "rider_phone": rider_contact if delivery_method == "Delivery" else None,
+        })
         flash("Delivery scheduled.", "success")
     except Exception as e:
         log.error("admin_schedule_delivery(%s) failed: %s", req_id, e)
@@ -1189,6 +1309,10 @@ def admin_upload_delivery_photo(req_id):
             "delivery_status": "Delivered",
             "status": "Completed",
         }).eq("id", req_id).execute()
+        sync_delivery_record(req_id, {
+            "status": "Delivered",
+            "delivery_status": "Delivered",
+        })
         flash("Delivery photo uploaded and status set to Delivered.", "success")
     except Exception as e:
         log.error("admin_upload_delivery_photo(%s) failed: %s", req_id, e)
