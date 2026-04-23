@@ -71,9 +71,30 @@
         .pay-method-form { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
         .pay-method-form label { font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer; }
 
-        /* GCash detail grid */
+        /* GCash 2-col layout */
+        .gcash-layout {
+            display:grid;
+            grid-template-columns:1fr auto;
+            gap:10px 14px;
+            align-items:start;
+            margin-top:8px;
+        }
         .gcash-grid { display:grid; grid-template-columns:auto 1fr; gap:3px 10px; font-size:12px; }
         .gcash-label { color:var(--text-muted); font-weight:600; }
+        .gcash-qr-wrap {
+            display:flex; flex-direction:column; align-items:center; gap:4px;
+            flex-shrink:0;
+        }
+        .gcash-qr-wrap img {
+            width:110px; height:110px; object-fit:contain;
+            border-radius:8px; border:1px solid var(--border);
+            background:#fff; padding:5px; display:block;
+        }
+        .gcash-qr-label { font-size:10px; color:var(--text-muted); font-weight:600; }
+        @media (max-width:480px) {
+            .gcash-layout { grid-template-columns:1fr; }
+            .gcash-qr-wrap { flex-direction:row; align-items:center; }
+        }
 
         /* Upload row */
         .upload-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; }
@@ -337,28 +358,37 @@
                                 <button type="submit" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">Save</button>
                             </form>
                             {% if req.payment_method == 'GCash' %}
-                            <div class="gcash-grid" style="margin-top:8px;">
-                                <span class="gcash-label">Number</span><span>{{ gcash_number }}</span>
-                                <span class="gcash-label">Name</span><span>{{ gcash_name }}</span>
-                                {% if req.cat_fee %}<span class="gcash-label">Amount</span><span>&#8369;{{ req.cat_fee | int }}</span>{% endif %}
+                            <div class="gcash-layout">
+                                <!-- Left: details + upload -->
+                                <div>
+                                    <div class="gcash-grid">
+                                        <span class="gcash-label">Number</span><span>{{ gcash_number }}</span>
+                                        <span class="gcash-label">Name</span><span>{{ gcash_name }}</span>
+                                        {% if req.cat_fee %}<span class="gcash-label">Amount</span><span>&#8369;{{ req.cat_fee | int }}</span>{% endif %}
+                                    </div>
+                                    {% if req.payment_status != 'Paid' %}
+                                    <div class="upload-row">
+                                        <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf">
+                                        <button type="button" class="hbtn hbtn-blue" onclick="uploadReceipt({{ req.id }})">
+                                            <i class="fas fa-upload"></i> Upload Receipt
+                                        </button>
+                                        <span class="upload-status" id="rs_{{ req.id }}"></span>
+                                    </div>
+                                    {% else %}
+                                    <p style="font-size:11px;color:#15803d;margin-top:6px;font-weight:600;">
+                                        <i class="fas fa-circle-check"></i> Payment confirmed
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <!-- Right: QR code -->
+                                <div class="gcash-qr-wrap">
+                                    <span class="gcash-qr-label">Scan to Pay</span>
+                                    <img src="{{ url_for('static', filename='images/gcash.png') }}"
+                                         alt="GCash QR Code"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+                                    <p style="display:none;font-size:10px;color:#dc2626;">QR not available</p>
+                                </div>
                             </div>
-                            <div style="text-align:center;margin-top:10px;">
-                                <p style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Scan to pay via GCash</p>
-                                <img src="{{ url_for('static', filename='images/gcash.png') }}"
-                                     alt="GCash QR Code"
-                                     style="width:140px;height:140px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:#fff;padding:6px;"
-                                     onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-                                <p style="display:none;font-size:11px;color:#dc2626;margin-top:4px;">QR code not available</p>
-                            </div>
-                            {% if req.payment_status != 'Paid' %}
-                            <div class="upload-row">
-                                <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf">
-                                <button type="button" class="hbtn hbtn-blue" onclick="uploadReceipt({{ req.id }})">
-                                    <i class="fas fa-upload"></i> Upload Receipt
-                                </button>
-                                <span class="upload-status" id="rs_{{ req.id }}"></span>
-                            </div>
-                            {% endif %}
                             {% else %}
                             <p style="font-size:12px;color:var(--text-muted);margin-top:6px;">Pay during the handoff.</p>
                             {% endif %}
