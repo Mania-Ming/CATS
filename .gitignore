@@ -5,6 +5,7 @@
 
 # Python
 __pycache__/
+.tmp_pycache/
 *.py[cod]
 *.pyo
 .venv/

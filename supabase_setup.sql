@@ -43,8 +43,33 @@ create table if not exists adoption_requests (
   living_situation text,
   has_other_pets text,
   experience_level text,
+  experience_with_pets text,
+  full_name text,
+  email text,
+  contact_number text,
+  address text,
   reason text,
   status text default 'Pending',
+  payment_status text default 'Pending Payment',
+  payment_method text default 'GCash',
+  payment_proof text,
+  delivery_method text,
+  delivery_status text,
+  meetup_location text,
+  meetup_map_link text,
+  meetup_date date,
+  meetup_time text,
+  schedule_date date,
+  schedule_time text,
+  completion_photo_url text,
+  created_at timestamptz default now()
+);
+
+create table if not exists messages (
+  id bigint primary key generated always as identity,
+  adoption_id bigint references adoption_requests(id) on delete cascade,
+  sender text not null,
+  message text not null,
   created_at timestamptz default now()
 );
 
@@ -114,6 +139,15 @@ create policy "allow_ar_select" on adoption_requests
 create policy "allow_ar_update" on adoption_requests
   for update to anon using (true);
 
+-- ---- messages ----
+alter table messages enable row level security;
+
+create policy "allow_messages_insert" on messages
+  for insert to anon with check (true);
+
+create policy "allow_messages_select" on messages
+  for select to anon using (true);
+
 -- ============================================================
 -- STORAGE: Create a bucket named "valid-ids" and set it public
 -- Dashboard → Storage → New Bucket → Name: valid-ids → Public ✓
@@ -158,6 +192,27 @@ update cats set weight_range='3–5 kg',  size='Medium', coat_colors='Blue-grey 
 alter table users add column if not exists avatar_url text;
 
 -- ============================================================
+-- ADOPTION REQUEST EXTENSIONS (run if table already exists)
+-- ============================================================
+alter table adoption_requests add column if not exists experience_with_pets text;
+alter table adoption_requests add column if not exists full_name text;
+alter table adoption_requests add column if not exists email text;
+alter table adoption_requests add column if not exists contact_number text;
+alter table adoption_requests add column if not exists address text;
+alter table adoption_requests add column if not exists payment_status text default 'Pending Payment';
+alter table adoption_requests add column if not exists payment_method text default 'GCash';
+alter table adoption_requests add column if not exists payment_proof text;
+alter table adoption_requests add column if not exists delivery_method text;
+alter table adoption_requests add column if not exists delivery_status text;
+alter table adoption_requests add column if not exists meetup_location text;
+alter table adoption_requests add column if not exists meetup_map_link text;
+alter table adoption_requests add column if not exists meetup_date date;
+alter table adoption_requests add column if not exists meetup_time text;
+alter table adoption_requests add column if not exists schedule_date date;
+alter table adoption_requests add column if not exists schedule_time text;
+alter table adoption_requests add column if not exists completion_photo_url text;
+
+-- ============================================================
 -- STORAGE: Create a bucket named "avatars" and set it public
 -- Dashboard → Storage → New Bucket → Name: avatars → Public ✓
 -- ============================================================
@@ -187,3 +242,32 @@ create policy "avatars_anon_update"
 create policy "avatars_anon_delete"
   on storage.objects for delete to anon
   using ( bucket_id = 'avatars' );
+
+-- ============================================================
+-- STORAGE: Create buckets named "receipts" and "adoption-completions"
+-- Set both to Public in Supabase Storage before using uploads.
+-- ============================================================
+
+create policy "receipts_public_read"
+  on storage.objects for select
+  using ( bucket_id = 'receipts' );
+
+create policy "receipts_anon_insert"
+  on storage.objects for insert to anon
+  with check ( bucket_id = 'receipts' );
+
+create policy "receipts_anon_update"
+  on storage.objects for update to anon
+  using ( bucket_id = 'receipts' );
+
+create policy "completion_public_read"
+  on storage.objects for select
+  using ( bucket_id = 'adoption-completions' );
+
+create policy "completion_anon_insert"
+  on storage.objects for insert to anon
+  with check ( bucket_id = 'adoption-completions' );
+
+create policy "completion_anon_update"
+  on storage.objects for update to anon
+  using ( bucket_id = 'adoption-completions' );

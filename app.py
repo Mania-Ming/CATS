@@ -1,7 +1,9 @@
 import os
+import smtplib
 import logging
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from email.message import EmailMessage
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase_client import supabase as _supabase_client, supabase_admin as _supabase_admin
@@ -44,8 +46,23 @@ AVATAR_BUCKET  = "avatars"
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2 MB
 
 PAYMENT_BUCKET = "receipts"
+COMPLETE_PHOTO_BUCKET = "adoption-completions"
 GCASH_NUMBER   = os.environ.get("GCASH_NUMBER", "09XX-XXX-XXXX")
 GCASH_NAME     = os.environ.get("GCASH_NAME",   "Cat Adoption PH")
+
+SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "").strip()
+SMTP_PASS = os.environ.get("SMTP_PASS", "").strip()
+SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER or "no-reply@catadoption.local").strip()
+SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").strip().lower() != "false"
+
+ADOPTION_REQUEST_COLUMNS = (
+    "id, user_id, cat_id, status, created_at, payment_status, payment_proof, payment_method, "
+    "delivery_method, delivery_status, meetup_location, meetup_map_link, meetup_date, meetup_time, "
+    "schedule_date, schedule_time, full_name, email, contact_number, address, reason, "
+    "experience_with_pets, completion_photo_url"
+)
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
@@ -109,6 +126,185 @@ def db_query(table, filters=None, columns="*", order=None, limit=None, single=Fa
         return (q.execute().data) or []
     except Exception:
         return None if single else []
+
+
+def profile_to_dict(profile):
+    if not profile:
+        return {}
+    return {
+        "id": profile[0],
+        "email": profile[1],
+        "password": profile[2],
+        "full_name": profile[3],
+        "phone": profile[4],
+        "address": profile[5],
+        "valid_id_url": profile[6],
+        "avatar_url": profile[7],
+    }
+
+
+def _storage_client():
+    return supabase_admin or supabase
+
+
+def upload_public_file(bucket, path, file_bytes, content_type):
+    client = _storage_client()
+    client.storage.from_(bucket).upload(
+        path,
+        file_bytes,
+        {"content-type": content_type, "upsert": "true"},
+    )
+    return client.storage.from_(bucket).get_public_url(path)
+
+
+def send_email_notification(to_email, subject, body):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASS and to_email):
+        log.info("Email skipped for %s subject=%s due to missing SMTP config.", to_email, subject)
+        return False
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = SMTP_FROM
+        msg["To"] = to_email
+        msg.set_content(body)
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
+            if SMTP_USE_TLS:
+                smtp.starttls()
+            smtp.login(SMTP_USER, SMTP_PASS)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        log.error("send_email_notification(%s) failed: %s", to_email, e)
+        return False
+
+
+def fetch_messages_for_requests(request_ids, admin=False):
+    if not request_ids:
+        return {}
+    db = _admin_db() if admin else supabase
+    grouped = {req_id: [] for req_id in request_ids}
+    try:
+        rows = db.table("messages").select(
+            "id, adoption_id, sender, message, created_at"
+        ).in_("adoption_id", request_ids).order("created_at").execute().data or []
+        for row in rows:
+            grouped.setdefault(row["adoption_id"], []).append({
+                "id": row.get("id"),
+                "sender": row.get("sender") or "user",
+                "message": row.get("message") or "",
+                "created_at": parse_dt(row.get("created_at")),
+            })
+    except Exception as e:
+        log.error("fetch_messages_for_requests(%s) failed: %s", request_ids, e)
+    return grouped
+
+
+def fetch_request_row(request_id, user_id=None, admin=False):
+    db = _admin_db() if admin else supabase
+    try:
+        query = db.table("adoption_requests").select(ADOPTION_REQUEST_COLUMNS).eq("id", request_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        return query.single().execute().data
+    except Exception as e:
+        log.error("fetch_request_row(%s) failed: %s", request_id, e)
+        return None
+
+
+def build_request_cards(ar_rows, admin=False, include_messages=True):
+    db = _admin_db() if admin else supabase
+    if not ar_rows:
+        return []
+
+    cat_ids = sorted({row.get("cat_id") for row in ar_rows if row.get("cat_id") is not None})
+    user_ids = sorted({row.get("user_id") for row in ar_rows if row.get("user_id")})
+    request_ids = [row.get("id") for row in ar_rows if row.get("id") is not None]
+
+    cats_by_id = {}
+    users_by_id = {}
+    messages_by_request = fetch_messages_for_requests(request_ids, admin=admin) if include_messages else {}
+
+    try:
+        if cat_ids:
+            cat_rows = db.table("cats").select("id, name, breed, adoption_fee").in_("id", cat_ids).execute().data or []
+            cats_by_id = {row["id"]: row for row in cat_rows}
+    except Exception as e:
+        log.error("build_request_cards cat lookup failed: %s", e)
+
+    try:
+        if user_ids:
+            user_rows = db.table("users").select(
+                "id, full_name, email, phone, address, valid_id_url"
+            ).in_("id", user_ids).execute().data or []
+            users_by_id = {row["id"]: row for row in user_rows}
+    except Exception as e:
+        log.error("build_request_cards user lookup failed: %s", e)
+
+    cards = []
+    for row in ar_rows:
+        cat = cats_by_id.get(row.get("cat_id"), {})
+        user = users_by_id.get(row.get("user_id"), {})
+        payment_status = row.get("payment_status") or "Pending Payment"
+        delivery_method = row.get("delivery_method") or "Meet-up"
+        delivery_status = row.get("delivery_status") or ("Preparing" if delivery_method == "Delivery / Pickup" else None)
+        card = {
+            "id": row.get("id"),
+            "user_id": row.get("user_id"),
+            "cat_id": row.get("cat_id"),
+            "cat_name": cat.get("name") or "Unknown Cat",
+            "cat_breed": cat.get("breed") or "",
+            "cat_fee": cat.get("adoption_fee"),
+            "status": row.get("status") or "Pending",
+            "created_at": parse_dt(row.get("created_at")),
+            "payment_status": payment_status,
+            "payment_proof": row.get("payment_proof"),
+            "payment_method": row.get("payment_method") or "GCash",
+            "delivery_method": delivery_method,
+            "delivery_status": delivery_status,
+            "meetup_location": row.get("meetup_location"),
+            "meetup_map_link": row.get("meetup_map_link"),
+            "meetup_date": row.get("meetup_date") or row.get("schedule_date"),
+            "meetup_time": row.get("meetup_time") or row.get("schedule_time"),
+            "full_name": row.get("full_name") or user.get("full_name") or "",
+            "email": row.get("email") or user.get("email") or "",
+            "contact_number": row.get("contact_number") or user.get("phone") or "",
+            "address": row.get("address") or user.get("address") or "",
+            "reason": row.get("reason") or "",
+            "experience_with_pets": row.get("experience_with_pets") or "",
+            "valid_id_url": user.get("valid_id_url"),
+            "completion_photo_url": row.get("completion_photo_url"),
+            "messages": messages_by_request.get(row.get("id"), []),
+        }
+        cards.append(card)
+    return cards
+
+
+def notify_request_update(card, event_name):
+    if not card or not card.get("email"):
+        return
+    detail_lines = [
+        f"Cat: {card.get('cat_name')}",
+        f"Payment status: {card.get('payment_status')}",
+        f"Payment method: {card.get('payment_method')}",
+        f"Delivery method: {card.get('delivery_method')}",
+    ]
+    if card.get("delivery_method") == "Meet-up":
+        detail_lines.extend([
+            f"Meet-up location: {card.get('meetup_location') or 'TBA'}",
+            f"Meet-up date: {card.get('meetup_date') or 'TBA'}",
+            f"Meet-up time: {card.get('meetup_time') or 'TBA'}",
+            f"Map link: {card.get('meetup_map_link') or 'Not yet provided'}",
+        ])
+    else:
+        detail_lines.extend([
+            f"Delivery address: {card.get('address') or 'TBA'}",
+            f"Delivery status: {card.get('delivery_status') or 'Preparing'}",
+        ])
+    send_email_notification(
+        card.get("email"),
+        f"{event_name} for {card.get('cat_name')}",
+        "\n".join(detail_lines),
+    )
 
 
 # ------------------------------------------------------------------ browse --
@@ -244,9 +440,9 @@ def admin_dashboard():
         pending_count = 0
     try:
         ar_res = _admin_db().table("adoption_requests").select(
-            "id, status, created_at, cat_id, user_id, payment_status, payment_proof, payment_method, schedule_date, schedule_time"
+            ADOPTION_REQUEST_COLUMNS
         ).order("created_at", desc=True).limit(5).execute()
-        requests_list = _build_requests_list(ar_res.data or [])
+        requests_list = build_request_cards(ar_res.data or [], admin=True, include_messages=False)
     except Exception as e:
         log.error("admin_dashboard requests failed: %s", e)
         requests_list = []
@@ -257,64 +453,39 @@ def admin_dashboard():
                            total_users=total_users,
                            active_page="dashboard")
 
-
-def _build_requests_list(ar_data):
-    """Enrich adoption request rows with cat name/breed and user name/email."""
-    db = _admin_db()
-    result = []
-    for ar in ar_data:
-        cat_name = cat_breed = user_name = user_email = user_phone = user_addr = valid_id = None
-        try:
-            cat_res = db.table("cats").select("name, breed").eq("id", ar["cat_id"]).single().execute()
-            if cat_res.data:
-                cat_name  = cat_res.data.get("name")
-                cat_breed = cat_res.data.get("breed")
-        except Exception:
-            pass
-        try:
-            u_res = db.table("users").select(
-                "full_name, email, phone, address, valid_id_url"
-            ).eq("id", ar["user_id"]).single().execute()
-            if u_res.data:
-                user_name  = u_res.data.get("full_name")
-                user_email = u_res.data.get("email")
-                user_phone = u_res.data.get("phone")
-                user_addr  = u_res.data.get("address")
-                valid_id   = u_res.data.get("valid_id_url")
-        except Exception:
-            pass
-        result.append((
-            ar["id"], cat_name, cat_breed,
-            user_name, user_phone, user_addr,
-            ar.get("status", "Pending"),
-            parse_dt(ar.get("created_at")),
-            valid_id, user_email,
-            ar.get("payment_status"),   # r[10]
-            ar.get("payment_proof"),    # r[11]
-            ar.get("payment_method"),   # r[12]
-            ar.get("schedule_date"),    # r[13]
-            ar.get("schedule_time"),    # r[14]
-        ))
-    return result
-
-
 # ------------------------------------------------------------------ admin schedule meet-up --
 
 @app.route("/admin/schedule/<int:req_id>", methods=["POST"])
 def admin_schedule(req_id):
     if not admin_required():
         return redirect(url_for("login"))
-    schedule_date = request.form.get("schedule_date", "").strip()
-    schedule_time = request.form.get("schedule_time", "").strip()
-    if not schedule_date or not schedule_time:
-        flash("Date and time are required.", "error")
+    schedule_date    = request.form.get("schedule_date", "").strip()
+    schedule_time    = request.form.get("schedule_time", "").strip()
+    meetup_location  = request.form.get("meetup_location", "").strip()
+    meetup_map_link  = request.form.get("meetup_map_link", "").strip()
+    row = fetch_request_row(req_id, admin=True)
+    if not row:
+        flash("Adoption request not found.", "error")
+        return redirect(url_for("admin_requests"))
+    if (row.get("delivery_method") or "Meet-up") != "Meet-up":
+        flash("Meet-up scheduling is only available for meet-up requests.", "error")
+        return redirect(url_for("admin_requests"))
+    if not schedule_date or not schedule_time or not meetup_location:
+        flash("Location, date, and time are required.", "error")
         return redirect(url_for("admin_requests"))
     try:
         _admin_db().table("adoption_requests").update({
-            "status":        "Scheduled",
-            "schedule_date": schedule_date,
-            "schedule_time": schedule_time,
+            "status":           "Scheduled",
+            "meetup_date":      schedule_date,
+            "meetup_time":      schedule_time,
+            "schedule_date":    schedule_date,
+            "schedule_time":    schedule_time,
+            "meetup_location":  meetup_location or None,
+            "meetup_map_link":  meetup_map_link or None,
         }).eq("id", req_id).execute()
+        latest = fetch_request_row(req_id, admin=True)
+        if latest:
+            notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Meet-up scheduled")
         flash("Meet-up scheduled.", "success")
     except Exception as e:
         log.error("admin_schedule(%s) failed: %s", req_id, e)
@@ -334,6 +505,9 @@ def admin_complete(req_id):
         db.table("adoption_requests").update({"status": "Completed"}).eq("id", req_id).execute()
         if ar and ar.get("cat_id"):
             db.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
+        latest = fetch_request_row(req_id, admin=True)
+        if latest:
+            notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Adoption completed")
         flash("Adoption marked as Completed.", "success")
     except Exception as e:
         log.error("admin_complete(%s) failed: %s", req_id, e)
@@ -389,9 +563,9 @@ def admin_requests():
         return redirect(url_for("login"))
     try:
         ar_res = _admin_db().table("adoption_requests").select(
-            "id, status, created_at, cat_id, user_id, payment_status, payment_proof, payment_method, schedule_date, schedule_time"
+            ADOPTION_REQUEST_COLUMNS
         ).order("created_at", desc=True).execute()
-        requests_list = _build_requests_list(ar_res.data or [])
+        requests_list = build_request_cards(ar_res.data or [], admin=True)
     except Exception as e:
         log.error("admin_requests failed: %s", e)
         requests_list = []
@@ -744,7 +918,6 @@ def api_cat_delete():
 
 @app.route("/update-payment-method/<int:request_id>", methods=["POST"])
 def update_payment_method(request_id):
-    from flask import jsonify
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     try:
@@ -754,10 +927,14 @@ def update_payment_method(request_id):
                     request_id, payment_method, session.get("user_id"))
         if payment_method not in ("GCash", "COD"):
             return jsonify({"error": "Invalid payment method. Must be GCash or COD."}), 400
-        update = {"payment_method": payment_method, "payment_status": "Pending Payment"}
-        res = supabase.table("adoption_requests").update(update).eq(
-            "id", request_id).eq("user_id", session["user_id"]).execute()
-        return jsonify({"success": True, "data": res.data})
+        supabase.table("adoption_requests").update({
+            "payment_method": payment_method,
+            "payment_status": "Pending Payment",
+        }).eq("id", request_id).eq("user_id", session["user_id"]).execute()
+        latest = fetch_request_row(request_id, user_id=session["user_id"])
+        if not latest:
+            return jsonify({"error": "Request not found."}), 404
+        return jsonify({"success": True, "data": build_request_cards([latest], include_messages=False)[0]})
     except Exception as e:
         log.error("update_payment_method(%s) failed: %s", request_id, e)
         return jsonify({"error": str(e)}), 500
@@ -774,11 +951,13 @@ def select_payment_method(req_id):
         flash("Invalid payment method.", "error")
         return redirect(url_for("history"))
     try:
-        update = {"payment_method": method}
-        # Both methods start at Pending Payment
-        supabase.table("adoption_requests").update(update).eq(
+        supabase.table("adoption_requests").update({
+            "payment_method": method,
+            "payment_status": "Pending Payment",
+        }).eq(
             "id", req_id).eq("user_id", session["user_id"]).execute()
-        flash(f"Payment method set to {method}.", "success")
+        latest = fetch_request_row(req_id, user_id=session["user_id"])
+        flash(f"Payment method set to {(latest or {}).get('payment_method', method)}.", "success")
     except Exception as e:
         log.error("select_payment_method(%s) failed: %s", req_id, e)
         flash("Failed to save payment method.", "error")
@@ -789,7 +968,6 @@ def select_payment_method(req_id):
 
 @app.route("/upload_receipt/<int:req_id>", methods=["POST"])
 def upload_receipt(req_id):
-    from flask import jsonify
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     file = request.files.get("receipt")
@@ -802,19 +980,15 @@ def upload_receipt(req_id):
     if len(file_bytes) > MAX_AVATAR_BYTES:
         return jsonify({"error": "File exceeds 2 MB"}), 400
     try:
-        storage_client = supabase_admin or supabase
         path = f"receipt_{req_id}_{session['user_id']}.{ext}"
-        storage_client.storage.from_(PAYMENT_BUCKET).upload(
-            path, file_bytes,
-            {"content-type": file.content_type, "upsert": "true"}
-        )
-        public_url = storage_client.storage.from_(PAYMENT_BUCKET).get_public_url(path)
-        # Preserve existing payment_method — do not overwrite it
+        public_url = upload_public_file(PAYMENT_BUCKET, path, file_bytes, file.content_type)
         supabase.table("adoption_requests").update({
             "payment_proof":  public_url,
             "payment_status": "For Verification",
         }).eq("id", req_id).eq("user_id", session["user_id"]).execute()
-        return jsonify({"ok": True, "url": public_url})
+        latest = fetch_request_row(req_id, user_id=session["user_id"])
+        data = build_request_cards([latest], include_messages=False)[0] if latest else None
+        return jsonify({"ok": True, "url": public_url, "data": data})
     except Exception as e:
         err = str(e)
         log.error("upload_receipt(%s) failed: %s", req_id, err)
@@ -838,6 +1012,10 @@ def admin_update_payment(req_id):
         _admin_db().table("adoption_requests").update(
             {"payment_status": new_payment_status}
         ).eq("id", req_id).execute()
+        if new_payment_status == "Paid":
+            latest = fetch_request_row(req_id, admin=True)
+            if latest:
+                notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Payment confirmed")
         flash(f"Payment status updated to {new_payment_status}.", "success")
     except Exception as e:
         log.error("admin_update_payment(%s) failed: %s", req_id, e)
@@ -845,11 +1023,93 @@ def admin_update_payment(req_id):
     return redirect(url_for("admin_requests"))
 
 
+@app.route("/admin/update_delivery/<int:req_id>", methods=["POST"])
+def admin_update_delivery(req_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+    delivery_status = request.form.get("delivery_status", "").strip()
+    if delivery_status not in {"Preparing", "Out for Delivery", "Delivered"}:
+        flash("Invalid delivery status.", "error")
+        return redirect(url_for("admin_requests"))
+    try:
+        _admin_db().table("adoption_requests").update({
+            "status": "Scheduled",
+            "delivery_status": delivery_status,
+        }).eq("id", req_id).execute()
+        latest = fetch_request_row(req_id, admin=True)
+        if latest and delivery_status == "Delivered":
+            notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Delivery confirmed")
+        flash(f"Delivery status updated to {delivery_status}.", "success")
+    except Exception as e:
+        log.error("admin_update_delivery(%s) failed: %s", req_id, e)
+        flash(f"Failed to update delivery status: {e}", "error")
+    return redirect(url_for("admin_requests"))
+
+
+@app.route("/messages/<int:req_id>", methods=["POST"])
+def send_message(req_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    message = request.form.get("message", "").strip()
+    if not message:
+        flash("Message cannot be empty.", "error")
+        return redirect(request.referrer or url_for("history"))
+
+    is_admin = admin_required()
+    row = fetch_request_row(req_id, admin=is_admin, user_id=None if is_admin else session["user_id"])
+    if not row:
+        flash("Adoption request not found.", "error")
+        return redirect(request.referrer or url_for("history"))
+    try:
+        (_admin_db() if is_admin else supabase).table("messages").insert({
+            "adoption_id": req_id,
+            "sender": "admin" if is_admin else "user",
+            "message": message,
+        }).execute()
+        flash("Message sent.", "success")
+    except Exception as e:
+        log.error("send_message(%s) failed: %s", req_id, e)
+        flash("Failed to send message.", "error")
+    return redirect(request.referrer or (url_for("admin_requests") if is_admin else url_for("history")))
+
+
+@app.route("/upload_completion_photo/<int:req_id>", methods=["POST"])
+def upload_completion_photo(req_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    row = fetch_request_row(req_id, user_id=session["user_id"])
+    if not row or row.get("status") != "Completed":
+        flash("You can only upload a photo after completion.", "error")
+        return redirect(url_for("history"))
+    file = request.files.get("completion_photo")
+    if not file or not file.filename:
+        flash("Please choose a photo to upload.", "error")
+        return redirect(url_for("history"))
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_AVATAR_EXTENSIONS:
+        flash("Only JPG and PNG completion photos are allowed.", "error")
+        return redirect(url_for("history"))
+    file_bytes = file.read()
+    if len(file_bytes) > MAX_AVATAR_BYTES:
+        flash("Photo exceeds the 2 MB limit.", "error")
+        return redirect(url_for("history"))
+    try:
+        path = f"completion_{req_id}_{session['user_id']}.{ext}"
+        public_url = upload_public_file(COMPLETE_PHOTO_BUCKET, path, file_bytes, file.content_type)
+        supabase.table("adoption_requests").update({
+            "completion_photo_url": public_url,
+        }).eq("id", req_id).eq("user_id", session["user_id"]).execute()
+        flash("Completion photo uploaded.", "success")
+    except Exception as e:
+        log.error("upload_completion_photo(%s) failed: %s", req_id, e)
+        flash("Failed to upload completion photo.", "error")
+    return redirect(url_for("history"))
+
+
 # ------------------------------------------------------------------ gcash info API --
 
 @app.route("/api/gcash_info")
 def api_gcash_info():
-    from flask import jsonify
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     return jsonify({"number": GCASH_NUMBER, "name": GCASH_NAME})
@@ -859,14 +1119,13 @@ def api_gcash_info():
 
 @app.route("/api/my_requests")
 def api_my_requests():
-    from flask import jsonify
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     try:
         res = supabase.table("adoption_requests").select(
-            "id, cat_id, status, payment_status, payment_proof, payment_method"
+            ADOPTION_REQUEST_COLUMNS
         ).eq("user_id", session["user_id"]).execute()
-        return jsonify(res.data or [])
+        return jsonify(build_request_cards(res.data or [], include_messages=False))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -877,32 +1136,47 @@ def api_my_requests():
 def adopt_request():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    user = get_user_profile(session["user_id"])
-    if not user or not user[3] or not user[4] or not user[5]:
-        flash("Please complete your profile (name, contact, address) before adopting.", "error")
-        return redirect(url_for("profile"))
-    cat_id           = request.form.get("cat_id")
-    living_situation = request.form.get("living_situation", "").strip()
-    has_other_pets   = request.form.get("has_other_pets", "").strip()
-    experience       = request.form.get("experience", "").strip()
-    reason           = request.form.get("reason", "").strip()
-    if not living_situation or not has_other_pets or not reason:
-        flash("Please answer all required questions.", "error")
+    cat_id = request.form.get("cat_id")
+    full_name = request.form.get("full_name", "").strip()
+    email = request.form.get("email", "").strip()
+    contact_number = request.form.get("contact_number", "").strip()
+    address = request.form.get("address", "").strip()
+    reason = request.form.get("reason", "").strip()
+    experience = request.form.get("experience_with_pets", "").strip()
+    delivery_method = request.form.get("delivery_method", "").strip()
+    required_values = [cat_id, full_name, email, contact_number, address, reason, experience, delivery_method]
+    if any(not value for value in required_values):
+        flash("Please complete all required fields before submitting.", "error")
+        return redirect(url_for("dashboard"))
+    if delivery_method not in ("Meet-up", "Delivery / Pickup"):
+        flash("Please select a valid delivery method.", "error")
         return redirect(url_for("dashboard"))
     try:
         supabase.table("adoption_requests").insert({
-            "user_id":          session["user_id"],
-            "cat_id":           int(cat_id),
-            "living_situation": living_situation,
-            "has_other_pets":   has_other_pets,
+            "user_id": session["user_id"],
+            "cat_id": int(cat_id),
+            "full_name": full_name,
+            "email": email,
+            "contact_number": contact_number,
+            "address": address,
+            "reason": reason,
+            "experience_with_pets": experience,
             "experience_level": experience,
-            "reason":           reason,
-            "status":           "Pending",
+            "status": "Pending",
+            "payment_status": "Pending Payment",
+            "payment_method": "GCash",
+            "delivery_method": delivery_method,
+            "delivery_status": "Preparing" if delivery_method == "Delivery / Pickup" else None,
         }).execute()
+        supabase.table("users").update({
+            "full_name": full_name,
+            "phone": contact_number,
+            "address": address,
+        }).eq("id", session["user_id"]).execute()
         flash("Adoption request submitted! We will review it shortly.", "success")
     except Exception as e:
         log.error("adopt_request failed for user %s: %s", session.get("user_id"), e)
-        flash("Failed to submit request. Please try again.", "error")
+        flash("Failed to submit request. Please verify the form and try again.", "error")
     return redirect(url_for("dashboard"))
 
 
@@ -914,33 +1188,9 @@ def history():
         return redirect(url_for("login"))
     try:
         ar_res = supabase.table("adoption_requests").select(
-            "id, status, created_at, cat_id, payment_status, payment_proof, payment_method, schedule_date, schedule_time"
+            ADOPTION_REQUEST_COLUMNS
         ).eq("user_id", session["user_id"]).order("created_at", desc=True).execute()
-
-        requests = []
-        for ar in (ar_res.data or []):
-            cat_name = cat_breed = cat_fee = None
-            try:
-                cat_res = supabase.table("cats").select("name, breed, adoption_fee").eq("id", ar["cat_id"]).single().execute()
-                if cat_res.data:
-                    cat_name  = cat_res.data.get("name")
-                    cat_breed = cat_res.data.get("breed")
-                    cat_fee   = cat_res.data.get("adoption_fee")
-            except Exception:
-                pass
-            requests.append({
-                "id":             ar["id"],
-                "cat_name":       cat_name,
-                "cat_breed":      cat_breed,
-                "cat_fee":        cat_fee,
-                "status":         ar.get("status", "Pending"),
-                "payment_status": ar.get("payment_status") or "Pending Payment",
-                "payment_proof":  ar.get("payment_proof"),
-                "payment_method": ar.get("payment_method") or "GCash",
-                "created_at":     parse_dt(ar.get("created_at")),
-                "schedule_date":  ar.get("schedule_date"),
-                "schedule_time":  ar.get("schedule_time"),
-            })
+        requests = build_request_cards(ar_res.data or [])
     except Exception as e:
         log.error("history failed: %s", e)
         requests = []

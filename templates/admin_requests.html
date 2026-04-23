@@ -3,47 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adoption Requests — Admin</title>
+    <title>Adoption Requests - Admin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
     <style>
-        .req-table th, .req-table td { padding:10px 12px; font-size:12px; vertical-align:top; }
-        .req-table th { font-size:11px; }
-
-        .badge-method-gcash { background:#3b82f6;color:white;border:none; }
-        .badge-method-cod   { background:#9ca3af;color:white;border:none; }
-        .badge-pay-verify   { background:#fef9c3;color:#854d0e;border:1px solid #fde047; }
-        .badge-pay-paid     { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
-        .badge-scheduled    { background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe; }
-        .badge-completed    { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
-        .sched-box { background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px;margin-top:6px;font-size:11px;color:#1d4ed8; }
-
-        .mini-link {
-            display:inline-flex;align-items:center;gap:3px;
-            padding:3px 7px;border-radius:5px;font-size:11px;font-weight:600;
-            text-decoration:none;border:1px solid;transition:background 0.15s;
-        }
-        .mini-link-orange { border-color:#fb923c;color:#ea580c; }
-        .mini-link-orange:hover { background:#fff7ed; }
-        .mini-link-green  { border-color:#22c55e;color:#15803d; }
-        .mini-link-green:hover  { background:#f0fdf4; }
-
-        .act-select {
-            width:100%;padding:5px 8px;border:1.5px solid var(--border);
-            border-radius:7px;font-size:11px;font-family:inherit;
-            background:var(--surface);color:var(--text);outline:none;
-        }
-        .act-btn {
-            width:100%;padding:5px 0;border:none;border-radius:7px;
-            font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;
-        }
-        .act-btn-blue   { background:#6366f1;color:white; }
-        .act-btn-green  { background:#16a34a;color:white; }
-        .act-btn-red    { background:var(--danger);color:white; }
-        .act-btn:hover  { opacity:0.88; }
-
-        .actions-col { width:160px; }
-        .actions-stack { display:flex;flex-direction:column;gap:5px; }
+        .badge-pay-pending { background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; }
+        .badge-pay-verify { background:#fef9c3; color:#854d0e; border:1px solid #fde047; }
+        .badge-pay-approved { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+        .req-table th, .req-table td { padding:12px 14px; font-size:12px; vertical-align:top; }
+        .req-table th { font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
+        .applicant-block div { margin-top:3px; color:var(--text-muted); }
+        .mini-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px; margin-top:8px; }
+        .action-stack { display:flex; flex-direction:column; gap:8px; min-width:210px; }
+        .action-stack form { display:flex; flex-direction:column; gap:6px; }
+        .action-stack select, .action-stack input, .action-stack textarea { width:100%; }
+        .act-select { padding:8px 10px; border:1.5px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:12px; }
+        .act-btn { border:none; border-radius:8px; padding:8px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+        .act-btn-blue { background:#2563eb; color:white; }
+        .act-btn-green { background:#16a34a; color:white; }
+        .act-btn-red { background:#dc2626; color:white; }
+        .chat-list { display:flex; flex-direction:column; gap:8px; max-height:190px; overflow:auto; margin-bottom:10px; }
+        .chat-msg { border-radius:10px; padding:8px 10px; font-size:12px; }
+        .chat-user { background:#eff6ff; color:#1d4ed8; }
+        .chat-admin { background:#fefce8; color:#854d0e; }
+        .method-chip { display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:999px; font-weight:600; font-size:11px; }
+        .method-gcash { background:#dbeafe; color:#1d4ed8; }
+        .method-cod { background:#f1f5f9; color:#475569; }
+        .method-delivery { background:#fff7ed; color:#c2410c; margin-top:6px; }
+        .method-meetup { background:#ecfeff; color:#0f766e; margin-top:6px; }
+        .sched-grid { display:grid; grid-template-columns:auto 1fr; gap:4px 8px; font-size:11px; }
     </style>
 </head>
 <body>
@@ -83,120 +71,144 @@
                             <th>Status</th>
                             <th>Method</th>
                             <th>Payment</th>
-                            <th class="actions-col">Actions</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for r in requests %}
-                        {% set pay_st = r[10] or 'Pending Payment' %}
-                        {% if pay_st == 'For Verification' %}{% set pay_cls = 'badge-pay-verify' %}
-                        {% elif pay_st == 'Paid' %}{% set pay_cls = 'badge-pay-paid' %}
-                        {% else %}{% set pay_cls = 'badge-pay-pending' %}{% endif %}
                         <tr>
-                            <!-- Applicant: name + email + phone + address + date + ID link -->
                             <td>
-                                <strong>{{ r[3] or '—' }}</strong>
-                                <div style="color:var(--text-muted);margin-top:2px;">{{ r[9] or '' }}</div>
-                                <div style="color:var(--text-muted);margin-top:1px;">{{ r[4] or '' }}</div>
-                                <div style="color:var(--text-muted);margin-top:1px;font-size:11px;">{{ r[5] or '' }}</div>
-                                <div style="color:var(--text-muted);font-size:11px;margin-top:3px;">
-                                    {{ r[7].strftime('%b %d, %Y') if r[7] else '' }}
-                                </div>
-                                <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap;">
-                                    {% if r[8] %}
-                                    <a href="{{ r[8] }}" target="_blank" class="mini-link mini-link-orange">
-                                        <i class="fas fa-eye" style="font-size:9px;"></i> ID
-                                    </a>
-                                    {% endif %}
-                                    {% if r[11] %}
-                                    <a href="{{ r[11] }}" target="_blank" class="mini-link mini-link-green">
-                                        <i class="fas fa-receipt" style="font-size:9px;"></i> Receipt
-                                    </a>
+                                <div class="applicant-block">
+                                    <strong>{{ r.full_name or '—' }}</strong>
+                                    <div>{{ r.email or '' }}</div>
+                                    <div>{{ r.contact_number or '' }}</div>
+                                    <div>{{ r.address or '' }}</div>
+                                    <div>{{ r.created_at.strftime('%b %d, %Y') if r.created_at else '' }}</div>
+                                    {% if r.valid_id_url %}
+                                    <div><a href="{{ r.valid_id_url }}" target="_blank" rel="noopener">View ID</a></div>
                                     {% endif %}
                                 </div>
                             </td>
-
-                            <!-- Cat: name + breed -->
                             <td>
-                                <strong>{{ r[1] or '—' }}</strong>
-                                <div style="color:var(--text-muted);margin-top:2px;">{{ r[2] or '' }}</div>
-                            </td>
-
-                            <!-- Adoption status badge -->
-                            <td>
-                                {% set st = r[6] %}
-                                {% if st == 'Scheduled' %}
-                                <span class="badge badge-scheduled">Scheduled</span>
-                                {% elif st == 'Completed' %}
-                                <span class="badge badge-completed">Completed</span>
-                                {% else %}
-                                <span class="badge badge-{{ st|lower }}">{{ st }}</span>
+                                <strong>{{ r.cat_name }}</strong>
+                                <div class="applicant-block">{{ r.cat_breed }}</div>
+                                {% if r.reason %}
+                                <div class="mini-card">
+                                    <strong>Reason</strong><br>{{ r.reason }}
+                                </div>
                                 {% endif %}
-                                {% if r[13] %}
-                                <div class="sched-box">
-                                    <i class="fas fa-calendar-check"></i>
-                                    {{ r[13] }} at {{ r[14] or '' }}
+                                {% if r.experience_with_pets %}
+                                <div class="mini-card">
+                                    <strong>Experience</strong><br>{{ r.experience_with_pets }}
                                 </div>
                                 {% endif %}
                             </td>
-
-                            <!-- Payment method badge -->
                             <td>
-                                {% set pm = r[12] or 'COD' %}
-                                {% if pm == 'GCash' %}
-                                <span class="badge badge-method-gcash">GCash</span>
-                                {% else %}
-                                <span class="badge badge-method-cod">COD</span>
+                                <span class="badge badge-{{ r.status|lower|replace(' ', '-') }}">{{ r.status }}</span>
+                                {% if r.delivery_method == 'Meet-up' and (r.meetup_date or r.meetup_location) %}
+                                <div class="mini-card">
+                                    <div class="sched-grid">
+                                        <span>📍</span><span>{{ r.meetup_location or 'TBA' }}</span>
+                                        <span>📅</span><span>{{ r.meetup_date or 'TBA' }} {{ r.meetup_time or '' }}</span>
+                                    </div>
+                                    {% if r.meetup_map_link %}
+                                    <div style="margin-top:6px;"><a href="{{ r.meetup_map_link }}" target="_blank" rel="noopener">View Location</a></div>
+                                    {% endif %}
+                                </div>
+                                {% elif r.delivery_method == 'Delivery / Pickup' %}
+                                <div class="mini-card">
+                                    <div class="sched-grid">
+                                        <span>🚚</span><span>{{ r.delivery_status or 'Preparing' }}</span>
+                                        <span>Address</span><span>{{ r.address or 'N/A' }}</span>
+                                    </div>
+                                </div>
                                 {% endif %}
                             </td>
-
-                            <!-- Payment status badge -->
                             <td>
-                                <span class="badge {{ pay_cls }}" style="font-size:11px;white-space:nowrap;">{{ pay_st }}</span>
+                                <div class="method-chip {% if r.payment_method == 'GCash' %}method-gcash{% else %}method-cod{% endif %}">
+                                    {{ r.payment_method }}
+                                </div>
+                                <div class="method-chip {% if r.delivery_method == 'Meet-up' %}method-meetup{% else %}method-delivery{% endif %}">
+                                    {{ r.delivery_method }}
+                                </div>
                             </td>
-
-                            <!-- Actions: stacked selects + buttons -->
-                            <td class="actions-col">
-                                <div class="actions-stack">
-                                    <!-- Adoption status -->
-                                    <form method="POST" action="{{ url_for('update_status', req_id=r[0]) }}">
-                                        <select name="status" class="act-select" style="margin-bottom:4px;">
-                                            <option value="Pending"   {% if r[6]=='Pending'   %}selected{% endif %}>Pending</option>
-                                            <option value="Approved"  {% if r[6]=='Approved'  %}selected{% endif %}>Approved</option>
-                                            <option value="Scheduled" {% if r[6]=='Scheduled' %}selected{% endif %}>Scheduled</option>
-                                            <option value="Completed" {% if r[6]=='Completed' %}selected{% endif %}>Completed</option>
-                                            <option value="Rejected"  {% if r[6]=='Rejected'  %}selected{% endif %}>Rejected</option>
+                            <td>
+                                <span class="badge badge-pay-{{ 'approved' if r.payment_status == 'Paid' else 'verify' if r.payment_status == 'For Verification' else 'pending' }}">
+                                    {{ r.payment_status }}
+                                </span>
+                                {% if r.payment_proof %}
+                                <div style="margin-top:8px;">
+                                    <a href="{{ r.payment_proof }}" target="_blank" rel="noopener">View Receipt</a>
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="action-stack">
+                                    <form method="POST" action="{{ url_for('update_status', req_id=r.id) }}">
+                                        <select name="status" class="act-select">
+                                            {% for status in ['Pending', 'Approved', 'Scheduled', 'Completed', 'Rejected'] %}
+                                            <option value="{{ status }}" {% if r.status == status %}selected{% endif %}>{{ status }}</option>
+                                            {% endfor %}
                                         </select>
                                         <button type="submit" class="act-btn act-btn-green">Save Status</button>
                                     </form>
 
-                                    <!-- Schedule meet-up -->
-                                    {% if r[6] in ('Approved', 'Scheduled') %}
-                                    <button class="act-btn" style="background:#3b82f6;color:white;"
-                                            onclick="openScheduleModal({{ r[0] }}, '{{ r[13] or '' }}', '{{ r[14] or '' }}')">&#128197; Schedule</button>
-                                    {% endif %}
-
-                                    <!-- Mark completed -->
-                                    {% if r[6] == 'Scheduled' %}
-                                    <form method="POST" action="{{ url_for('admin_complete', req_id=r[0]) }}"
-                                          onsubmit="return confirm('Mark request #{{ r[0] }} as Completed?')">
-                                        <button type="submit" class="act-btn act-btn-green">&#10003; Completed</button>
-                                    </form>
-                                    {% endif %}
-
-                                    <!-- Payment status -->
-                                    <form method="POST" action="{{ url_for('admin_update_payment', req_id=r[0]) }}">
-                                        <select name="payment_status" class="act-select" style="margin-bottom:4px;">
-                                            <option value="Pending Payment"  {% if pay_st=='Pending Payment'  %}selected{% endif %}>Pending Payment</option>
-                                            <option value="For Verification" {% if pay_st=='For Verification' %}selected{% endif %}>For Verification</option>
-                                            <option value="Paid"             {% if pay_st=='Paid'             %}selected{% endif %}>Paid</option>
+                                    <form method="POST" action="{{ url_for('admin_update_payment', req_id=r.id) }}">
+                                        <select name="payment_status" class="act-select">
+                                            {% for status in ['Pending Payment', 'For Verification', 'Paid'] %}
+                                            <option value="{{ status }}" {% if r.payment_status == status %}selected{% endif %}>{{ status }}</option>
+                                            {% endfor %}
                                         </select>
                                         <button type="submit" class="act-btn act-btn-blue">Save Payment</button>
                                     </form>
 
-                                    <!-- Delete -->
-                                    <form method="POST" action="{{ url_for('admin_delete_request', req_id=r[0]) }}"
-                                          onsubmit="return confirm('Delete request #{{ r[0] }}?')">
+                                    {% if r.delivery_method == 'Meet-up' %}
+                                    <form method="POST" action="{{ url_for('admin_schedule', req_id=r.id) }}">
+                                        <input type="text" name="meetup_location" value="{{ r.meetup_location or '' }}" placeholder="📍 Meet-up location" required>
+                                        <input type="url" name="meetup_map_link" value="{{ r.meetup_map_link or '' }}" placeholder="Google Maps link">
+                                        <input type="date" name="schedule_date" value="{{ r.meetup_date or '' }}" required>
+                                        <input type="time" name="schedule_time" value="{{ r.meetup_time or '' }}" required>
+                                        <button type="submit" class="act-btn" style="background:#0f766e;color:white;">Schedule Meet-up</button>
+                                    </form>
+                                    {% else %}
+                                    <form method="POST" action="{{ url_for('admin_update_delivery', req_id=r.id) }}">
+                                        <select name="delivery_status" class="act-select">
+                                            {% for status in ['Preparing', 'Out for Delivery', 'Delivered'] %}
+                                            <option value="{{ status }}" {% if (r.delivery_status or 'Preparing') == status %}selected{% endif %}>{{ status }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="submit" class="act-btn" style="background:#ea580c;color:white;">Save Delivery</button>
+                                    </form>
+                                    {% endif %}
+
+                                    <form method="POST" action="{{ url_for('send_message', req_id=r.id) }}">
+                                        <textarea name="message" rows="3" placeholder="💬 Reply to user..." required></textarea>
+                                        <button type="submit" class="act-btn" style="background:#7c3aed;color:white;">Send Reply</button>
+                                    </form>
+
+                                    <div class="mini-card">
+                                        <strong>💬 Chat</strong>
+                                        <div class="chat-list">
+                                            {% if r.messages %}
+                                                {% for msg in r.messages %}
+                                                <div class="chat-msg {% if msg.sender == 'admin' %}chat-admin{% else %}chat-user{% endif %}">
+                                                    <strong>{{ 'Admin' if msg.sender == 'admin' else 'User' }}</strong><br>
+                                                    {{ msg.message }}
+                                                </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div style="color:var(--text-muted);">No messages yet.</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    {% if r.status != 'Completed' %}
+                                    <form method="POST" action="{{ url_for('admin_complete', req_id=r.id) }}" onsubmit="return confirm('Mark this request as completed?')">
+                                        <button type="submit" class="act-btn act-btn-green">Mark as Completed</button>
+                                    </form>
+                                    {% endif %}
+
+                                    <form method="POST" action="{{ url_for('admin_delete_request', req_id=r.id) }}" onsubmit="return confirm('Delete this adoption request?')">
                                         <button type="submit" class="act-btn act-btn-red">Delete</button>
                                     </form>
                                 </div>
@@ -217,51 +229,9 @@
     </div>
 </div>
 
-<!-- ===== SCHEDULE MODAL ===== -->
-<div class="modal-overlay" id="scheduleModal">
-    <div class="modal-box" style="max-width:400px;">
-        <div class="modal-header">
-            <h3>&#128197; Schedule Meet-up</h3>
-            <button class="modal-close" onclick="closeScheduleModal()">&times;</button>
-        </div>
-        <form method="POST" id="scheduleForm">
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Date</label>
-                    <input type="date" name="schedule_date" id="schedDate" required
-                           style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;">
-                </div>
-                <div class="form-group">
-                    <label>Time</label>
-                    <input type="time" name="schedule_time" id="schedTime" required
-                           style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeScheduleModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Schedule</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
 document.getElementById('menuToggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open'));
-
-function openScheduleModal(reqId, existingDate, existingTime) {
-    document.getElementById('scheduleForm').action = '/admin/schedule/' + reqId;
-    document.getElementById('schedDate').value = existingDate || '';
-    document.getElementById('schedTime').value = existingTime || '';
-    document.getElementById('scheduleModal').classList.add('open');
-}
-function closeScheduleModal() {
-    document.getElementById('scheduleModal').classList.remove('open');
-}
-document.getElementById('scheduleModal').addEventListener('click', function(e) {
-    if (e.target === this) closeScheduleModal();
-});
-
 setTimeout(() => document.querySelectorAll('.flash-msg').forEach(el => el.style.opacity = '0'), 4000);
 </script>
 </body>

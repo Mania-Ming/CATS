@@ -199,10 +199,14 @@
             <h3>Adoption Request</h3>
             <button type="button" class="modal-close" onclick="closeAdoptModal()">&times;</button>
         </div>
-        <form method="POST" action="{{ url_for('adopt_request') }}">
+        {% set profile_name = user[3] if user else '' %}
+        {% set profile_email = user[1] if user else '' %}
+        {% set profile_phone = user[4] if user else '' %}
+        {% set profile_address = user[5] if user else '' %}
+        <form method="POST" action="{{ url_for('adopt_request') }}" id="adoptRequestForm" novalidate>
             <div class="modal-body">
                 <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
-                    Please answer the questions below honestly. Your saved profile contact details will be used for this request.
+                    Please complete every required field before sending your adoption request.
                 </p>
                 <div class="cat-summary-box">
                     <div>
@@ -213,28 +217,24 @@
                 </div>
                 <input type="hidden" name="cat_id" id="modalCatId">
                 <div class="form-group">
-                    <label>Living Situation</label>
-                    <select name="living_situation" required>
-                        <option value="">Select your living situation</option>
-                        <option value="Apartment">Apartment</option>
-                        <option value="House">House</option>
-                        <option value="Condo">Condo</option>
-                        <option value="Shared Home">Shared Home</option>
-                    </select>
+                    <label>Full Name</label>
+                    <input type="text" name="full_name" value="{{ profile_name }}" required>
                 </div>
                 <div class="form-group">
-                    <label>Do you currently have other pets?</label>
-                    <select name="has_other_pets" required>
-                        <option value="">Select an option</option>
-                        <option value="No">No</option>
-                        <option value="Yes - cats">Yes - cats</option>
-                        <option value="Yes - dogs">Yes - dogs</option>
-                        <option value="Yes - mixed pets">Yes - mixed pets</option>
-                    </select>
+                    <label>Email</label>
+                    <input type="email" name="email" value="{{ profile_email }}" required>
                 </div>
                 <div class="form-group">
-                    <label>Pet Care Experience</label>
-                    <select name="experience">
+                    <label>Contact Number</label>
+                    <input type="text" name="contact_number" value="{{ profile_phone }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea name="address" required>{{ profile_address }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Experience with pets</label>
+                    <select name="experience_with_pets" required>
                         <option value="">Select your experience level</option>
                         <option value="First-time adopter">First-time adopter</option>
                         <option value="Some experience">Some experience</option>
@@ -245,6 +245,17 @@
                 <div class="form-group">
                     <label>Why do you want to adopt this cat?</label>
                     <textarea name="reason" placeholder="Tell us about your home, routine, and why this cat is a good match for you." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Delivery Method</label>
+                    <select name="delivery_method" required>
+                        <option value="">Choose a delivery method</option>
+                        <option value="Meet-up">Meet-up</option>
+                        <option value="Delivery / Pickup">Delivery / Pickup</option>
+                    </select>
+                </div>
+                <div id="adoptValidationMsg" style="display:none;font-size:12px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 12px;">
+                    Please complete all required fields before submitting the form.
                 </div>
             </div>
             <div class="modal-footer">
@@ -317,11 +328,24 @@ function openAdoptModal(id, name, breed, age, gender) {
     document.getElementById("modalCatId").value    = id;
     document.getElementById("modalCatName").innerText    = name;
     document.getElementById("modalCatDetails").innerText = breed + " · " + age + (age == 1 ? " yr" : " yrs") + " · " + gender;
+    document.getElementById("adoptValidationMsg").style.display = "none";
     document.getElementById("adoptModal").classList.add("open");
 }
 function closeAdoptModal() {
     document.getElementById("adoptModal").classList.remove("open");
 }
+
+document.getElementById("adoptRequestForm").addEventListener("submit", function (event) {
+    const form = event.currentTarget;
+    const msg = document.getElementById("adoptValidationMsg");
+    if (!form.checkValidity()) {
+        event.preventDefault();
+        msg.style.display = "block";
+        form.reportValidity();
+        return;
+    }
+    msg.style.display = "none";
+});
 
 // ── Breed detail modal ───────────────────────────────────────
 function openBreedDetail(catId) {
@@ -346,6 +370,10 @@ function openBreedDetail(catId) {
             const adoptBtn  = document.getElementById("adoptFromDetailBtn");
             const payNowBtn = document.getElementById("payNowBtn");
             _currentReqId = null;
+            payNowBtn.disabled = false;
+            payNowBtn.textContent = 'Pay Now';
+            payNowBtn.style.background = '#16a34a';
+            payNowBtn.style.opacity = '';
             payNowBtn.style.display = 'none';
             if (cat.status === "adopted") {
                 adoptBtn.disabled = true;
@@ -366,7 +394,7 @@ function openBreedDetail(catId) {
                     if (match) {
                         _currentReqId = match.id;
                         if (match.status === 'Approved' && cat.adoption_fee > 0
-                            && match.payment_status !== 'Payment Approved') {
+                            && match.payment_status !== 'Paid') {
                             payNowBtn.style.display = 'inline-flex';
                         }
                         if (match.payment_status === 'For Verification') {
@@ -375,8 +403,8 @@ function openBreedDetail(catId) {
                             payNowBtn.style.display = 'inline-flex';
                             payNowBtn.style.opacity = '0.6';
                         }
-                        if (match.payment_status === 'Payment Approved') {
-                            payNowBtn.textContent = '\u2713 Payment Approved';
+                        if (match.payment_status === 'Paid') {
+                            payNowBtn.textContent = '\u2713 Payment Confirmed';
                             payNowBtn.disabled = true;
                             payNowBtn.style.display = 'inline-flex';
                             payNowBtn.style.background = '#15803d';

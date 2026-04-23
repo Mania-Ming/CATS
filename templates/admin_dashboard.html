@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard — Cat Adoption</title>
+    <title>Admin Dashboard - Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
 </head>
@@ -20,7 +20,6 @@
 {% endwith %}
 
 <div class="app-layout">
-    {% set active_page = active_page %}
     {% include '_admin_sidebar.html' %}
 
     <div class="main-content">
@@ -50,12 +49,12 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon orange"><i class="fas fa-clipboard-list"></i></div>
-                    <div><div class="stat-value">{{ requests|length }}</div><div class="stat-label">Total Requests</div></div>
+                    <div><div class="stat-value">{{ requests|length }}</div><div class="stat-label">Recent Requests</div></div>
                 </div>
             </div>
 
             <div class="section-header">
-                <div><h3>Recent Adoption Requests</h3><p>Latest 5 requests — <a href="{{ url_for('admin_requests') }}" style="color:var(--primary);">view all</a></p></div>
+                <div><h3>Recent Adoption Requests</h3><p>Latest 5 requests - <a href="{{ url_for('admin_requests') }}" style="color:var(--primary);">view all</a></p></div>
             </div>
 
             {% if requests %}
@@ -67,11 +66,11 @@
                     <tbody>
                         {% for r in requests[:5] %}
                         <tr>
-                            <td style="color:var(--text-muted);">{{ r[0] }}</td>
-                            <td><strong>{{ r[1] }}</strong><br><span style="font-size:11px;color:var(--text-muted);">{{ r[2] }}</span></td>
-                            <td><strong>{{ r[3] }}</strong><br><span style="font-size:11px;color:var(--text-muted);">{{ r[9] }}</span></td>
-                            <td><span class="badge badge-{{ r[6]|lower }}">{{ r[6] }}</span></td>
-                            <td style="color:var(--text-muted);font-size:12px;">{{ r[7].strftime('%b %d, %Y') if r[7] else '—' }}</td>
+                            <td style="color:var(--text-muted);">{{ r.id }}</td>
+                            <td><strong>{{ r.cat_name }}</strong><br><span style="font-size:11px;color:var(--text-muted);">{{ r.cat_breed }}</span></td>
+                            <td><strong>{{ r.full_name }}</strong><br><span style="font-size:11px;color:var(--text-muted);">{{ r.email }}</span></td>
+                            <td><span class="badge badge-{{ r.status|lower|replace(' ', '-') }}">{{ r.status }}</span></td>
+                            <td style="color:var(--text-muted);font-size:12px;">{{ r.created_at.strftime('%b %d, %Y') if r.created_at else '—' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
