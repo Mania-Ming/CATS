@@ -90,11 +90,12 @@
                         {% elif pay_st == 'Paid' %}{% set pay_cls = 'badge-pay-paid' %}
                         {% else %}{% set pay_cls = 'badge-pay-pending' %}{% endif %}
                         <tr>
-                            <!-- Applicant: name + email + phone + date + ID link -->
+                            <!-- Applicant: name + email + phone + address + date + ID link -->
                             <td>
                                 <strong>{{ r[3] or '—' }}</strong>
                                 <div style="color:var(--text-muted);margin-top:2px;">{{ r[9] or '' }}</div>
                                 <div style="color:var(--text-muted);margin-top:1px;">{{ r[4] or '' }}</div>
+                                <div style="color:var(--text-muted);margin-top:1px;font-size:11px;">{{ r[5] or '' }}</div>
                                 <div style="color:var(--text-muted);font-size:11px;margin-top:3px;">
                                     {{ r[7].strftime('%b %d, %Y') if r[7] else '' }}
                                 </div>

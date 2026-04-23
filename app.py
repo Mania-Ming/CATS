@@ -707,9 +707,7 @@ def update_payment_method(request_id):
                     request_id, payment_method, session.get("user_id"))
         if payment_method not in ("GCash", "COD"):
             return jsonify({"error": "Invalid payment method. Must be GCash or COD."}), 400
-        update = {"payment_method": payment_method}
-        # COD stays Pending Payment — admin marks Paid after cash is received
-        # GCash stays Pending Payment — user uploads receipt to move to For Verification
+        update = {"payment_method": payment_method, "payment_status": "Pending Payment"}
         res = supabase.table("adoption_requests").update(update).eq(
             "id", request_id).eq("user_id", session["user_id"]).execute()
         return jsonify({"success": True, "data": res.data})

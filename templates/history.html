@@ -346,7 +346,7 @@ function updatePaymentMethod(requestId) {
         if (data.success) {
             statusEl.style.color = '#15803d';
             statusEl.textContent = '\u2713 Updated!';
-            setTimeout(() => location.reload(), 800);
+            window.location.reload();
         } else {
             statusEl.style.color = '#dc2626';
             statusEl.textContent = 'Failed: ' + (data.error || 'Unknown error');
