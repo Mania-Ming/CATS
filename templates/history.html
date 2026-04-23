@@ -124,12 +124,9 @@
             {% if ps == 'For Verification' %}
                 {% set pay_cls = 'badge-pay-verify' %}
                 {% set card_cls = 'verifying' %}
-            {% elif ps == 'Payment Approved' %}
+            {% elif ps == 'Paid' %}
                 {% set pay_cls = 'badge-pay-approved' %}
                 {% set card_cls = 'approved' %}
-            {% elif ps == 'Payment Rejected' %}
-                {% set pay_cls = 'badge-pay-rejected' %}
-                {% set card_cls = 'rejected' %}
             {% else %}
                 {% set pay_cls = 'badge-pay-pending' %}
                 {% set card_cls = 'needs-payment' %}
@@ -227,7 +224,7 @@
                             </p>
                         </div>
                         <p style="font-size:12px;color:#92400e;margin-top:8px;">
-                            Our team will contact you to arrange the meet-up. No receipt upload needed.
+                            <i class="fas fa-info-circle"></i> Our team will contact you to arrange the meet-up. No receipt upload needed.
                         </p>
                         {% endif %}
 
@@ -266,56 +263,17 @@
                         {% endif %}
                     </div>
 
-                    {% elif ps == 'Payment Approved' %}
+                    {% elif ps == 'Paid' %}
                     {# ── Payment confirmed ── #}
                     <div class="payment-card approved">
                         <p style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:4px;">
-                            <i class="fas fa-circle-check"></i> Payment Approved
+                            <i class="fas fa-circle-check"></i> Payment Confirmed
                         </p>
                         <p style="font-size:12px;color:#166534;">
                             Your payment has been verified. Please coordinate with us to complete the adoption process.
                         </p>
                     </div>
 
-                    {% elif ps == 'Payment Rejected' %}
-                    {# ── Payment rejected, re-upload ── #}
-                    <div class="payment-card rejected">
-                        <p style="font-size:13px;font-weight:700;color:#dc2626;margin-bottom:8px;">
-                            <i class="fas fa-circle-xmark"></i> Payment Rejected — Please Re-upload
-                        </p>
-                        <p style="font-size:12px;color:#991b1b;margin-bottom:10px;">
-                            Your receipt was not accepted. Please send the correct amount and upload a clear screenshot.
-                        </p>
-                        <div class="gcash-box">
-                            {% if req.payment_method == 'COD' %}
-                            <p style="font-size:13px;color:#475569;margin:0;">
-                                <i class="fas fa-truck"></i> Cash on Delivery — please coordinate with our team.
-                            </p>
-                            {% else %}
-                            <div class="gcash-qr-row">
-                                <img src="{{ url_for('static', filename='images/gcash.png') }}"
-                                     alt="GCash QR Code" class="gcash-qr-img">
-                                <div style="display:flex;flex-direction:column;gap:4px;">
-                                    <span class="gcash-label">Scan QR or send to</span>
-                                    <span class="gcash-value">{{ gcash_number }}</span>
-                                    <span class="gcash-label" style="margin-top:4px;">Amount</span>
-                                    <span class="gcash-amount">
-                                        {% if req.cat_fee is not none and req.cat_fee == 0 %}Free
-                                        {% elif req.cat_fee %}&#8369;{{ req.cat_fee | int }}
-                                        {% else %}Free{% endif %}
-                                    </span>
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="upload-zone" onclick="document.getElementById('receipt_{{ req.id }}').click()">
-                            <input type="file" id="receipt_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf"
-                                   onchange="uploadReceipt({{ req.id }}, this)">
-                            <i class="fas fa-upload" style="font-size:22px;color:var(--text-muted);margin-bottom:6px;"></i>
-                            <p style="font-size:13px;color:var(--text-muted);margin:0;">Upload new receipt</p>
-                        </div>
-                        <div id="status_{{ req.id }}" style="font-size:12px;margin-top:8px;min-height:16px;"></div>
-                    </div>
                     {% endif %}
 
                 {% elif req.status == 'Pending' %}

@@ -13,8 +13,7 @@
         .badge-method-gcash { background:#3b82f6;color:white;border:none; }
         .badge-method-cod   { background:#9ca3af;color:white;border:none; }
         .badge-pay-verify   { background:#fef9c3;color:#854d0e;border:1px solid #fde047; }
-        .badge-pay-approved { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
-        .badge-pay-rejected { background:#fef2f2;color:#dc2626;border:1px solid #fecaca; }
+        .badge-pay-paid     { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
 
         .mini-link {
             display:inline-flex;align-items:center;gap:3px;
@@ -88,8 +87,7 @@
                         {% for r in requests %}
                         {% set pay_st = r[10] or 'Pending Payment' %}
                         {% if pay_st == 'For Verification' %}{% set pay_cls = 'badge-pay-verify' %}
-                        {% elif pay_st == 'Payment Approved' %}{% set pay_cls = 'badge-pay-approved' %}
-                        {% elif pay_st == 'Payment Rejected' %}{% set pay_cls = 'badge-pay-rejected' %}
+                        {% elif pay_st == 'Paid' %}{% set pay_cls = 'badge-pay-paid' %}
                         {% else %}{% set pay_cls = 'badge-pay-pending' %}{% endif %}
                         <tr>
                             <!-- Applicant: name + email + phone + date + ID link -->
@@ -158,8 +156,7 @@
                                         <select name="payment_status" class="act-select" style="margin-bottom:4px;">
                                             <option value="Pending Payment"  {% if pay_st=='Pending Payment'  %}selected{% endif %}>Pending Payment</option>
                                             <option value="For Verification" {% if pay_st=='For Verification' %}selected{% endif %}>For Verification</option>
-                                            <option value="Payment Approved" {% if pay_st=='Payment Approved' %}selected{% endif %}>Payment Approved</option>
-                                            <option value="Payment Rejected" {% if pay_st=='Payment Rejected' %}selected{% endif %}>Payment Rejected</option>
+                                            <option value="Paid"             {% if pay_st=='Paid'             %}selected{% endif %}>Paid</option>
                                         </select>
                                         <button type="submit" class="act-btn act-btn-blue">Save Payment</button>
                                     </form>

@@ -708,8 +708,8 @@ def update_payment_method(request_id):
         if payment_method not in ("GCash", "COD"):
             return jsonify({"error": "Invalid payment method. Must be GCash or COD."}), 400
         update = {"payment_method": payment_method}
-        if payment_method == "COD":
-            update["payment_status"] = "For Verification"
+        # COD stays Pending Payment — admin marks Paid after cash is received
+        # GCash stays Pending Payment — user uploads receipt to move to For Verification
         res = supabase.table("adoption_requests").update(update).eq(
             "id", request_id).eq("user_id", session["user_id"]).execute()
         return jsonify({"success": True, "data": res.data})
@@ -730,9 +730,7 @@ def select_payment_method(req_id):
         return redirect(url_for("history"))
     try:
         update = {"payment_method": method}
-        if method == "COD":
-            # COD doesn't need a receipt — mark as For Verification immediately
-            update["payment_status"] = "For Verification"
+        # Both methods start at Pending Payment
         supabase.table("adoption_requests").update(update).eq(
             "id", req_id).eq("user_id", session["user_id"]).execute()
         flash(f"Payment method set to {method}.", "success")
@@ -787,7 +785,7 @@ def admin_update_payment(req_id):
     if not admin_required():
         return redirect(url_for("login"))
     new_payment_status = request.form.get("payment_status")
-    valid = {"Pending Payment", "For Verification", "Payment Approved", "Payment Rejected"}
+    valid = {"Pending Payment", "For Verification", "Paid"}
     if new_payment_status not in valid:
         flash("Invalid payment status.", "error")
         return redirect(url_for("admin_requests"))
