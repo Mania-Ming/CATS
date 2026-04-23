@@ -128,6 +128,36 @@
         .hbtn-green    { background:#16a34a; color:#fff; }
         .hbtn-blue     { background:#2563eb; color:#fff; }
 
+        /* Meet-up details section */
+        .meetup-section {
+            background:#f0f9ff;
+            border:1px solid #bae6fd;
+            border-radius:10px;
+            padding:12px 14px;
+        }
+        .meetup-section-title {
+            font-size:11px; font-weight:700; color:#0369a1;
+            margin-bottom:9px; display:flex; align-items:center; gap:5px;
+        }
+        .meetup-row-item {
+            display:flex; align-items:flex-start; gap:9px;
+            font-size:12px; color:var(--text); padding:4px 0;
+            border-bottom:1px solid #e0f2fe;
+        }
+        .meetup-row-item:last-child { border-bottom:none; padding-bottom:0; }
+        .meetup-icon {
+            width:22px; height:22px; border-radius:6px;
+            background:#e0f2fe; display:flex; align-items:center; justify-content:center;
+            flex-shrink:0; margin-top:1px;
+        }
+        .meetup-icon i { font-size:10px; color:#0369a1; }
+        .meetup-field-label { font-size:10px; color:#64748b; font-weight:600; display:block; margin-bottom:1px; }
+        .meetup-field-value { font-size:12px; color:var(--text); font-weight:500; }
+        .meetup-not-scheduled {
+            font-size:12px; color:#64748b;
+            display:flex; align-items:center; gap:6px; padding:2px 0;
+        }
+
         .upload-status { font-size:11px; min-height:14px; }
     </style>
 </head>
@@ -190,29 +220,81 @@
                     <!-- Body -->
                     <div class="hcard-body">
 
-                        <!-- Delivery / Meet-up info row -->
+                        <!-- Delivery method label -->
                         {% if req.delivery_method %}
                         <div class="hinfo-row">
                             <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}"></i>
                             <strong>{{ req.delivery_method }}</strong>
-                            {% if req.delivery_method == 'Meet-up' and req.meetup_location %}
-                            &nbsp;·&nbsp;<i class="fas fa-map-marker-alt"></i> {{ req.meetup_location }}
-                            {% if req.meetup_date %}&nbsp;·&nbsp;<i class="fas fa-calendar"></i> {{ req.meetup_date }}{% endif %}
-                            {% if req.meetup_time %}&nbsp;<i class="fas fa-clock"></i> {{ req.meetup_time }}{% endif %}
-                            {% elif req.delivery_method == 'Delivery / Pickup' and req.delivery_status %}
+                            {% if req.delivery_method == 'Delivery / Pickup' and req.delivery_status %}
                             &nbsp;·&nbsp;
                             <span class="delivery-pill {% if req.delivery_status == 'Delivered' %}dp-delivered{% elif req.delivery_status == 'Out for Delivery' %}dp-transit{% else %}dp-preparing{% endif %}">
                                 {{ req.delivery_status }}
                             </span>
                             {% endif %}
                         </div>
-                        {% if req.delivery_method == 'Meet-up' and req.meetup_map_link %}
-                        <div>
-                            <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">
-                                <i class="fas fa-map"></i> View Map
-                            </a>
-                        </div>
                         {% endif %}
+
+                        <!-- Meet-up Details card -->
+                        {% if req.delivery_method == 'Meet-up' %}
+                        <div class="meetup-section">
+                            <div class="meetup-section-title">
+                                <i class="fas fa-calendar-check"></i> Meet-up Details
+                            </div>
+                            {% if req.meetup_location or req.meetup_date or req.meetup_time %}
+                            <div class="meetup-row-item">
+                                <div class="meetup-icon"><i class="fas fa-map-marker-alt"></i></div>
+                                <div>
+                                    <span class="meetup-field-label">Location</span>
+                                    {% if req.meetup_map_link %}
+                                    <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener"
+                                       class="meetup-field-value" style="color:#2563eb;text-decoration:underline;">
+                                        {{ req.meetup_location }}
+                                        <i class="fas fa-external-link-alt" style="font-size:9px;margin-left:3px;"></i>
+                                    </a>
+                                    {% else %}
+                                    <span class="meetup-field-value">{{ req.meetup_location or 'To be announced' }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="meetup-row-item">
+                                <div class="meetup-icon"><i class="fas fa-calendar"></i></div>
+                                <div>
+                                    <span class="meetup-field-label">Date</span>
+                                    <span class="meetup-field-value">
+                                        {% if req.meetup_date %}
+                                            {% set parts = req.meetup_date.split('-') %}
+                                            {% if parts|length == 3 %}
+                                                {{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parts[1]|int - 1] }} {{ parts[2]|int }}, {{ parts[0] }}
+                                            {% else %}
+                                                {{ req.meetup_date }}
+                                            {% endif %}
+                                        {% else %}To be announced{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="meetup-row-item">
+                                <div class="meetup-icon"><i class="fas fa-clock"></i></div>
+                                <div>
+                                    <span class="meetup-field-label">Time</span>
+                                    <span class="meetup-field-value">
+                                        {% if req.meetup_time %}
+                                            {% set t = req.meetup_time.split(':') %}
+                                            {% set h = t[0]|int %}
+                                            {% set m = t[1] if t|length > 1 else '00' %}
+                                            {% set ampm = 'AM' if h < 12 else 'PM' %}
+                                            {% set h12 = h % 12 %}{% if h12 == 0 %}{% set h12 = 12 %}{% endif %}
+                                            {{ h12 }}:{{ m }} {{ ampm }}
+                                        {% else %}To be announced{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="meetup-not-scheduled">
+                                <i class="fas fa-hourglass-half" style="color:#94a3b8;"></i>
+                                Meet-up not scheduled yet. The admin will update this soon.
+                            </div>
+                            {% endif %}
+                        </div>
                         {% endif %}
 
                         <!-- Payment section (only when Approved) -->
