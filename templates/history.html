@@ -342,6 +342,14 @@
                                 <span class="gcash-label">Name</span><span>{{ gcash_name }}</span>
                                 {% if req.cat_fee %}<span class="gcash-label">Amount</span><span>&#8369;{{ req.cat_fee | int }}</span>{% endif %}
                             </div>
+                            <div style="text-align:center;margin-top:10px;">
+                                <p style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Scan to pay via GCash</p>
+                                <img src="{{ url_for('static', filename='images/gcash.png') }}"
+                                     alt="GCash QR Code"
+                                     style="width:140px;height:140px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:#fff;padding:6px;"
+                                     onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+                                <p style="display:none;font-size:11px;color:#dc2626;margin-top:4px;">QR code not available</p>
+                            </div>
                             {% if req.payment_status != 'Paid' %}
                             <div class="upload-row">
                                 <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf">
