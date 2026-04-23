@@ -275,17 +275,32 @@
                     <!-- Body -->
                     <div class="hcard-body">
 
-                        <!-- Delivery method label -->
+                        <!-- Delivery info -->
                         {% if req.delivery_method %}
-                        <div class="hinfo-row">
-                            <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}"></i>
-                            <strong>{{ req.delivery_method }}</strong>
-                            {% if req.delivery_method != 'Meet-up' and req.delivery_status %}
-                            &nbsp;·&nbsp;
-                            <span class="delivery-pill {% if req.delivery_status == 'Delivered' %}dp-delivered{% elif req.delivery_status == 'Out for Delivery' %}dp-transit{% else %}dp-preparing{% endif %}">
-                                {{ req.delivery_status }}
-                            </span>
-                            {% endif %}
+                        <div class="hsection">
+                            <div class="hsection-toggle hsection-title open" onclick="toggleSection(this)">
+                                <span>
+                                    <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}" style="color:var(--primary);"></i>
+                                    {{ req.delivery_method }}
+                                    {% if req.delivery_method != 'Meet-up' and req.delivery_status %}
+                                    <span style="margin-left:5px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;">{{ req.delivery_status }}</span>
+                                    {% endif %}
+                                </span>
+                                <i class="fas fa-chevron-down toggle-chevron"></i>
+                            </div>
+                            <div class="hsection-body open">
+                                {% if req.delivery_method != 'Meet-up' and req.delivery_status %}
+                                <div class="hinfo-row" style="padding-top:2px;">
+                                    <i class="fas fa-circle-dot" style="color:#1d4ed8;"></i>
+                                    <span>Status: <strong>{{ req.delivery_status }}</strong></span>
+                                </div>
+                                {% elif req.delivery_method != 'Meet-up' %}
+                                <div class="hinfo-row" style="padding-top:2px;">
+                                    <i class="fas fa-hourglass-half" style="color:#94a3b8;"></i>
+                                    <span style="color:var(--text-muted);">Delivery details will be updated by the admin.</span>
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endif %}
 
@@ -358,64 +373,75 @@
                         <!-- Payment section (only when Approved) -->
                         {% if req.status == 'Approved' %}
                         <div class="hsection">
-                            <div class="hsection-title"><i class="fas fa-wallet"></i> Payment</div>
-                            <form method="POST" action="{{ url_for('select_payment_method', req_id=req.id) }}" class="pay-method-form">
-                                <label><input type="radio" name="payment_method" value="GCash" {% if req.payment_method == 'GCash' %}checked{% endif %}> GCash</label>
-                                <label><input type="radio" name="payment_method" value="COD" {% if req.payment_method == 'COD' %}checked{% endif %}> Cash on Delivery</label>
-                                <button type="submit" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">Save</button>
-                            </form>
-                            {% if req.payment_method == 'GCash' %}
-                            <div class="gcash-layout">
-                                <!-- Left: details + upload -->
-                                <div>
-                                    <div class="gcash-grid">
-                                        <span class="gcash-label">Number</span><span>{{ gcash_number }}</span>
-                                        <span class="gcash-label">Name</span><span>{{ gcash_name }}</span>
-                                        {% if req.cat_fee %}<span class="gcash-label">Amount</span><span>&#8369;{{ req.cat_fee | int }}</span>{% endif %}
-                                    </div>
-                                    {% if req.payment_status != 'Paid' %}
-                                    <div class="upload-row">
-                                        <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf">
-                                        <button type="button" class="hbtn hbtn-blue" onclick="uploadReceipt({{ req.id }})">
-                                            <i class="fas fa-upload"></i> Upload Receipt
-                                        </button>
-                                        <span class="upload-status" id="rs_{{ req.id }}"></span>
-                                    </div>
-                                    {% else %}
-                                    <p style="font-size:11px;color:#15803d;margin-top:6px;font-weight:600;">
-                                        <i class="fas fa-circle-check"></i> Payment confirmed
-                                    </p>
-                                    {% endif %}
-                                </div>
-                                <!-- Right: QR code -->
-                                <div class="gcash-qr-wrap">
-                                    <span class="gcash-qr-label">Scan to Pay via GCash</span>
-                                    <img src="{{ url_for('static', filename='images/gcash.png') }}"
-                                         alt="GCash QR Code"
-                                         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-                                    <p style="display:none;font-size:10px;color:#dc2626;">QR not available</p>
-                                </div>
+                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)">
+                                <span>
+                                    <i class="fas fa-wallet" style="color:var(--primary);"></i> Payment
+                                    <span style="margin-left:5px;" class="hbadge {{ pay_cls }}">{{ req.payment_status }}</span>
+                                </span>
+                                <i class="fas fa-chevron-down toggle-chevron"></i>
                             </div>
-                            {% else %}
-                            <p style="font-size:12px;color:var(--text-muted);margin-top:6px;">Pay during the handoff.</p>
-                            {% endif %}
+                            <div class="hsection-body">
+                                <form method="POST" action="{{ url_for('select_payment_method', req_id=req.id) }}" class="pay-method-form" style="margin-bottom:8px;">
+                                    <label><input type="radio" name="payment_method" value="GCash" {% if req.payment_method == 'GCash' %}checked{% endif %}> GCash</label>
+                                    <label><input type="radio" name="payment_method" value="COD" {% if req.payment_method == 'COD' %}checked{% endif %}> Cash on Delivery</label>
+                                    <button type="submit" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">Save</button>
+                                </form>
+                                {% if req.payment_method == 'GCash' %}
+                                <div class="gcash-layout">
+                                    <div>
+                                        <div class="gcash-grid">
+                                            <span class="gcash-label">Number</span><span>{{ gcash_number }}</span>
+                                            <span class="gcash-label">Name</span><span>{{ gcash_name }}</span>
+                                            {% if req.cat_fee %}<span class="gcash-label">Amount</span><span>&#8369;{{ req.cat_fee | int }}</span>{% endif %}
+                                        </div>
+                                        {% if req.payment_status != 'Paid' %}
+                                        <div class="upload-row">
+                                            <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf">
+                                            <button type="button" class="hbtn hbtn-blue" onclick="uploadReceipt({{ req.id }})">
+                                                <i class="fas fa-upload"></i> Upload Receipt
+                                            </button>
+                                            <span class="upload-status" id="rs_{{ req.id }}"></span>
+                                        </div>
+                                        {% else %}
+                                        <p style="font-size:11px;color:#15803d;margin-top:6px;font-weight:600;">
+                                            <i class="fas fa-circle-check"></i> Payment confirmed
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="gcash-qr-wrap">
+                                        <span class="gcash-qr-label">Scan to Pay via GCash</span>
+                                        <img src="{{ url_for('static', filename='images/gcash.png') }}"
+                                             alt="GCash QR Code"
+                                             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+                                        <p style="display:none;font-size:10px;color:#dc2626;">QR not available</p>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <p style="font-size:12px;color:var(--text-muted);">Pay during the handoff.</p>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endif %}
 
                         <!-- Completed section -->
                         {% if req.status == 'Completed' %}
-                        <div class="hsection" style="background:#f0fdf4;border-color:#bbf7d0;">
-                            <div class="hsection-title" style="color:#15803d;"><i class="fas fa-circle-check"></i> Adoption Completed!</div>
-                            <p style="font-size:12px;color:#166534;margin-bottom:6px;">Your adoption is complete. Optionally upload a photo of your new cat.</p>
-                            {% if req.completion_photo_url %}
-                            <a href="{{ req.completion_photo_url }}" target="_blank" rel="noopener" class="hbtn hbtn-outline" style="height:26px;font-size:10px;margin-bottom:6px;">
-                                <i class="fas fa-image"></i> View Photo
-                            </a>
-                            {% endif %}
-                            <form method="POST" action="{{ url_for('upload_completion_photo', req_id=req.id) }}" enctype="multipart/form-data" class="upload-row">
-                                <input type="file" name="completion_photo" accept=".jpg,.jpeg,.png">
-                                <button type="submit" class="hbtn hbtn-green"><i class="fas fa-camera"></i> Upload</button>
-                            </form>
+                        <div class="hsection" style="border-color:#bbf7d0;">
+                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)" style="color:#15803d;">
+                                <span><i class="fas fa-circle-check" style="color:#15803d;"></i> Adoption Completed</span>
+                                <i class="fas fa-chevron-down toggle-chevron"></i>
+                            </div>
+                            <div class="hsection-body">
+                                <p style="font-size:12px;color:#166534;margin-bottom:6px;">Your adoption is complete. Optionally upload a photo of your new cat.</p>
+                                {% if req.completion_photo_url %}
+                                <a href="{{ req.completion_photo_url }}" target="_blank" rel="noopener" class="hbtn hbtn-outline" style="height:26px;font-size:10px;margin-bottom:6px;">
+                                    <i class="fas fa-image"></i> View Photo
+                                </a>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('upload_completion_photo', req_id=req.id) }}" enctype="multipart/form-data" class="upload-row">
+                                    <input type="file" name="completion_photo" accept=".jpg,.jpeg,.png">
+                                    <button type="submit" class="hbtn hbtn-green"><i class="fas fa-camera"></i> Upload</button>
+                                </form>
+                            </div>
                         </div>
                         {% endif %}
 
