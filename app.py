@@ -1174,7 +1174,6 @@ def adopt_request():
             "address": address,
             "reason": reason,
             "experience_with_pets": experience,
-            "experience_level": experience,
             "status": "Pending",
             "payment_status": "Pending Payment",
             "payment_method": "GCash",
@@ -1185,7 +1184,14 @@ def adopt_request():
             insert_data["living_environment"] = living_environment
         if has_other_pets is not None:
             insert_data["has_other_pets"] = has_other_pets
-        supabase.table("adoption_requests").insert(insert_data).execute()
+        try:
+            supabase.table("adoption_requests").insert(insert_data).execute()
+        except Exception as e1:
+            # Retry without optional columns that may not exist in the schema
+            log.warning("adopt_request insert with optional fields failed (%s), retrying without them", e1)
+            insert_data.pop("living_environment", None)
+            insert_data.pop("has_other_pets", None)
+            supabase.table("adoption_requests").insert(insert_data).execute()
         # Keep profile in sync
         if full_name or contact_number or address:
             supabase.table("users").update({
@@ -1196,7 +1202,7 @@ def adopt_request():
         flash("Adoption request submitted! We will review it shortly.", "success")
     except Exception as e:
         log.error("adopt_request failed for user %s: %s", session.get("user_id"), e)
-        flash("Failed to submit request. Please verify the form and try again.", "error")
+        flash(f"Failed to submit request: {e}", "error")
     return redirect(url_for("dashboard"))
 
 
