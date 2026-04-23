@@ -569,6 +569,23 @@
                                     {% endif %}
                                 </div>
                                 {% if req.payment_status == 'Paid' %}
+                                {% if req.status == 'Approved' and req.payment_method == 'GCash' %}
+                                <div class="upload-row">
+                                    <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png">
+                                    <button type="button" onclick="uploadReceipt({{ req.id }})" class="hbtn hbtn-blue">
+                                        <i class="fas fa-upload"></i> Upload Receipt
+                                    </button>
+                                    <span id="rs_{{ req.id }}" class="upload-status"></span>
+                                </div>
+
+                                {% if req.receipt_url %}
+                                <a href="{{ req.receipt_url }}" target="_blank" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">
+                                    <i class="fas fa-image"></i> View Receipt
+                                </a>
+                                {% else %}
+                                <p style="font-size:11px;color:#64748b;">No receipt uploaded yet.</p>
+                                {% endif %}
+                                {% endif %}
                                 <p style="font-size:11px;color:#15803d;font-weight:600;"><i class="fas fa-circle-check"></i> Payment confirmed</p>
                                 {% else %}
                                 <p style="font-size:11px;color:var(--text-muted);">Pay {{ 'upon delivery' if is_delivery else 'when you receive your cat' }}. The admin will update your payment status.</p>
@@ -670,42 +687,89 @@
 function toggleSection(header) {
     header.classList.toggle('open');
     const body = header.nextElementSibling;
-    body.classList.toggle('open');
+    if (body) body.classList.toggle('open');
 }
 
-document.getElementById('menuToggle').addEventListener('click', () =>
-    document.getElementById('sidebar').classList.toggle('open'));
+/* ✅ SAFE MENU TOGGLE (FIXED) */
+const menuBtn = document.getElementById('menuToggle');
+const sidebar = document.getElementById('sidebar');
 
+if (menuBtn && sidebar) {
+    menuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+    });
+}
+
+/* ✅ RECEIPT UPLOAD */
 function uploadReceipt(reqId) {
     const input = document.getElementById('rf_' + reqId);
     const statusEl = document.getElementById('rs_' + reqId);
+
     if (!input || !input.files.length) {
-        statusEl.textContent = 'Choose a file first.';
-        statusEl.style.color = '#dc2626';
+        if (statusEl) {
+            statusEl.textContent = 'Choose a file first.';
+            statusEl.style.color = '#dc2626';
+        }
         return;
     }
+
     const fd = new FormData();
     fd.append('receipt', input.files[0]);
-    statusEl.textContent = 'Uploading…';
-    statusEl.style.color = '#64748b';
-    fetch('/upload_receipt/' + reqId, { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(data => {
-            if (data.ok) {
+
+    if (statusEl) {
+        statusEl.textContent = 'Uploading…';
+        statusEl.style.color = '#64748b';
+    }
+
+    fetch('/upload_receipt/' + reqId, {
+        method: 'POST',
+        body: fd
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            if (statusEl) {
                 statusEl.textContent = '✓ Uploaded!';
                 statusEl.style.color = '#15803d';
-                setTimeout(() => location.reload(), 1200);
-            } else {
+            }
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            if (statusEl) {
                 statusEl.textContent = data.error || 'Upload failed.';
                 statusEl.style.color = '#dc2626';
             }
-        })
-        .catch(() => { statusEl.textContent = 'Upload failed.'; statusEl.style.color = '#dc2626'; });
+        }
+    })
+    .catch(() => {
+        if (statusEl) {
+            statusEl.textContent = 'Upload failed.';
+            statusEl.style.color = '#dc2626';
+        }
+    });
 }
 
-setTimeout(() => document.querySelectorAll('.flash-msg').forEach(el => {
-    el.style.transition = 'opacity .5s'; el.style.opacity = '0';
-}), 4000);
+/* ✅ AUTO-OPEN IMPORTANT SECTIONS */
+document.querySelectorAll('.hcard').forEach(card => {
+    const status = card.querySelector('.hbadge')?.textContent.trim();
+
+    if (status === 'Approved') {
+        const payment = card.querySelector('.fa-wallet')?.closest('.hsection-toggle');
+        if (payment) toggleSection(payment);
+    }
+
+    if (status === 'Completed') {
+        const completed = card.querySelector('.fa-circle-check')?.closest('.hsection-toggle');
+        if (completed) toggleSection(completed);
+    }
+});
+
+/* ✅ AUTO HIDE FLASH MESSAGES */
+setTimeout(() => {
+    document.querySelectorAll('.flash-msg').forEach(el => {
+        el.style.transition = 'opacity .5s';
+        el.style.opacity = '0';
+    });
+}, 4000);
 </script>
 </body>
 </html>

@@ -311,6 +311,34 @@ a { text-decoration: none; color: inherit; }
 .file-upload-area p { font-size: 13px; color: var(--text-muted); }
 .file-upload-area span { color: var(--primary); font-weight: 600; }
 
+/* ✅ Upload row alignment fix */
+.upload-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ✅ Upload status text (fix spacing + visibility) */
+.upload-status {
+    font-size: 11px;
+    min-width: 90px;
+    color: #64748b;
+}
+
+/* ✅ File input cleaner look */
+.upload-row input[type="file"] {
+    font-size: 11px;
+    max-width: 180px;
+}
+
+/* ✅ Optional: better button spacing */
+.upload-row .hbtn {
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+}
+
 /* ===== BUTTONS ===== */
 .btn {
     display: inline-flex;

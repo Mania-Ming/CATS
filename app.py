@@ -1150,33 +1150,72 @@ def select_payment_method(req_id):
 
 @app.route("/upload_receipt/<int:req_id>", methods=["POST"])
 def upload_receipt(req_id):
+    # ✅ Check login
     if "user_id" not in session:
-        return jsonify({"error": "unauthorized"}), 401
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    # ✅ Get file
     file = request.files.get("receipt")
-    if not file or not file.filename:
-        return jsonify({"error": "No file provided"}), 400
+    if not file or file.filename.strip() == "":
+        return jsonify({"ok": False, "error": "No file provided"}), 400
+
+    # ✅ Validate extension
     ext = file.filename.rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXTENSIONS:
-        return jsonify({"error": "Invalid file type. Use JPG, PNG, or PDF."}), 400
+        return jsonify({"ok": False, "error": "Invalid file type. Use JPG, PNG, or PDF."}), 400
+
+    # ✅ Read file safely
     file_bytes = file.read()
+    if not file_bytes:
+        return jsonify({"ok": False, "error": "Empty file"}), 400
+
+    # ✅ Validate file size
     if len(file_bytes) > MAX_AVATAR_BYTES:
-        return jsonify({"error": "File exceeds 2 MB"}), 400
+        return jsonify({"ok": False, "error": "File exceeds 2 MB"}), 400
+
     try:
-        path = f"receipt_{req_id}_{session['user_id']}.{ext}"
-        public_url = upload_public_file(PAYMENT_BUCKET, path, file_bytes, file.content_type)
+        # ✅ Generate unique filename (prevents overwrite)
+        path = f"receipt_{req_id}_{session['user_id']}_{int(time.time())}.{ext}"
+
+        # ✅ Upload to Supabase Storage
+        public_url = upload_public_file(
+            PAYMENT_BUCKET,
+            path,
+            file_bytes,
+            file.content_type
+        )
+
+        if not public_url:
+            return jsonify({"ok": False, "error": "Upload failed"}), 500
+
+        # ✅ Update database
         supabase.table("adoption_requests").update({
-            "payment_proof":  public_url,
+            "payment_proof": public_url,
             "payment_status": "For Verification",
         }).eq("id", req_id).eq("user_id", session["user_id"]).execute()
+
+        # ✅ Fetch updated data
         latest = fetch_request_row(req_id, user_id=session["user_id"])
         data = build_request_cards([latest], include_messages=False)[0] if latest else None
-        return jsonify({"ok": True, "url": public_url, "data": data})
+
+        return jsonify({
+            "ok": True,
+            "url": public_url,
+            "data": data
+        })
+
     except Exception as e:
         err = str(e)
         log.error("upload_receipt(%s) failed: %s", req_id, err)
+
+        # ✅ Friendly Supabase error
         if "bucket" in err.lower() or "not found" in err.lower():
-            return jsonify({"error": f"Storage bucket '{PAYMENT_BUCKET}' not found. Create it in Supabase Storage."}), 500
-        return jsonify({"error": err}), 500
+            return jsonify({
+                "ok": False,
+                "error": f"Storage bucket '{PAYMENT_BUCKET}' not found. Create it in Supabase Storage."
+            }), 500
+
+        return jsonify({"ok": False, "error": err}), 500
 
 
 # ------------------------------------------------------------------ admin update payment status --
