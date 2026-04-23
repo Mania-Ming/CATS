@@ -3,37 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adoption History - Cat Adoption</title>
+    <title>Adoption History — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
     <style>
-        .badge-pay-pending { background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; }
-        .badge-pay-verify { background:#fef9c3; color:#854d0e; border:1px solid #fde047; }
-        .badge-pay-approved { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
-        .history-grid { display:grid; gap:18px; }
-        .history-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; box-shadow:var(--shadow-sm); }
-        .history-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
-        .history-badges { display:flex; gap:8px; flex-wrap:wrap; }
-        .detail-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; margin-top:12px; }
-        .detail-title { font-size:13px; font-weight:700; margin-bottom:10px; color:#1e293b; }
-        .detail-grid { display:grid; grid-template-columns:auto 1fr; gap:6px 12px; font-size:13px; }
-        .detail-label { color:#64748b; font-weight:600; }
-        .chat-box { margin-top:14px; border-top:1px solid #e2e8f0; padding-top:14px; }
-        .chat-list { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; max-height:220px; overflow:auto; }
-        .chat-msg { border-radius:12px; padding:10px 12px; font-size:13px; }
-        .chat-user { background:#eff6ff; color:#1d4ed8; }
+        /* ── History cards ── */
+        .history-list { display:flex; flex-direction:column; gap:12px; }
+
+        .hcard {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:14px;
+            overflow:hidden;
+            box-shadow:0 1px 4px rgba(0,0,0,0.05);
+            transition:box-shadow .18s;
+        }
+        .hcard:hover { box-shadow:0 4px 16px rgba(0,0,0,0.09); }
+
+        /* Card header */
+        .hcard-head {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:11px 16px; border-bottom:1px solid var(--border);
+            background:#fafbff;
+        }
+        .hcard-title { font-size:14px; font-weight:700; color:var(--text); }
+        .hcard-breed { font-size:11px; color:var(--text-muted); margin-top:1px; }
+        .hcard-badges { display:flex; gap:5px; flex-wrap:wrap; }
+
+        /* Badges */
+        .hbadge {
+            display:inline-flex; align-items:center; gap:3px;
+            padding:2px 9px; border-radius:20px;
+            font-size:10px; font-weight:700; border:1px solid transparent;
+        }
+        .hb-pending   { background:#fff7ed; color:#c2410c; border-color:#fed7aa; }
+        .hb-approved  { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+        .hb-scheduled { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+        .hb-completed { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+        .hb-rejected  { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
+        .hb-pay-pending { background:#f8fafc; color:#475569; border-color:#cbd5e1; }
+        .hb-pay-verify  { background:#fef9c3; color:#854d0e; border-color:#fde047; }
+        .hb-pay-paid    { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+
+        /* Card body */
+        .hcard-body { padding:12px 16px; display:flex; flex-direction:column; gap:10px; }
+
+        /* Info row */
+        .hinfo-row {
+            display:flex; align-items:center; gap:6px;
+            font-size:12px; color:var(--text-muted);
+        }
+        .hinfo-row i { font-size:11px; color:#94a3b8; width:14px; text-align:center; }
+        .hinfo-row strong { color:var(--text); }
+
+        /* Section block */
+        .hsection {
+            background:#f8fafc; border:1px solid var(--border);
+            border-radius:10px; padding:10px 12px;
+        }
+        .hsection-title {
+            font-size:11px; font-weight:700; color:var(--text);
+            margin-bottom:7px; display:flex; align-items:center; gap:5px;
+        }
+        .hsection-title i { color:var(--primary); }
+
+        /* Payment method radio */
+        .pay-method-form { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .pay-method-form label { font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer; }
+
+        /* GCash detail grid */
+        .gcash-grid { display:grid; grid-template-columns:auto 1fr; gap:3px 10px; font-size:12px; }
+        .gcash-label { color:var(--text-muted); font-weight:600; }
+
+        /* Upload row */
+        .upload-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; }
+        .upload-row input[type="file"] { font-size:11px; max-width:200px; }
+
+        /* Delivery status pill */
+        .delivery-pill {
+            display:inline-flex; align-items:center; gap:4px;
+            font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px;
+        }
+        .dp-preparing { background:#fff7ed; color:#c2410c; }
+        .dp-transit   { background:#eff6ff; color:#1d4ed8; }
+        .dp-delivered { background:#f0fdf4; color:#15803d; }
+
+        /* Chat */
+        .chat-msgs {
+            max-height:130px; overflow-y:auto;
+            display:flex; flex-direction:column; gap:5px; margin-bottom:7px;
+        }
+        .chat-msg { border-radius:8px; padding:6px 10px; font-size:12px; line-height:1.4; }
+        .chat-user  { background:#eff6ff; color:#1d4ed8; }
         .chat-admin { background:#fefce8; color:#854d0e; }
-        .chat-meta { display:block; font-size:11px; opacity:0.75; margin-top:4px; }
-        .chat-form { display:flex; gap:8px; flex-wrap:wrap; }
-        .chat-form textarea { min-height:72px; }
-        .status-pill { font-size:12px; font-weight:600; padding:6px 10px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; }
-        .status-preparing { background:#fff7ed; color:#c2410c; }
-        .status-transit { background:#eff6ff; color:#1d4ed8; }
-        .status-delivered { background:#f0fdf4; color:#15803d; }
-        .action-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
-        .muted { color:var(--text-muted); font-size:12px; }
-        .upload-inline { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
-        .upload-inline input[type="file"] { max-width:240px; }
+        .chat-meta  { font-size:10px; opacity:.7; margin-top:2px; display:block; }
+        .chat-empty { font-size:11px; color:var(--text-muted); }
+        .chat-form  { display:flex; gap:6px; }
+        .chat-form input {
+            flex:1; height:32px; padding:0 10px;
+            border:1.5px solid var(--border); border-radius:7px;
+            font-size:12px; font-family:inherit; outline:none;
+        }
+        .chat-form input:focus { border-color:var(--primary); }
+
+        /* Action buttons row */
+        .hcard-actions {
+            display:flex; gap:6px; flex-wrap:wrap; align-items:center;
+            padding:9px 16px; border-top:1px solid var(--border);
+            background:#fafbff;
+        }
+
+        /* Compact buttons */
+        .hbtn {
+            height:30px; padding:0 12px;
+            border:none; border-radius:7px;
+            font-size:11px; font-weight:700; cursor:pointer;
+            display:inline-flex; align-items:center; gap:4px;
+            transition:opacity .15s, transform .1s; white-space:nowrap;
+        }
+        .hbtn:hover { opacity:.85; transform:translateY(-1px); }
+        .hbtn-primary  { background:var(--primary); color:#fff; }
+        .hbtn-outline  { background:transparent; border:1.5px solid var(--border); color:var(--text); }
+        .hbtn-outline:hover { background:var(--bg); }
+        .hbtn-green    { background:#16a34a; color:#fff; }
+        .hbtn-blue     { background:#2563eb; color:#fff; }
+
+        .upload-status { font-size:11px; min-height:14px; }
     </style>
 </head>
 <body>
@@ -57,148 +152,154 @@
                 <button class="hamburger" id="menuToggle">&#9776;</button>
                 <div>
                     <div class="topbar-title">Adoption History</div>
-                    <div class="topbar-subtitle">Track payments, meet-ups, deliveries, and messages in one place.</div>
+                    <div class="topbar-subtitle">Track your requests, payments, and meet-ups.</div>
                 </div>
             </div>
             <div class="topbar-right">
-                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm">Browse Cats</a>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-paw"></i> Browse Cats
+                </a>
             </div>
         </div>
 
         <div class="page-content">
             {% if requests %}
-            <div class="history-grid">
+            <div class="history-list">
                 {% for req in requests %}
-                <div class="history-card">
-                    <div class="history-head">
+
+                {% set status_cls = {'Pending':'hb-pending','Approved':'hb-approved','Scheduled':'hb-scheduled','Completed':'hb-completed','Rejected':'hb-rejected'}.get(req.status,'hb-pending') %}
+                {% set pay_cls = {'Paid':'hb-pay-paid','For Verification':'hb-pay-verify'}.get(req.payment_status,'hb-pay-pending') %}
+
+                <div class="hcard">
+
+                    <!-- Header -->
+                    <div class="hcard-head">
                         <div>
-                            <strong style="font-size:17px;">{{ req.cat_name }}</strong>
-                            <div class="muted">
+                            <div class="hcard-title">{{ req.cat_name }}</div>
+                            <div class="hcard-breed">
                                 {{ req.cat_breed }}
-                                {% if req.created_at %} · {{ req.created_at.strftime('%b %d, %Y') }}{% endif %}
+                                {% if req.created_at %}&nbsp;·&nbsp;{{ req.created_at.strftime('%b %d, %Y') }}{% endif %}
                             </div>
                         </div>
-                        <div class="history-badges">
-                            <span class="badge badge-{{ req.status|lower|replace(' ', '-') }}">{{ req.status }}</span>
-                            <span class="badge badge-pay-{{ 'approved' if req.payment_status == 'Paid' else 'verify' if req.payment_status == 'For Verification' else 'pending' }}">
-                                {{ req.payment_status }}
-                            </span>
+                        <div class="hcard-badges">
+                            <span class="hbadge {{ status_cls }}">{{ req.status }}</span>
+                            <span class="hbadge {{ pay_cls }}">{{ req.payment_status }}</span>
                         </div>
                     </div>
 
-                    {% if req.status == 'Approved' %}
-                    <div class="detail-card">
-                        <div class="detail-title"><i class="fas fa-wallet"></i> Payment Method</div>
-                        <div class="action-row">
-                            <form method="POST" action="{{ url_for('select_payment_method', req_id=req.id) }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <!-- Body -->
+                    <div class="hcard-body">
+
+                        <!-- Delivery / Meet-up info row -->
+                        {% if req.delivery_method %}
+                        <div class="hinfo-row">
+                            <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}"></i>
+                            <strong>{{ req.delivery_method }}</strong>
+                            {% if req.delivery_method == 'Meet-up' and req.meetup_location %}
+                            &nbsp;·&nbsp;<i class="fas fa-map-marker-alt"></i> {{ req.meetup_location }}
+                            {% if req.meetup_date %}&nbsp;·&nbsp;<i class="fas fa-calendar"></i> {{ req.meetup_date }}{% endif %}
+                            {% if req.meetup_time %}&nbsp;<i class="fas fa-clock"></i> {{ req.meetup_time }}{% endif %}
+                            {% elif req.delivery_method == 'Delivery / Pickup' and req.delivery_status %}
+                            &nbsp;·&nbsp;
+                            <span class="delivery-pill {% if req.delivery_status == 'Delivered' %}dp-delivered{% elif req.delivery_status == 'Out for Delivery' %}dp-transit{% else %}dp-preparing{% endif %}">
+                                {{ req.delivery_status }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if req.delivery_method == 'Meet-up' and req.meetup_map_link %}
+                        <div>
+                            <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">
+                                <i class="fas fa-map"></i> View Map
+                            </a>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+
+                        <!-- Payment section (only when Approved) -->
+                        {% if req.status == 'Approved' %}
+                        <div class="hsection">
+                            <div class="hsection-title"><i class="fas fa-wallet"></i> Payment</div>
+                            <form method="POST" action="{{ url_for('select_payment_method', req_id=req.id) }}" class="pay-method-form">
                                 <label><input type="radio" name="payment_method" value="GCash" {% if req.payment_method == 'GCash' %}checked{% endif %}> GCash</label>
-                                <label><input type="radio" name="payment_method" value="COD" {% if req.payment_method == 'COD' %}checked{% endif %}> COD</label>
-                                <button type="submit" class="btn btn-primary btn-sm">Save Method</button>
+                                <label><input type="radio" name="payment_method" value="COD" {% if req.payment_method == 'COD' %}checked{% endif %}> Cash on Delivery</label>
+                                <button type="submit" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">Save</button>
+                            </form>
+                            {% if req.payment_method == 'GCash' %}
+                            <div class="gcash-grid" style="margin-top:8px;">
+                                <span class="gcash-label">Number</span><span>{{ gcash_number }}</span>
+                                <span class="gcash-label">Name</span><span>{{ gcash_name }}</span>
+                                {% if req.cat_fee %}<span class="gcash-label">Amount</span><span>&#8369;{{ req.cat_fee | int }}</span>{% endif %}
+                            </div>
+                            {% if req.payment_status != 'Paid' %}
+                            <div class="upload-row">
+                                <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf">
+                                <button type="button" class="hbtn hbtn-blue" onclick="uploadReceipt({{ req.id }})">
+                                    <i class="fas fa-upload"></i> Upload Receipt
+                                </button>
+                                <span class="upload-status" id="rs_{{ req.id }}"></span>
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:6px;">Pay during the handoff.</p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Completed section -->
+                        {% if req.status == 'Completed' %}
+                        <div class="hsection" style="background:#f0fdf4;border-color:#bbf7d0;">
+                            <div class="hsection-title" style="color:#15803d;"><i class="fas fa-circle-check"></i> Adoption Completed!</div>
+                            <p style="font-size:12px;color:#166534;margin-bottom:6px;">Your adoption is complete. Optionally upload a photo of your new cat.</p>
+                            {% if req.completion_photo_url %}
+                            <a href="{{ req.completion_photo_url }}" target="_blank" rel="noopener" class="hbtn hbtn-outline" style="height:26px;font-size:10px;margin-bottom:6px;">
+                                <i class="fas fa-image"></i> View Photo
+                            </a>
+                            {% endif %}
+                            <form method="POST" action="{{ url_for('upload_completion_photo', req_id=req.id) }}" enctype="multipart/form-data" class="upload-row">
+                                <input type="file" name="completion_photo" accept=".jpg,.jpeg,.png">
+                                <button type="submit" class="hbtn hbtn-green"><i class="fas fa-camera"></i> Upload</button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                        <!-- Chat -->
+                        <div class="hsection">
+                            <div class="hsection-title"><i class="fas fa-comments"></i> Messages</div>
+                            <div class="chat-msgs">
+                                {% if req.messages %}
+                                    {% for msg in req.messages %}
+                                    <div class="chat-msg {% if msg.sender == 'admin' %}chat-admin{% else %}chat-user{% endif %}">
+                                        <strong>{{ 'Admin' if msg.sender == 'admin' else 'You' }}:</strong> {{ msg.message }}
+                                        <span class="chat-meta">{{ msg.created_at.strftime('%b %d, %I:%M %p') if msg.created_at else '' }}</span>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="chat-empty">No messages yet.</span>
+                                {% endif %}
+                            </div>
+                            <form method="POST" action="{{ url_for('send_message', req_id=req.id) }}" class="chat-form">
+                                <input type="text" name="message" placeholder="Send a message to admin..." required>
+                                <button type="submit" class="hbtn hbtn-primary"><i class="fas fa-paper-plane"></i> Send</button>
                             </form>
                         </div>
 
-                        {% if req.payment_method == 'GCash' %}
-                        <div class="detail-grid" style="margin-top:12px;">
-                            <span class="detail-label">GCash Number</span><span>{{ gcash_number }}</span>
-                            <span class="detail-label">Account Name</span><span>{{ gcash_name }}</span>
-                            <span class="detail-label">Amount</span>
-                            <span>{% if req.cat_fee %}&#8369;{{ req.cat_fee | int }}{% else %}Free{% endif %}</span>
-                        </div>
-                        {% if req.payment_status != 'Paid' %}
-                        <div class="upload-inline">
-                            <input type="file" id="receipt_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf">
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="uploadReceipt({{ req.id }})">Upload Receipt</button>
-                            <span class="muted" id="receipt_status_{{ req.id }}"></span>
-                        </div>
-                        {% endif %}
-                        {% else %}
-                        <p class="muted" style="margin-top:10px;">You selected cash on delivery. Pay during the handoff.</p>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-
-                    {% if req.delivery_method == 'Meet-up' and (req.status == 'Scheduled' or req.meetup_date or req.meetup_location) %}
-                    <div class="detail-card">
-                        <div class="detail-title"><i class="fas fa-location-dot"></i> Meet-up Scheduled</div>
-                        <div class="detail-grid">
-                            <span class="detail-label">📍 Location</span><span>{{ req.meetup_location or 'To be announced' }}</span>
-                            <span class="detail-label">📅 Date</span><span>{{ req.meetup_date or 'TBA' }}</span>
-                            <span class="detail-label">Time</span><span>{{ req.meetup_time or 'TBA' }}</span>
-                        </div>
-                        {% if req.meetup_map_link %}
-                        <div class="action-row">
-                            <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
-                                View Map
-                            </a>
-                            <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">
-                                View Location
-                            </a>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-
-                    {% if req.delivery_method == 'Delivery / Pickup' and req.status in ['Approved', 'Scheduled', 'Completed'] %}
-                    <div class="detail-card">
-                        <div class="detail-title"><i class="fas fa-truck"></i> Delivery Scheduled</div>
-                        <div class="detail-grid">
-                            <span class="detail-label">🚚 Method</span><span>{{ req.delivery_method }}</span>
-                            <span class="detail-label">Address</span><span>{{ req.address }}</span>
-                            <span class="detail-label">Status</span>
-                            <span class="status-pill {% if req.delivery_status == 'Delivered' %}status-delivered{% elif req.delivery_status == 'Out for Delivery' %}status-transit{% else %}status-preparing{% endif %}">
-                                {{ req.delivery_status or 'Preparing' }}
-                            </span>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {% if req.status == 'Completed' %}
-                    <div class="detail-card" style="background:#f0fdf4;border-color:#bbf7d0;">
-                        <div class="detail-title"><i class="fas fa-circle-check"></i> Adoption Completed</div>
-                        <p class="muted" style="color:#166534;">Your adoption is complete. You can optionally upload a photo of your adopted cat.</p>
-                        {% if req.completion_photo_url %}
-                        <div class="action-row">
-                            <a href="{{ req.completion_photo_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">📸 View Uploaded Photo</a>
-                        </div>
-                        {% endif %}
-                        <form method="POST" action="{{ url_for('upload_completion_photo', req_id=req.id) }}" enctype="multipart/form-data" class="upload-inline">
-                            <input type="file" name="completion_photo" accept=".jpg,.jpeg,.png">
-                            <button type="submit" class="btn btn-primary btn-sm">📸 Upload</button>
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    <div class="chat-box">
-                        <div class="detail-title"><i class="fas fa-comments"></i> 💬 Chat</div>
-                        <div class="chat-list">
-                            {% if req.messages %}
-                                {% for msg in req.messages %}
-                                <div class="chat-msg {% if msg.sender == 'admin' %}chat-admin{% else %}chat-user{% endif %}">
-                                    <strong>{{ 'Admin' if msg.sender == 'admin' else 'You' }}</strong><br>
-                                    {{ msg.message }}
-                                    <span class="chat-meta">{{ msg.created_at.strftime('%b %d, %Y %I:%M %p') if msg.created_at else '' }}</span>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <div class="muted">No messages yet. Send the first message below.</div>
-                            {% endif %}
-                        </div>
-                        <form method="POST" action="{{ url_for('send_message', req_id=req.id) }}" class="chat-form">
-                            <textarea name="message" placeholder="Send a message to the admin..." required></textarea>
-                            <button type="submit" class="btn btn-primary btn-sm">Send</button>
-                        </form>
-                    </div>
+                    </div><!-- /hcard-body -->
                 </div>
                 {% endfor %}
             </div>
             {% else %}
             <div class="empty-state">
+                <div class="empty-icon"><i class="fas fa-paw" style="font-size:48px;color:var(--text-muted);"></i></div>
                 <h3>No adoption requests yet</h3>
                 <p>Browse available cats and submit your first adoption application.</p>
                 <a href="{{ url_for('dashboard') }}" class="btn btn-primary" style="margin-top:16px;">Browse Cats</a>
             </div>
             {% endif %}
         </div>
+
+        <footer class="page-footer">
+            &copy; 2026 Cat Adoption System &nbsp;|&nbsp; All Rights Reserved
+        </footer>
     </div>
 </div>
 
@@ -206,39 +307,35 @@
 document.getElementById('menuToggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open'));
 
-function uploadReceipt(requestId) {
-    const input = document.getElementById('receipt_' + requestId);
-    const statusEl = document.getElementById('receipt_status_' + requestId);
+function uploadReceipt(reqId) {
+    const input = document.getElementById('rf_' + reqId);
+    const statusEl = document.getElementById('rs_' + reqId);
     if (!input || !input.files.length) {
-        statusEl.textContent = 'Please choose a file first.';
+        statusEl.textContent = 'Choose a file first.';
         statusEl.style.color = '#dc2626';
         return;
     }
     const fd = new FormData();
     fd.append('receipt', input.files[0]);
-    statusEl.textContent = 'Uploading...';
+    statusEl.textContent = 'Uploading…';
     statusEl.style.color = '#64748b';
-    fetch('/upload_receipt/' + requestId, { method: 'POST', body: fd })
+    fetch('/upload_receipt/' + reqId, { method: 'POST', body: fd })
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                statusEl.textContent = 'Receipt uploaded successfully.';
+                statusEl.textContent = '✓ Uploaded!';
                 statusEl.style.color = '#15803d';
-                window.setTimeout(() => window.location.reload(), 1000);
+                setTimeout(() => location.reload(), 1200);
             } else {
                 statusEl.textContent = data.error || 'Upload failed.';
                 statusEl.style.color = '#dc2626';
             }
         })
-        .catch(() => {
-            statusEl.textContent = 'Upload failed.';
-            statusEl.style.color = '#dc2626';
-        });
+        .catch(() => { statusEl.textContent = 'Upload failed.'; statusEl.style.color = '#dc2626'; });
 }
 
 setTimeout(() => document.querySelectorAll('.flash-msg').forEach(el => {
-    el.style.transition = 'opacity 0.5s';
-    el.style.opacity = '0';
+    el.style.transition = 'opacity .5s'; el.style.opacity = '0';
 }), 4000);
 </script>
 </body>

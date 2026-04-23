@@ -1137,22 +1137,35 @@ def adopt_request():
     if "user_id" not in session:
         return redirect(url_for("login"))
     cat_id = request.form.get("cat_id")
+    # Profile fields come from hidden inputs (pre-filled from user profile)
     full_name = request.form.get("full_name", "").strip()
     email = request.form.get("email", "").strip()
     contact_number = request.form.get("contact_number", "").strip()
     address = request.form.get("address", "").strip()
+    # Decision fields — required
     reason = request.form.get("reason", "").strip()
     experience = request.form.get("experience_with_pets", "").strip()
     delivery_method = request.form.get("delivery_method", "").strip()
-    required_values = [cat_id, full_name, email, contact_number, address, reason, experience, delivery_method]
-    if any(not value for value in required_values):
+    # Optional fields
+    living_environment = request.form.get("living_environment", "").strip() or None
+    has_other_pets_raw = request.form.get("has_other_pets", "").strip()
+    has_other_pets = True if has_other_pets_raw == "yes" else (False if has_other_pets_raw == "no" else None)
+    if not cat_id or not reason or not experience or not delivery_method:
         flash("Please complete all required fields before submitting.", "error")
         return redirect(url_for("dashboard"))
     if delivery_method not in ("Meet-up", "Delivery / Pickup"):
         flash("Please select a valid delivery method.", "error")
         return redirect(url_for("dashboard"))
+    # Fall back to profile data if hidden fields are empty
+    if not full_name or not email:
+        profile = get_user_profile(session["user_id"])
+        if profile:
+            full_name = full_name or profile[3] or ""
+            email = email or profile[1] or ""
+            contact_number = contact_number or profile[4] or ""
+            address = address or profile[5] or ""
     try:
-        supabase.table("adoption_requests").insert({
+        insert_data = {
             "user_id": session["user_id"],
             "cat_id": int(cat_id),
             "full_name": full_name,
@@ -1167,12 +1180,19 @@ def adopt_request():
             "payment_method": "GCash",
             "delivery_method": delivery_method,
             "delivery_status": "Preparing" if delivery_method == "Delivery / Pickup" else None,
-        }).execute()
-        supabase.table("users").update({
-            "full_name": full_name,
-            "phone": contact_number,
-            "address": address,
-        }).eq("id", session["user_id"]).execute()
+        }
+        if living_environment:
+            insert_data["living_environment"] = living_environment
+        if has_other_pets is not None:
+            insert_data["has_other_pets"] = has_other_pets
+        supabase.table("adoption_requests").insert(insert_data).execute()
+        # Keep profile in sync
+        if full_name or contact_number or address:
+            supabase.table("users").update({
+                "full_name": full_name,
+                "phone": contact_number,
+                "address": address,
+            }).eq("id", session["user_id"]).execute()
         flash("Adoption request submitted! We will review it shortly.", "success")
     except Exception as e:
         log.error("adopt_request failed for user %s: %s", session.get("user_id"), e)

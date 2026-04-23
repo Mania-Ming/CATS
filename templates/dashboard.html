@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
 </head>
 <body>
 
@@ -113,30 +114,7 @@
         </div>
 
         <!-- FOOTER -->
-        <footer class="site-footer">
-            <div class="footer-inner">
-                <div class="footer-brand">
-                    <h3>Cat Adoption</h3>
-                    <p>Connecting loving families with cats in need of a forever home.</p>
-                </div>
-                <div class="footer-col">
-                    <h4>Navigate</h4>
-                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
-                    <a href="{{ url_for('profile') }}">My Profile</a>
-                    <a href="{{ url_for('history') }}">Adoption History</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Account</h4>
-                    <a href="{{ url_for('logout') }}">Sign Out</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Contact</h4>
-                    <a href="#">support@catadoption.ph</a>
-                    <a href="#">Manila, Philippines</a>
-                </div>
-            </div>
-            <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
-        </footer>
+        <footer class="page-footer">&copy; 2026 Cat Adoption System &nbsp;|&nbsp; All Rights Reserved</footer>
     </div>
 </div>
 
@@ -194,73 +172,85 @@
 
 <!-- ================= ADOPT MODAL ================= -->
 <div id="adoptModal" class="modal-overlay">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h3>Adoption Request</h3>
+    <div class="modal-box" style="max-width:440px;">
+        <div class="modal-header" style="padding:14px 18px 12px;">
+            <h3 style="font-size:15px;"><i class="fas fa-heart" style="color:var(--primary);"></i> Adoption Request</h3>
             <button type="button" class="modal-close" onclick="closeAdoptModal()">&times;</button>
         </div>
-        {% set profile_name = user[3] if user else '' %}
-        {% set profile_email = user[1] if user else '' %}
-        {% set profile_phone = user[4] if user else '' %}
-        {% set profile_address = user[5] if user else '' %}
         <form method="POST" action="{{ url_for('adopt_request') }}" id="adoptRequestForm" novalidate>
-            <div class="modal-body">
-                <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
-                    Please complete every required field before sending your adoption request.
-                </p>
-                <div class="cat-summary-box">
+            <div class="modal-body" style="padding:14px 18px;">
+
+                <!-- Selected cat summary -->
+                <div style="display:flex;align-items:center;gap:10px;background:var(--primary-light);border-radius:10px;padding:9px 12px;margin-bottom:14px;">
+                    <div style="width:40px;height:40px;border-radius:8px;background:var(--border);overflow:hidden;flex-shrink:0;">
+                        <img id="modalCatImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'">
+                    </div>
                     <div>
-                        <p><strong>Selected Cat:</strong></p>
-                        <h4 id="modalCatName"></h4>
-                        <p id="modalCatDetails"></p>
+                        <div id="modalCatName" style="font-size:13px;font-weight:700;color:var(--text);"></div>
+                        <div id="modalCatDetails" style="font-size:11px;color:var(--text-muted);"></div>
                     </div>
                 </div>
+
                 <input type="hidden" name="cat_id" id="modalCatId">
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" name="full_name" value="{{ profile_name }}" required>
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" name="email" value="{{ profile_email }}" required>
-                </div>
-                <div class="form-group">
-                    <label>Contact Number</label>
-                    <input type="text" name="contact_number" value="{{ profile_phone }}" required>
-                </div>
-                <div class="form-group">
-                    <label>Address</label>
-                    <textarea name="address" required>{{ profile_address }}</textarea>
-                </div>
-                <div class="form-group">
-                    <label>Experience with pets</label>
-                    <select name="experience_with_pets" required>
-                        <option value="">Select your experience level</option>
+                <input type="hidden" name="full_name" value="{{ user[3] if user else '' }}">
+                <input type="hidden" name="email" value="{{ user[1] if user else '' }}">
+                <input type="hidden" name="contact_number" value="{{ user[4] if user else '' }}">
+                <input type="hidden" name="address" value="{{ user[5] if user else '' }}">
+
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:12px;margin-bottom:4px;">Experience with Pets <span style="color:#dc2626;">*</span></label>
+                    <select name="experience_with_pets" required style="padding:7px 10px;font-size:12px;">
+                        <option value="">Select experience level</option>
                         <option value="First-time adopter">First-time adopter</option>
                         <option value="Some experience">Some experience</option>
                         <option value="Experienced pet owner">Experienced pet owner</option>
                         <option value="Rescue or foster experience">Rescue or foster experience</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Why do you want to adopt this cat?</label>
-                    <textarea name="reason" placeholder="Tell us about your home, routine, and why this cat is a good match for you." required></textarea>
+
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:12px;margin-bottom:4px;">Why do you want to adopt? <span style="color:#dc2626;">*</span></label>
+                    <textarea name="reason" rows="3" placeholder="Tell us about your home and why this cat is a good match." required style="font-size:12px;min-height:64px;"></textarea>
                 </div>
-                <div class="form-group">
-                    <label>Delivery Method</label>
-                    <select name="delivery_method" required>
-                        <option value="">Choose a delivery method</option>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:12px;margin-bottom:4px;">Living Environment</label>
+                        <select name="living_environment" style="padding:7px 10px;font-size:12px;">
+                            <option value="">Select</option>
+                            <option value="House">House</option>
+                            <option value="Apartment">Apartment</option>
+                            <option value="Condo">Condo</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:12px;margin-bottom:4px;">Other Pets?</label>
+                        <select name="has_other_pets" style="padding:7px 10px;font-size:12px;">
+                            <option value="">Select</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:12px;margin-bottom:4px;">Delivery Method <span style="color:#dc2626;">*</span></label>
+                    <select name="delivery_method" required style="padding:7px 10px;font-size:12px;">
+                        <option value="">Choose delivery method</option>
                         <option value="Meet-up">Meet-up</option>
                         <option value="Delivery / Pickup">Delivery / Pickup</option>
                     </select>
                 </div>
-                <div id="adoptValidationMsg" style="display:none;font-size:12px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 12px;">
-                    Please complete all required fields before submitting the form.
+
+                <div id="adoptValidationMsg" style="display:none;font-size:11px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:7px 10px;margin-top:8px;">
+                    Please complete all required fields.
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" onclick="closeAdoptModal()" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-primary">Submit Request</button>
+            <div class="modal-footer" style="padding:10px 18px;">
+                <button type="button" onclick="closeAdoptModal()" class="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="padding:9px 22px;font-size:13px;">
+                    <i class="fas fa-heart"></i> Submit Request
+                </button>
             </div>
         </form>
     </div>
@@ -323,11 +313,14 @@ function submitReceipt() {
 let _currentCat = null;
 let _currentReqId = null;
 
-function openAdoptModal(id, name, breed, age, gender) {
-    _currentCat = { id, name, breed, age, gender };
-    document.getElementById("modalCatId").value    = id;
-    document.getElementById("modalCatName").innerText    = name;
-    document.getElementById("modalCatDetails").innerText = breed + " · " + age + (age == 1 ? " yr" : " yrs") + " · " + gender;
+function openAdoptModal(id, name, breed, age, gender, img) {
+    _currentCat = { id, name, breed, age, gender, img };
+    document.getElementById("modalCatId").value = id;
+    document.getElementById("modalCatName").innerText = name;
+    document.getElementById("modalCatDetails").innerText = breed + ' · ' + age + (age == 1 ? ' yr' : ' yrs') + ' · ' + gender;
+    const imgEl = document.getElementById('modalCatImg');
+    if (img) { imgEl.src = img.startsWith('http') ? img : '/static/images/' + img; imgEl.style.display = 'block'; }
+    else { imgEl.style.display = 'none'; }
     document.getElementById("adoptValidationMsg").style.display = "none";
     document.getElementById("adoptModal").classList.add("open");
 }
@@ -426,7 +419,7 @@ function closeBreedDetail() {
 function openAdoptFromDetail() {
     if (!_currentCat) return;
     closeBreedDetail();
-    openAdoptModal(_currentCat.id, _currentCat.name, _currentCat.breed, _currentCat.age, _currentCat.gender);
+    openAdoptModal(_currentCat.id, _currentCat.name, _currentCat.breed, _currentCat.age, _currentCat.gender, _currentCat.image);
 }
 
 function buildDetailHTML(cat) {
