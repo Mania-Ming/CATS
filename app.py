@@ -367,6 +367,7 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
             row.get("delivery_status"),
         ) or ("Preparing" if delivery_method in ("Delivery", "Pick-up") else None)
         estimated_delivery_date = _first_non_empty(
+            delivery.get("estimated_delivery"),
             delivery.get("estimated_delivery_date"),
             delivery.get("delivery_date"),
             delivery.get("scheduled_date"),
@@ -431,6 +432,7 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
             "valid_id_url": user.get("valid_id_url"),
             "completion_photo_url": row.get("completion_photo_url"),
             "delivery_date": estimated_delivery_date,
+            "estimated_delivery": estimated_delivery_date,
             "delivery_time_start": row.get("delivery_time_start"),
             "delivery_time_end": row.get("delivery_time_end"),
             "delivery_address": row.get("delivery_address") or row.get("address") or "",
@@ -1240,17 +1242,21 @@ def admin_schedule_delivery(req_id):
     delivery_time_start = request.form.get("delivery_time_start", "").strip() or None
     delivery_time_end   = request.form.get("delivery_time_end", "").strip() or None
     delivery_address   = request.form.get("delivery_address", "").strip() or None
+    delivery_status    = request.form.get("delivery_status", "").strip() or "Preparing"
     rider_name         = request.form.get("rider_name", "").strip() or None
     rider_contact      = request.form.get("rider_contact", "").strip() or None
     if not delivery_date:
         flash("Delivery date is required.", "error")
+        return redirect(url_for("admin_requests"))
+    if delivery_status not in {"Preparing", "Out for Delivery", "Delivered"}:
+        flash("Invalid delivery status.", "error")
         return redirect(url_for("admin_requests"))
     try:
         row = fetch_request_row(req_id, admin=True) or {}
         delivery_method = row.get("delivery_method") or "Delivery"
         _admin_db().table("adoption_requests").update({
             "status": "Scheduled",
-            "delivery_status": "Preparing",
+            "delivery_status": delivery_status,
             "delivery_date": delivery_date,
             "delivery_time_start": delivery_time_start,
             "delivery_time_end": delivery_time_end,
@@ -1261,8 +1267,9 @@ def admin_schedule_delivery(req_id):
         sync_delivery_record(req_id, {
             "delivery_method": delivery_method,
             "method": delivery_method,
-            "status": "Preparing",
-            "delivery_status": "Preparing",
+            "status": delivery_status,
+            "delivery_status": delivery_status,
+            "estimated_delivery": delivery_date,
             "estimated_delivery_date": delivery_date,
             "delivery_date": delivery_date,
             "scheduled_date": delivery_date,
