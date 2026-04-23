@@ -44,18 +44,9 @@
 
             <select name="breed">
                 <option value="All Breeds" {% if request.args.get('breed') == 'All Breeds' %}selected{% endif %}>All Breeds</option>
-                <option value="Persian"          {% if request.args.get('breed') == 'Persian' %}selected{% endif %}>Persian</option>
-                <option value="Siamese"          {% if request.args.get('breed') == 'Siamese' %}selected{% endif %}>Siamese</option>
-                <option value="Ragdoll"          {% if request.args.get('breed') == 'Ragdoll' %}selected{% endif %}>Ragdoll</option>
-                <option value="British Shorthair"{% if request.args.get('breed') == 'British Shorthair' %}selected{% endif %}>British Shorthair</option>
-                <option value="Maine Coon"       {% if request.args.get('breed') == 'Maine Coon' %}selected{% endif %}>Maine Coon</option>
-                <option value="Scottish Fold"    {% if request.args.get('breed') == 'Scottish Fold' %}selected{% endif %}>Scottish Fold</option>
-                <option value="Bengal"           {% if request.args.get('breed') == 'Bengal' %}selected{% endif %}>Bengal</option>
-                <option value="Abyssinian"       {% if request.args.get('breed') == 'Abyssinian' %}selected{% endif %}>Abyssinian</option>
-                <option value="Birman"           {% if request.args.get('breed') == 'Birman' %}selected{% endif %}>Birman</option>
-                <option value="Norwegian Forest" {% if request.args.get('breed') == 'Norwegian Forest' %}selected{% endif %}>Norwegian Forest</option>
-                <option value="Sphynx"           {% if request.args.get('breed') == 'Sphynx' %}selected{% endif %}>Sphynx</option>
-                <option value="Russian Blue"     {% if request.args.get('breed') == 'Russian Blue' %}selected{% endif %}>Russian Blue</option>
+                {% for b in breeds %}
+                <option value="{{ b }}" {% if request.args.get('breed') == b %}selected{% endif %}>{{ b }}</option>
+                {% endfor %}
             </select>
             <button type="submit" class="btn btn-primary btn-sm">Search</button>
         </form>
@@ -140,39 +131,6 @@
     </div>
 </div>
 
-<!-- ================= PAYMENT MODAL ================= -->
-<div id="paymentModal" class="modal-overlay">
-    <div class="modal-box" style="max-width:480px;">
-        <div class="modal-header">
-            <h3>GCash Payment</h3>
-            <button type="button" class="modal-close" onclick="closePaymentModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;margin-bottom:18px;">
-                <p style="font-size:13px;font-weight:600;color:#15803d;margin-bottom:6px;">&#128722; Send payment via GCash</p>
-                <p style="font-size:13px;color:var(--text);">GCash Number: <strong id="gcashNumber">Loading...</strong></p>
-                <p style="font-size:13px;color:var(--text);">Account Name: <strong id="gcashName">Loading...</strong></p>
-                <p style="font-size:13px;color:var(--text);">Amount: <strong id="gcashAmount"></strong></p>
-            </div>
-            <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">
-                After sending payment, upload your GCash screenshot or receipt below. Your request will be marked <em>For Verification</em>.
-            </p>
-            <div class="form-group">
-                <label style="font-size:13px;font-weight:600;">Upload Receipt (JPG, PNG, PDF)</label>
-                <input type="file" id="receiptFile" accept=".jpg,.jpeg,.png,.pdf"
-                       style="display:block;width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
-            </div>
-            <div id="receiptStatus" style="font-size:12px;min-height:18px;margin-top:6px;"></div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
-            <button type="button" class="btn btn-primary" id="uploadReceiptBtn" onclick="submitReceipt()">
-                <i class="fas fa-upload"></i> Upload Receipt
-            </button>
-        </div>
-    </div>
-</div>
-
 <!-- ================= BREED DETAIL MODAL ================= -->
 <div id="breedModal" class="modal-overlay">
     <div class="modal-box modal-box-wide">
@@ -186,8 +144,6 @@
         <div class="modal-footer" id="bdFooter">
             <button type="button" onclick="closeBreedDetail()" class="btn btn-secondary">Close</button>
             <button type="button" onclick="openAdoptFromDetail()" class="btn btn-primary" id="adoptFromDetailBtn">&#10084; Adopt Me</button>
-            <button type="button" onclick="openPaymentModal(_currentReqId, _currentCat && _currentCat.adoption_fee)" class="btn btn-sm" id="payNowBtn"
-                    style="display:none;background:#16a34a;color:white;">&#128722; Pay Now</button>
         </div>
     </div>
 </div>
@@ -246,7 +202,7 @@
                         </select>
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label style="font-size:12px;margin-bottom:4px;">Other Pets?</label>
+                        <label style="font-size:12px;margin-bottom:4px;">Other Cats at Home?</label>
                         <select name="has_other_pets" style="padding:7px 10px;font-size:12px;">
                             <option value="">Select</option>
                             <option value="yes">Yes</option>
@@ -263,9 +219,8 @@
                         <option value="Delivery">Delivery (we deliver to you)</option>
                         <option value="Pickup">Pickup (you collect from us)</option>
                     </select>
-                    <div id="meetupNote" style="display:none;margin-top:5px;font-size:11px;color:#0369a1;background:#e0f2fe;border-radius:6px;padding:5px 9px;">
-                        <i class="fas fa-info-circle"></i> The admin will contact you to arrange the meet-up location, date, and time.
-                    </div>
+                    <!-- Payment method + fee info (auto-shown) -->
+                    <div id="paymentInfo" style="display:none;margin-top:7px;border-radius:8px;padding:8px 11px;font-size:12px;"></div>
                 </div>
 
                 <div id="adoptValidationMsg" style="display:none;font-size:11px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:7px 10px;margin-top:8px;">
@@ -287,8 +242,29 @@ document.getElementById("menuToggle").addEventListener("click", function() {
     document.getElementById("sidebar").classList.toggle("open");
 });
 
-// ── Payment modal ───────────────────────────────────────────
-let _paymentReqId = null;
+// ── Delivery method + fee ──────────────────────────────────
+const DELIVERY_FEE = {{ delivery_fee }};
+function onDeliveryChange(val) {
+    const info = document.getElementById('paymentInfo');
+    if (!val) { info.style.display = 'none'; return; }
+    const catFee = (_currentCat && _currentCat.adoption_fee) ? parseInt(_currentCat.adoption_fee) : 0;
+    if (val === 'Delivery') {
+        const total = catFee + DELIVERY_FEE;
+        info.style.cssText = 'display:block;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 11px;font-size:12px;margin-top:7px;';
+        info.innerHTML = '<i class="fas fa-truck" style="color:#ea580c;"></i> <strong>Cash on Delivery</strong>' +
+            '<div style="margin-top:4px;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:11px;">' +
+            '<span style="color:#64748b;">Adoption Fee</span><span>&#8369;' + catFee.toLocaleString() + '</span>' +
+            '<span style="color:#64748b;">Delivery Fee</span><span>&#8369;' + DELIVERY_FEE.toLocaleString() + '</span>' +
+            '<span style="color:#64748b;font-weight:700;">Total</span><span style="font-weight:700;color:#c2410c;">&#8369;' + total.toLocaleString() + '</span>' +
+            '</div>';
+    } else {
+        info.style.cssText = 'display:block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 11px;font-size:12px;margin-top:7px;';
+        info.innerHTML = '<i class="fas fa-handshake" style="color:#15803d;"></i> <strong>Cash on Arrival</strong>' +
+            '<div style="margin-top:4px;font-size:11px;color:#166534;">Delivery Fee: <strong>&#8369;0 (Free)</strong> &nbsp;&middot;&nbsp; Pay when you receive your cat.</div>';
+    }
+}
+
+// placeholder to keep variable
 
 function openPaymentModal(reqId, fee) {
     _paymentReqId = reqId;
@@ -356,6 +332,8 @@ function openAdoptModal(id, name, breed, age, gender, img) {
     document.getElementById("adoptModal").classList.add("open");
     const sel = document.getElementById('deliveryMethodSelect');
     if (sel) { sel.value = ''; onDeliveryChange(''); }
+    const pi = document.getElementById('paymentInfo');
+    if (pi) pi.style.display = 'none';
 }
 function closeAdoptModal() {
     document.getElementById("adoptModal").classList.remove("open");
@@ -394,13 +372,7 @@ function openBreedDetail(catId) {
             document.getElementById("bdTitle").innerText = cat.name + " — " + cat.breed;
             document.getElementById("bdBody").innerHTML  = buildDetailHTML(cat);
             const adoptBtn  = document.getElementById("adoptFromDetailBtn");
-            const payNowBtn = document.getElementById("payNowBtn");
             _currentReqId = null;
-            payNowBtn.disabled = false;
-            payNowBtn.textContent = 'Pay Now';
-            payNowBtn.style.background = '#16a34a';
-            payNowBtn.style.opacity = '';
-            payNowBtn.style.display = 'none';
             if (cat.status === "adopted") {
                 adoptBtn.disabled = true;
                 adoptBtn.textContent = "Already Adopted";
@@ -419,23 +391,6 @@ function openBreedDetail(catId) {
                     const match = Array.isArray(reqs) && reqs.find(r => r.cat_id === cat.id);
                     if (match) {
                         _currentReqId = match.id;
-                        if (match.status === 'Approved' && cat.adoption_fee > 0
-                            && match.payment_status !== 'Paid') {
-                            payNowBtn.style.display = 'inline-flex';
-                        }
-                        if (match.payment_status === 'For Verification') {
-                            payNowBtn.textContent = '\u23f3 Awaiting Verification';
-                            payNowBtn.disabled = true;
-                            payNowBtn.style.display = 'inline-flex';
-                            payNowBtn.style.opacity = '0.6';
-                        }
-                        if (match.payment_status === 'Paid') {
-                            payNowBtn.textContent = '\u2713 Payment Confirmed';
-                            payNowBtn.disabled = true;
-                            payNowBtn.style.display = 'inline-flex';
-                            payNowBtn.style.background = '#15803d';
-                            payNowBtn.style.opacity = '0.8';
-                        }
                     }
                 })
                 .catch(() => {});

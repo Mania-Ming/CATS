@@ -49,6 +49,7 @@ PAYMENT_BUCKET = "receipts"
 COMPLETE_PHOTO_BUCKET = "adoption-completions"
 GCASH_NUMBER   = os.environ.get("GCASH_NUMBER", "09XX-XXX-XXXX")
 GCASH_NAME     = os.environ.get("GCASH_NAME",   "Cat Adoption PH")
+DELIVERY_FEE   = int(os.environ.get("DELIVERY_FEE", "50"))  # configurable delivery fee in PHP
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
@@ -303,6 +304,12 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
         payment_status = row.get("payment_status") or "Pending Payment"
         delivery_method = row.get("delivery_method") or "Meet-up"
         delivery_status = row.get("delivery_status") or ("Preparing" if delivery_method in ("Delivery", "Pickup") else None)
+        # Auto-derive payment method from delivery method
+        if delivery_method == "Delivery":
+            auto_payment = "Cash on Delivery"
+        else:
+            auto_payment = "Cash on Arrival"
+        payment_method = row.get("payment_method") or auto_payment
         card = {
             "id": row.get("id"),
             "user_id": row.get("user_id"),
@@ -314,7 +321,8 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
             "created_at": parse_dt(row.get("created_at")),
             "payment_status": payment_status,
             "payment_proof": row.get("payment_proof"),
-            "payment_method": row.get("payment_method") or "GCash",
+            "payment_method": payment_method,
+            "delivery_fee": DELIVERY_FEE if delivery_method == "Delivery" else 0,
             "delivery_method": delivery_method,
             "delivery_status": delivery_status,
             "meetup_location": row.get("meetup_location"),
@@ -647,7 +655,7 @@ def admin_cats():
     except Exception as e:
         log.error("admin_cats failed: %s", e)
         cats = []
-    return render_template("admin_cats.html", cats=cats, search=search, active_page="cats")
+    return render_template("admin_cats.html", cats=cats, search=search, active_page="cats", breeds=sorted({c.get("breed") for c in cats if c.get("breed")}))
 
 
 @app.route("/admin/cats/add", methods=["POST"])
@@ -737,6 +745,17 @@ def admin_cats_delete(cat_id):
 
 
 # ------------------------------------------------------------------ admin users --
+
+
+
+@app.route('/api/breeds')
+def api_breeds():
+    try:
+        rows = supabase.table('cats').select('breed').execute().data or []
+        breeds = sorted({r['breed'] for r in rows if r.get('breed')})
+        return jsonify(breeds)
+    except Exception:
+        return jsonify([]), 200
 
 @app.route("/admin/users")
 def admin_users():
@@ -870,7 +889,8 @@ def dashboard():
         pending_count = 0
 
     user = get_user_profile(session["user_id"])
-    return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count, active_page="dashboard")
+    breeds = sorted({c.get("breed") for c in cats if c.get("breed")})
+    return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count, active_page="dashboard", breeds=breeds, delivery_fee=DELIVERY_FEE)
 
 
 # ------------------------------------------------------------------ avatar upload API --
@@ -1299,7 +1319,7 @@ def adopt_request():
             "experience_with_pets": experience,
             "status": "Pending",
             "payment_status": "Pending Payment",
-            "payment_method": "GCash",
+            "payment_method": "Cash on Delivery" if delivery_method == "Delivery" else "Cash on Arrival",
             "delivery_method": delivery_method,
             "delivery_status": "Preparing" if delivery_method in ("Delivery", "Pickup") else None,
         }
@@ -1345,6 +1365,7 @@ def history():
     user = get_user_profile(session["user_id"])
     return render_template("history.html", requests=requests, user=user,
                            gcash_number=GCASH_NUMBER, gcash_name=GCASH_NAME,
+                           delivery_fee=DELIVERY_FEE,
                            active_page="history")
 
 

@@ -425,42 +425,27 @@
                                 <i class="fas fa-chevron-down toggle-chevron"></i>
                             </div>
                             <div class="hsection-body">
-                                <form method="POST" action="{{ url_for('select_payment_method', req_id=req.id) }}" class="pay-method-form" style="margin-bottom:8px;">
-                                    <label><input type="radio" name="payment_method" value="GCash" {% if req.payment_method == 'GCash' %}checked{% endif %}> GCash</label>
-                                    <label><input type="radio" name="payment_method" value="COD" {% if req.payment_method == 'COD' %}checked{% endif %}> Cash on Delivery</label>
-                                    <button type="submit" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">Save</button>
-                                </form>
-                                {% if req.payment_method == 'GCash' %}
-                                <div class="gcash-layout">
-                                    <div>
-                                        <div class="gcash-grid">
-                                            <span class="gcash-label">Number</span><span>{{ gcash_number }}</span>
-                                            <span class="gcash-label">Name</span><span>{{ gcash_name }}</span>
-                                            {% if req.cat_fee %}<span class="gcash-label">Amount</span><span>&#8369;{{ req.cat_fee | int }}</span>{% endif %}
-                                        </div>
-                                        {% if req.payment_status != 'Paid' %}
-                                        <div class="upload-row">
-                                            <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png,.pdf">
-                                            <button type="button" class="hbtn hbtn-blue" onclick="uploadReceipt({{ req.id }})">
-                                                <i class="fas fa-upload"></i> Upload Receipt
-                                            </button>
-                                            <span class="upload-status" id="rs_{{ req.id }}"></span>
-                                        </div>
-                                        {% else %}
-                                        <p style="font-size:11px;color:#15803d;margin-top:6px;font-weight:600;">
-                                            <i class="fas fa-circle-check"></i> Payment confirmed
-                                        </p>
-                                        {% endif %}
-                                    </div>
-                                    <div class="gcash-qr-wrap">
-                                        <span class="gcash-qr-label">Scan to Pay via GCash</span>
-                                        <img src="{{ url_for('static', filename='images/gcash.png') }}" alt="GCash QR Code"
-                                             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-                                        <p style="display:none;font-size:10px;color:#dc2626;">QR not available</p>
-                                    </div>
+                                    {% set is_delivery = req.delivery_method == 'Delivery' %}
+                                {% set delivery_fee = req.delivery_fee if req.delivery_fee is defined else (50 if is_delivery else 0) %}
+                                {% set total = (req.cat_fee | int if req.cat_fee else 0) + (delivery_fee | int) %}
+                                <div class="gcash-grid" style="margin-bottom:8px;">
+                                    <span class="gcash-label">Payment Method</span>
+                                    <span><strong>{{ req.payment_method or ('Cash on Delivery' if is_delivery else 'Cash on Arrival') }}</strong></span>
+                                    {% if req.cat_fee %}
+                                    <span class="gcash-label">Adoption Fee</span>
+                                    <span>&#8369;{{ req.cat_fee | int }}</span>
+                                    {% endif %}
+                                    <span class="gcash-label">Delivery Fee</span>
+                                    <span>{% if is_delivery %}&#8369;{{ delivery_fee }}{% else %}<span style="color:#15803d;">&#8369;0 (Free)</span>{% endif %}</span>
+                                    {% if req.cat_fee %}
+                                    <span class="gcash-label" style="font-weight:700;">Total</span>
+                                    <span style="font-weight:700;color:{% if is_delivery %}#c2410c{% else %}#15803d{% endif %};">&#8369;{{ total }}</span>
+                                    {% endif %}
                                 </div>
+                                {% if req.payment_status == 'Paid' %}
+                                <p style="font-size:11px;color:#15803d;font-weight:600;"><i class="fas fa-circle-check"></i> Payment confirmed</p>
                                 {% else %}
-                                <p style="font-size:12px;color:var(--text-muted);">Pay during the handoff.</p>
+                                <p style="font-size:11px;color:var(--text-muted);">Pay {{ 'upon delivery' if is_delivery else 'when you receive your cat' }}. The admin will update your payment status.</p>
                                 {% endif %}
                             </div>
                         </div>

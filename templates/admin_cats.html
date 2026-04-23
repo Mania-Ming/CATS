@@ -189,7 +189,28 @@
     </div>
 </div>
 
-<!-- ===== ADD MODAL ===== -->
+<!-- ===== ADD BREED MODAL ===== -->
+<div class="modal-overlay" id="addBreedModal">
+    <div class="modal-box" style="max-width:340px;">
+        <div class="modal-header">
+            <h3>Add New Breed</h3>
+            <button class="modal-close" onclick="closeModal('addBreedModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group" style="margin-bottom:0;">
+                <label>Breed Name *</label>
+                <input type="text" id="newBreedInput" placeholder="e.g. Ragamuffin" style="width:100%;">
+            </div>
+            <div id="addBreedMsg" style="font-size:12px;min-height:16px;margin-top:6px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('addBreedModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveNewBreed()">Save Breed</button>
+        </div>
+    </div>
+</div>
+
+
 <div class="modal-overlay" id="addModal">
     <div class="modal-box modal-box-lg">
         <div class="modal-header">
@@ -200,7 +221,15 @@
             <div class="modal-body">
                 <div class="form-grid-3">
                     <div class="form-group"><label>Name *</label><input type="text" name="name" required></div>
-                    <div class="form-group"><label>Breed *</label><input type="text" name="breed" required></div>
+                    <div class="form-group">
+                        <label>Breed *
+                            <button type="button" onclick="openAddBreedModal('add')" style="margin-left:6px;background:none;border:1px solid var(--primary);color:var(--primary);border-radius:6px;padding:1px 7px;font-size:10px;cursor:pointer;">+ Add</button>
+                        </label>
+                        <select name="breed" id="addBreedSel" required>
+                            <option value="">Select breed</option>
+                            {% for b in breeds %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+                        </select>
+                    </div>
                     <div class="form-group"><label>Age</label><input type="number" name="age" min="0"></div>
 
                     <div class="form-group"><label>Gender *</label>
@@ -271,7 +300,15 @@
             <div class="modal-body">
                 <div class="form-grid-3">
                     <div class="form-group"><label>Name *</label><input type="text" name="name" id="eName" required></div>
-                    <div class="form-group"><label>Breed *</label><input type="text" name="breed" id="eBreed" required></div>
+                    <div class="form-group">
+                        <label>Breed *
+                            <button type="button" onclick="openAddBreedModal('edit')" style="margin-left:6px;background:none;border:1px solid var(--primary);color:var(--primary);border-radius:6px;padding:1px 7px;font-size:10px;cursor:pointer;">+ Add</button>
+                        </label>
+                        <select name="breed" id="eBreed" required>
+                            <option value="">Select breed</option>
+                            {% for b in breeds %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+                        </select>
+                    </div>
                     <div class="form-group"><label>Age</label><input type="number" name="age" id="eAge" min="0"></div>
 
                     <div class="form-group"><label>Gender *</label>
@@ -353,7 +390,14 @@ document.querySelectorAll('.edit-cat-btn').forEach(btn => {
         const d = btn.dataset;
         document.getElementById('editForm').action       = '/admin/cats/edit/' + d.id;
         document.getElementById('eName').value           = d.name               || '';
-        document.getElementById('eBreed').value          = d.breed              || '';
+        const eBreed = document.getElementById('eBreed');
+        // Try to select existing option, else add temporarily
+        let found = false;
+        for (let opt of eBreed.options) { if (opt.value === d.breed) { eBreed.value = d.breed; found = true; break; } }
+        if (!found && d.breed) {
+            const opt = new Option(d.breed, d.breed, true, true);
+            eBreed.add(opt);
+        }
         document.getElementById('eAge').value            = d.age                || '';
         document.getElementById('eGender').value         = d.gender             || '';
         document.getElementById('eStatus').value         = d.status             || 'available';
@@ -374,6 +418,29 @@ document.querySelectorAll('.edit-cat-btn').forEach(btn => {
 });
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+let _breedTargetModal = 'add';
+function openAddBreedModal(target) {
+    _breedTargetModal = target;
+    document.getElementById('newBreedInput').value = '';
+    document.getElementById('addBreedMsg').textContent = '';
+    document.getElementById('addBreedModal').classList.add('open');
+}
+function saveNewBreed() {
+    const val = document.getElementById('newBreedInput').value.trim();
+    const msg = document.getElementById('addBreedMsg');
+    if (!val) { msg.style.color='#dc2626'; msg.textContent='Please enter a breed name.'; return; }
+    // Add to both dropdowns
+    ['addBreedSel','eBreed'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        for (let o of sel.options) { if (o.value === val) return; }
+        sel.add(new Option(val, val));
+        sel.value = val;
+    });
+    msg.style.color='#15803d'; msg.textContent='\u2713 Breed added. Select it from the dropdown.';
+    setTimeout(() => closeModal('addBreedModal'), 1200);
+}
 
 document.querySelectorAll('.modal-overlay').forEach(m =>
     m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));

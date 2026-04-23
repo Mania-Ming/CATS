@@ -446,7 +446,7 @@
                                 </div>
                                 <div style="margin-bottom:8px;">
                                     <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Rider Contact</div>
-                                    <input type="text" name="rider_contact" class="act-inp" value="{{ r.rider_contact or '' }}" placeholder="Optional" style="width:100%;">
+                                    <input type="text" name="rider_contact" class="act-inp" value="{{ r.rider_contact or '' }}" placeholder="Enter contact number" style="width:100%;">
                                 </div>
                                 <div style="display:flex;gap:5px;align-items:center;">
                                     <form method="POST" action="{{ url_for('admin_update_delivery', req_id=r.id) }}" style="display:flex;gap:4px;flex:1;">
