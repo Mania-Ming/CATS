@@ -158,6 +158,33 @@
             display:flex; align-items:center; gap:6px; padding:2px 0;
         }
 
+        /* Collapsible section header */
+        .hsection-toggle {
+            cursor:pointer; user-select:none;
+            display:flex; align-items:center; justify-content:space-between;
+            margin-bottom:0;
+        }
+        .hsection-toggle .toggle-chevron {
+            font-size:10px; color:#94a3b8;
+            transition:transform .25s ease;
+            flex-shrink:0;
+        }
+        .hsection-toggle.open .toggle-chevron { transform:rotate(180deg); }
+
+        /* Collapsible body */
+        .hsection-body {
+            overflow:hidden;
+            max-height:0;
+            opacity:0;
+            transition:max-height .3s ease, opacity .25s ease, margin-top .25s ease;
+            margin-top:0;
+        }
+        .hsection-body.open {
+            max-height:600px;
+            opacity:1;
+            margin-top:8px;
+        }
+
         .upload-status { font-size:11px; min-height:14px; }
     </style>
 </head>
@@ -236,64 +263,67 @@
 
                         <!-- Meet-up Details card -->
                         {% if req.delivery_method == 'Meet-up' %}
+                        {% set is_scheduled = req.status == 'Scheduled' or req.meetup_location or req.meetup_date %}
                         <div class="meetup-section">
-                            <div class="meetup-section-title">
-                                <i class="fas fa-calendar-check"></i> Meet-up Details
+                            <div class="hsection-toggle {% if is_scheduled %}open{% endif %} meetup-section-title"
+                                 onclick="toggleSection(this)" style="margin-bottom:0;">
+                                <span><i class="fas fa-calendar-check"></i> Meet-up Details</span>
+                                <i class="fas fa-chevron-down toggle-chevron"></i>
                             </div>
-                            {% if req.meetup_location or req.meetup_date or req.meetup_time %}
-                            <div class="meetup-row-item">
-                                <div class="meetup-icon"><i class="fas fa-map-marker-alt"></i></div>
-                                <div>
-                                    <span class="meetup-field-label">Location</span>
-                                    {% if req.meetup_map_link %}
-                                    <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener"
-                                       class="meetup-field-value" style="color:#2563eb;text-decoration:underline;">
-                                        {{ req.meetup_location }}
-                                        <i class="fas fa-external-link-alt" style="font-size:9px;margin-left:3px;"></i>
-                                    </a>
-                                    {% else %}
-                                    <span class="meetup-field-value">{{ req.meetup_location or 'To be announced' }}</span>
-                                    {% endif %}
+                            <div class="hsection-body {% if is_scheduled %}open{% endif %}">
+                                {% if req.meetup_location or req.meetup_date or req.meetup_time %}
+                                <div class="meetup-row-item">
+                                    <div class="meetup-icon"><i class="fas fa-map-marker-alt"></i></div>
+                                    <div>
+                                        <span class="meetup-field-label">Location</span>
+                                        {% if req.meetup_map_link %}
+                                        <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener"
+                                           class="meetup-field-value" style="color:#2563eb;text-decoration:underline;">
+                                            {{ req.meetup_location }}
+                                            <i class="fas fa-external-link-alt" style="font-size:9px;margin-left:3px;"></i>
+                                        </a>
+                                        {% else %}
+                                        <span class="meetup-field-value">{{ req.meetup_location or 'To be announced' }}</span>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="meetup-row-item">
-                                <div class="meetup-icon"><i class="fas fa-calendar"></i></div>
-                                <div>
-                                    <span class="meetup-field-label">Date</span>
-                                    <span class="meetup-field-value">
-                                        {% if req.meetup_date %}
-                                            {% set parts = req.meetup_date.split('-') %}
-                                            {% if parts|length == 3 %}
-                                                {{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parts[1]|int - 1] }} {{ parts[2]|int }}, {{ parts[0] }}
-                                            {% else %}
-                                                {{ req.meetup_date }}
-                                            {% endif %}
-                                        {% else %}To be announced{% endif %}
-                                    </span>
+                                <div class="meetup-row-item">
+                                    <div class="meetup-icon"><i class="fas fa-calendar"></i></div>
+                                    <div>
+                                        <span class="meetup-field-label">Date</span>
+                                        <span class="meetup-field-value">
+                                            {% if req.meetup_date %}
+                                                {% set parts = req.meetup_date.split('-') %}
+                                                {% if parts|length == 3 %}
+                                                    {{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parts[1]|int - 1] }} {{ parts[2]|int }}, {{ parts[0] }}
+                                                {% else %}{{ req.meetup_date }}{% endif %}
+                                            {% else %}To be announced{% endif %}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="meetup-row-item">
-                                <div class="meetup-icon"><i class="fas fa-clock"></i></div>
-                                <div>
-                                    <span class="meetup-field-label">Time</span>
-                                    <span class="meetup-field-value">
-                                        {% if req.meetup_time %}
-                                            {% set t = req.meetup_time.split(':') %}
-                                            {% set h = t[0]|int %}
-                                            {% set m = t[1] if t|length > 1 else '00' %}
-                                            {% set ampm = 'AM' if h < 12 else 'PM' %}
-                                            {% set h12 = h % 12 %}{% if h12 == 0 %}{% set h12 = 12 %}{% endif %}
-                                            {{ h12 }}:{{ m }} {{ ampm }}
-                                        {% else %}To be announced{% endif %}
-                                    </span>
+                                <div class="meetup-row-item">
+                                    <div class="meetup-icon"><i class="fas fa-clock"></i></div>
+                                    <div>
+                                        <span class="meetup-field-label">Time</span>
+                                        <span class="meetup-field-value">
+                                            {% if req.meetup_time %}
+                                                {% set t = req.meetup_time.split(':') %}
+                                                {% set h = t[0]|int %}
+                                                {% set m = t[1] if t|length > 1 else '00' %}
+                                                {% set ampm = 'AM' if h < 12 else 'PM' %}
+                                                {% set h12 = h % 12 %}{% if h12 == 0 %}{% set h12 = 12 %}{% endif %}
+                                                {{ h12 }}:{{ m }} {{ ampm }}
+                                            {% else %}To be announced{% endif %}
+                                        </span>
+                                    </div>
                                 </div>
+                                {% else %}
+                                <div class="meetup-not-scheduled">
+                                    <i class="fas fa-hourglass-half" style="color:#94a3b8;"></i>
+                                    Meet-up not scheduled yet. The admin will update this soon.
+                                </div>
+                                {% endif %}
                             </div>
-                            {% else %}
-                            <div class="meetup-not-scheduled">
-                                <i class="fas fa-hourglass-half" style="color:#94a3b8;"></i>
-                                Meet-up not scheduled yet. The admin will update this soon.
-                            </div>
-                            {% endif %}
                         </div>
                         {% endif %}
 
@@ -346,23 +376,28 @@
 
                         <!-- Chat -->
                         <div class="hsection">
-                            <div class="hsection-title"><i class="fas fa-comments"></i> Messages</div>
-                            <div class="chat-msgs">
-                                {% if req.messages %}
-                                    {% for msg in req.messages %}
-                                    <div class="chat-msg {% if msg.sender == 'admin' %}chat-admin{% else %}chat-user{% endif %}">
-                                        <strong>{{ 'Admin' if msg.sender == 'admin' else 'You' }}:</strong> {{ msg.message }}
-                                        <span class="chat-meta">{{ msg.created_at.strftime('%b %d, %I:%M %p') if msg.created_at else '' }}</span>
-                                    </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <span class="chat-empty">No messages yet.</span>
-                                {% endif %}
+                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)">
+                                <span><i class="fas fa-comments" style="color:var(--primary);"></i> Messages</span>
+                                <i class="fas fa-chevron-down toggle-chevron"></i>
                             </div>
-                            <form method="POST" action="{{ url_for('send_message', req_id=req.id) }}" class="chat-form">
-                                <input type="text" name="message" placeholder="Send a message to admin..." required>
-                                <button type="submit" class="hbtn hbtn-primary"><i class="fas fa-paper-plane"></i> Send</button>
-                            </form>
+                            <div class="hsection-body">
+                                <div class="chat-msgs">
+                                    {% if req.messages %}
+                                        {% for msg in req.messages %}
+                                        <div class="chat-msg {% if msg.sender == 'admin' %}chat-admin{% else %}chat-user{% endif %}">
+                                            <strong>{{ 'Admin' if msg.sender == 'admin' else 'You' }}:</strong> {{ msg.message }}
+                                            <span class="chat-meta">{{ msg.created_at.strftime('%b %d, %I:%M %p') if msg.created_at else '' }}</span>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="chat-empty">No messages yet.</span>
+                                    {% endif %}
+                                </div>
+                                <form method="POST" action="{{ url_for('send_message', req_id=req.id) }}" class="chat-form">
+                                    <input type="text" name="message" placeholder="Send a message to admin..." required>
+                                    <button type="submit" class="hbtn hbtn-primary"><i class="fas fa-paper-plane"></i> Send</button>
+                                </form>
+                            </div>
                         </div>
 
                     </div><!-- /hcard-body -->
@@ -407,6 +442,12 @@
 </div>
 
 <script>
+function toggleSection(header) {
+    header.classList.toggle('open');
+    const body = header.nextElementSibling;
+    body.classList.toggle('open');
+}
+
 document.getElementById('menuToggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open'));
 
