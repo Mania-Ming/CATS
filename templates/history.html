@@ -165,8 +165,14 @@
         }
         .meetup-section-title {
             font-size:11px; font-weight:700; color:#0369a1;
-            margin-bottom:9px; display:flex; align-items:center; gap:5px;
+            display:flex; align-items:center; justify-content:space-between; gap:5px;
+            cursor:pointer; user-select:none;
         }
+        .meetup-section-title .toggle-chevron {
+            font-size:10px; color:#7dd3fc;
+            transition:transform .25s ease; flex-shrink:0;
+        }
+        .meetup-section-title.open .toggle-chevron { transform:rotate(180deg); }
         .meetup-row-item {
             display:flex; align-items:flex-start; gap:9px;
             font-size:12px; color:var(--text); padding:4px 0;
@@ -275,48 +281,37 @@
                     <!-- Body -->
                     <div class="hcard-body">
 
-                        <!-- Delivery info -->
+                        <!-- Delivery (always visible, no toggle) -->
                         {% if req.delivery_method %}
                         <div class="hsection">
-                            <div class="hsection-title">
+                            <div class="hsection-title" style="margin-bottom:0;">
                                 <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}" style="color:var(--primary);"></i>
                                 {{ req.delivery_method }}
                                 {% if req.delivery_method != 'Meet-up' and req.delivery_status %}
-                                <span style="margin-left:5px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;">{{ req.delivery_status }}</span>
+                                <span class="delivery-pill {% if req.delivery_status == 'Delivered' %}dp-delivered{% elif req.delivery_status == 'Out for Delivery' %}dp-transit{% else %}dp-preparing{% endif %}" style="margin-left:4px;">{{ req.delivery_status }}</span>
+                                {% elif req.delivery_method != 'Meet-up' %}
+                                <span class="delivery-pill dp-preparing" style="margin-left:4px;">Pending</span>
                                 {% endif %}
                             </div>
-                            {% if req.delivery_method != 'Meet-up' %}
-                            <div class="hinfo-row" style="padding-top:2px;">
-                                {% if req.delivery_status %}
-                                <i class="fas fa-circle-dot" style="color:#1d4ed8;"></i>
-                                <span>Status: <strong>{{ req.delivery_status }}</strong></span>
-                                {% else %}
-                                <i class="fas fa-hourglass-half" style="color:#94a3b8;"></i>
-                                <span style="color:var(--text-muted);">Delivery details will be updated by the admin.</span>
-                                {% endif %}
-                            </div>
-                            {% endif %}
                         </div>
                         {% endif %}
 
-                        <!-- Meet-up Details card -->
+                        <!-- Meet-up Details (collapsible, default CLOSED) -->
                         {% if req.delivery_method == 'Meet-up' %}
-                        {% set is_scheduled = req.status == 'Scheduled' or req.meetup_location or req.meetup_date %}
                         <div class="meetup-section">
-                            <div class="meetup-section-title">
-                                <i class="fas fa-calendar-check"></i> Meet-up Details
+                            <div class="hsection-toggle meetup-section-title" onclick="toggleSection(this)" style="margin-bottom:0;">
+                                <span><i class="fas fa-calendar-check"></i> Meet-up Details</span>
+                                <i class="fas fa-chevron-down toggle-chevron"></i>
                             </div>
-                            <div style="margin-top:9px;">
+                            <div class="hsection-body">
                                 {% if req.meetup_location or req.meetup_date or req.meetup_time %}
                                 <div class="meetup-row-item">
                                     <div class="meetup-icon"><i class="fas fa-map-marker-alt"></i></div>
                                     <div>
                                         <span class="meetup-field-label">Location</span>
                                         {% if req.meetup_map_link %}
-                                        <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener"
-                                           class="meetup-field-value" style="color:#2563eb;text-decoration:underline;">
-                                            {{ req.meetup_location }}
-                                            <i class="fas fa-external-link-alt" style="font-size:9px;margin-left:3px;"></i>
+                                        <a href="{{ req.meetup_map_link }}" target="_blank" rel="noopener" class="meetup-field-value" style="color:#2563eb;text-decoration:underline;">
+                                            {{ req.meetup_location }}<i class="fas fa-external-link-alt" style="font-size:9px;margin-left:3px;"></i>
                                         </a>
                                         {% else %}
                                         <span class="meetup-field-value">{{ req.meetup_location or 'To be announced' }}</span>
@@ -328,12 +323,7 @@
                                     <div>
                                         <span class="meetup-field-label">Date</span>
                                         <span class="meetup-field-value">
-                                            {% if req.meetup_date %}
-                                                {% set parts = req.meetup_date.split('-') %}
-                                                {% if parts|length == 3 %}
-                                                    {{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parts[1]|int - 1] }} {{ parts[2]|int }}, {{ parts[0] }}
-                                                {% else %}{{ req.meetup_date }}{% endif %}
-                                            {% else %}To be announced{% endif %}
+                                            {% if req.meetup_date %}{% set p = req.meetup_date.split('-') %}{% if p|length == 3 %}{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][p[1]|int-1] }} {{ p[2]|int }}, {{ p[0] }}{% else %}{{ req.meetup_date }}{% endif %}{% else %}To be announced{% endif %}
                                         </span>
                                     </div>
                                 </div>
@@ -342,14 +332,7 @@
                                     <div>
                                         <span class="meetup-field-label">Time</span>
                                         <span class="meetup-field-value">
-                                            {% if req.meetup_time %}
-                                                {% set t = req.meetup_time.split(':') %}
-                                                {% set h = t[0]|int %}
-                                                {% set m = t[1] if t|length > 1 else '00' %}
-                                                {% set ampm = 'AM' if h < 12 else 'PM' %}
-                                                {% set h12 = h % 12 %}{% if h12 == 0 %}{% set h12 = 12 %}{% endif %}
-                                                {{ h12 }}:{{ m }} {{ ampm }}
-                                            {% else %}To be announced{% endif %}
+                                            {% if req.meetup_time %}{% set t = req.meetup_time.split(':') %}{% set h = t[0]|int %}{% set m = t[1] if t|length > 1 else '00' %}{% set h12 = h % 12 or 12 %}{{ h12 }}:{{ m }} {{ 'AM' if h < 12 else 'PM' }}{% else %}To be announced{% endif %}
                                         </span>
                                     </div>
                                 </div>
@@ -363,14 +346,11 @@
                         </div>
                         {% endif %}
 
-                        <!-- Payment section (only when Approved) -->
+                        <!-- Payment (collapsible, default CLOSED) -->
                         {% if req.status == 'Approved' %}
                         <div class="hsection">
-                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)">
-                                <span>
-                                    <i class="fas fa-wallet" style="color:var(--primary);"></i> Payment
-                                    <span style="margin-left:5px;" class="hbadge {{ pay_cls }}">{{ req.payment_status }}</span>
-                                </span>
+                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)" style="margin-bottom:0;">
+                                <span><i class="fas fa-wallet" style="color:var(--primary);"></i> Payment</span>
                                 <i class="fas fa-chevron-down toggle-chevron"></i>
                             </div>
                             <div class="hsection-body">
@@ -403,8 +383,7 @@
                                     </div>
                                     <div class="gcash-qr-wrap">
                                         <span class="gcash-qr-label">Scan to Pay via GCash</span>
-                                        <img src="{{ url_for('static', filename='images/gcash.png') }}"
-                                             alt="GCash QR Code"
+                                        <img src="{{ url_for('static', filename='images/gcash.png') }}" alt="GCash QR Code"
                                              onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
                                         <p style="display:none;font-size:10px;color:#dc2626;">QR not available</p>
                                     </div>
@@ -416,10 +395,10 @@
                         </div>
                         {% endif %}
 
-                        <!-- Completed section -->
+                        <!-- Adoption Completed (collapsible, default CLOSED) -->
                         {% if req.status == 'Completed' %}
                         <div class="hsection" style="border-color:#bbf7d0;">
-                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)" style="color:#15803d;">
+                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)" style="margin-bottom:0;color:#15803d;">
                                 <span><i class="fas fa-circle-check" style="color:#15803d;"></i> Adoption Completed</span>
                                 <i class="fas fa-chevron-down toggle-chevron"></i>
                             </div>
@@ -432,15 +411,15 @@
                                 {% endif %}
                                 <form method="POST" action="{{ url_for('upload_completion_photo', req_id=req.id) }}" enctype="multipart/form-data" class="upload-row">
                                     <input type="file" name="completion_photo" accept=".jpg,.jpeg,.png">
-                                    <button type="submit" class="hbtn hbtn-green"><i class="fas fa-camera"></i> Upload</button>
+                                    <button type="submit" class="hbtn hbtn-green"><i class="fas fa-camera"></i> Upload Photo</button>
                                 </form>
                             </div>
                         </div>
                         {% endif %}
 
-                        <!-- Chat -->
+                        <!-- Messages (collapsible, default CLOSED) -->
                         <div class="hsection">
-                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)">
+                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)" style="margin-bottom:0;">
                                 <span><i class="fas fa-comments" style="color:var(--primary);"></i> Messages</span>
                                 <i class="fas fa-chevron-down toggle-chevron"></i>
                             </div>
