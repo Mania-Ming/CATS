@@ -1248,18 +1248,34 @@ def admin_update_payment(req_id):
 def admin_update_delivery(req_id):
     if not admin_required():
         return redirect(url_for("login"))
-    delivery_status = request.form.get("delivery_status", "").strip()
+    delivery_status    = request.form.get("delivery_status", "").strip()
+    estimated_delivery = request.form.get("estimated_delivery", "").strip() or None
+    rider_name         = request.form.get("rider_name", "").strip() or None
+    rider_contact      = request.form.get("rider_contact", "").strip() or None
     if delivery_status not in {"Preparing", "Out for Delivery", "Delivered"}:
         flash("Invalid delivery status.", "error")
         return redirect(url_for("admin_requests"))
+    log.warning("admin_update_delivery req=%s status=%s estimated=%s rider=%s contact=%s",
+                req_id, delivery_status, estimated_delivery, rider_name, rider_contact)
     try:
-        _admin_db().table("adoption_requests").update({
+        update_payload = {
             "status": "Scheduled",
             "delivery_status": delivery_status,
-        }).eq("id", req_id).execute()
+        }
+        if estimated_delivery:
+            update_payload["estimated_delivery"] = estimated_delivery
+        if rider_name:
+            update_payload["rider_name"] = rider_name
+        if rider_contact:
+            update_payload["rider_contact"] = rider_contact
+        _admin_db().table("adoption_requests").update(update_payload).eq("id", req_id).execute()
         sync_delivery_record(req_id, {
             "status": delivery_status,
             "delivery_status": delivery_status,
+            "estimated_delivery": estimated_delivery,
+            "rider_name": rider_name,
+            "rider_contact": rider_contact,
+            "rider_phone": rider_contact,
         })
         latest = fetch_request_row(req_id, admin=True)
         if latest and delivery_status == "Delivered":
@@ -1277,25 +1293,30 @@ def admin_update_delivery(req_id):
 def admin_schedule_delivery(req_id):
     if not admin_required():
         return redirect(url_for("login"))
-    delivery_date      = request.form.get("delivery_date", "").strip() or None
+    delivery_date       = request.form.get("delivery_date", "").strip() or None
     delivery_time_start = request.form.get("delivery_time_start", "").strip() or None
     delivery_time_end   = request.form.get("delivery_time_end", "").strip() or None
-    delivery_address   = request.form.get("delivery_address", "").strip() or None
-    delivery_status    = request.form.get("delivery_status", "").strip() or "Preparing"
-    rider_name         = request.form.get("rider_name", "").strip() or None
-    rider_contact      = request.form.get("rider_contact", "").strip() or None
+    delivery_address    = request.form.get("delivery_address", "").strip() or None
+    delivery_status     = request.form.get("delivery_status", "").strip() or "Preparing"
+    rider_name          = request.form.get("rider_name", "").strip() or None
+    rider_contact       = request.form.get("rider_contact", "").strip() or None
     if not delivery_date:
         flash("Delivery date is required.", "error")
         return redirect(url_for("admin_requests"))
     if delivery_status not in {"Preparing", "Out for Delivery", "Delivered"}:
         flash("Invalid delivery status.", "error")
         return redirect(url_for("admin_requests"))
+    # Build estimated_delivery as "YYYY-MM-DD HH:MM" (or just date if no time)
+    estimated_delivery = f"{delivery_date} {delivery_time_start}" if delivery_time_start else delivery_date
+    log.warning("admin_schedule_delivery req=%s status=%s estimated=%s rider=%s contact=%s",
+                req_id, delivery_status, estimated_delivery, rider_name, rider_contact)
     try:
         row = fetch_request_row(req_id, admin=True) or {}
         delivery_method = row.get("delivery_method") or "Delivery"
         _admin_db().table("adoption_requests").update({
             "status": "Scheduled",
             "delivery_status": delivery_status,
+            "estimated_delivery": estimated_delivery,
             "delivery_date": delivery_date,
             "delivery_time_start": delivery_time_start,
             "delivery_time_end": delivery_time_end,
@@ -1308,19 +1329,19 @@ def admin_schedule_delivery(req_id):
             "method": delivery_method,
             "status": delivery_status,
             "delivery_status": delivery_status,
-            "estimated_delivery": delivery_date,
-            "estimated_delivery_date": delivery_date,
+            "estimated_delivery": estimated_delivery,
+            "estimated_delivery_date": estimated_delivery,
             "delivery_date": delivery_date,
             "scheduled_date": delivery_date,
+            "rider_name": rider_name,
+            "rider_contact": rider_contact,
+            "rider_phone": rider_contact,
             "pickup_location": delivery_address if delivery_method in ("Pickup", "Pick-up") else None,
             "location": delivery_address if delivery_method in ("Pickup", "Pick-up") else None,
             "contact_person": rider_name if delivery_method in ("Pickup", "Pick-up") else None,
             "contact_name": rider_name if delivery_method in ("Pickup", "Pick-up") else None,
             "contact_number": rider_contact if delivery_method in ("Pickup", "Pick-up") else None,
             "contact_phone": rider_contact if delivery_method in ("Pickup", "Pick-up") else None,
-            "rider_name": rider_name if delivery_method == "Delivery" else None,
-            "rider_contact": rider_contact if delivery_method == "Delivery" else None,
-            "rider_phone": rider_contact if delivery_method == "Delivery" else None,
         })
         flash("Delivery scheduled.", "success")
     except Exception as e:
@@ -1531,8 +1552,8 @@ def history():
     if "user_id" not in session:
         return redirect(url_for("login"))
     try:
-        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
-        requests = build_request_cards(ar_data)
+        ar_data = _fetch_requests(_admin_db(), filters={"user_id": session["user_id"]})
+        requests = build_request_cards(ar_data, admin=True)
     except Exception as e:
         log.error("history failed: %s", e)
         requests = []

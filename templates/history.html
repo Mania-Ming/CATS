@@ -407,9 +407,10 @@
                                         <div class="detail-copy">
                                             <span class="detail-label">{% if req.delivery_method == 'Delivery' %}Estimated Delivery Date{% else %}Pickup Date{% endif %}</span>
                                             <span class="detail-value">
-                                                {% if req.delivery_date %}
-                                                    {% set p = req.delivery_date.split('-') %}
-                                                    {% if p|length == 3 %}{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][p[1]|int-1] }} {{ p[2]|int }}, {{ p[0] }}{% else %}{{ req.delivery_date }}{% endif %}
+                                                {% set edate = req.estimated_delivery or req.delivery_date %}
+                                                {% if edate %}
+                                                    {% set p = edate.split(' ')[0].split('-') %}
+                                                    {% if p|length == 3 %}{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][p[1]|int-1] }} {{ p[2]|int }}, {{ p[0] }}{% else %}{{ edate }}{% endif %}
                                                 {% else %}To be scheduled{% endif %}
                                             </span>
                                         </div>
