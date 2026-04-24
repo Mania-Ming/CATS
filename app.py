@@ -1280,9 +1280,8 @@ def admin_schedule_delivery(req_id):
     rider_name          = request.form.get("rider_name", "").strip()
     rider_contact       = request.form.get("rider_contact", "").strip()
 
-    print(f"DEBUG req_id: {req_id}")
-    print(f"FORM DATA: delivery_date={delivery_date!r} rider_name={rider_name!r} rider_contact={rider_contact!r}")
-    print(f"FORM DATA: delivery_status={delivery_status!r} delivery_address={delivery_address!r}")
+    log.warning("admin_schedule_delivery req=%s date=%r rider=%r contact=%r status=%r",
+                req_id, delivery_date, rider_name, rider_contact, delivery_status)
 
     if not delivery_date:
         flash("Delivery date is required.", "error")
@@ -1291,8 +1290,7 @@ def admin_schedule_delivery(req_id):
         flash("Invalid delivery status.", "error")
         return redirect(url_for("admin_requests"))
 
-    # Build payload — only include non-empty values so missing optional
-    # columns don't cause the entire update to fail
+    # Only include non-empty values so missing optional columns don't break the update
     update_data = {
         "status":          "Scheduled",
         "delivery_status": delivery_status,
@@ -1309,20 +1307,19 @@ def admin_schedule_delivery(req_id):
     if rider_contact:
         update_data["rider_contact"] = rider_contact
 
-    print(f"DEBUG UPDATE DATA: {update_data}")
+    log.warning("admin_schedule_delivery payload=%s", update_data)
 
     db = _admin_db()
     try:
-        res = db.table("adoption_requests").update(update_data).eq("id", req_id).execute()
-        # NOTE: res.data may be empty when RLS blocks the implicit RETURNING SELECT
-        # even though the UPDATE itself succeeded. Do NOT treat empty res.data as failure.
-        print(f"DEBUG RESULT: {res.data}")
+        # NOTE: do NOT chain .select() after .update() — the Supabase Python
+        # client does not support it and will silently fail the entire call.
+        db.table("adoption_requests").update(update_data).eq("id", req_id).execute()
     except Exception as e:
         log.error("admin_schedule_delivery(%s) failed: %s", req_id, e)
         flash(f"Failed to schedule delivery: {e}", "error")
         return redirect(url_for("admin_requests"))
 
-    # Best-effort mirror to deliveries table (secondary store, non-fatal)
+    # Best-effort mirror to deliveries table (non-fatal)
     try:
         sync_delivery_record(req_id, {
             "delivery_status": delivery_status,
@@ -1336,7 +1333,6 @@ def admin_schedule_delivery(req_id):
 
     flash("Delivery scheduled.", "success")
     return redirect(url_for("admin_requests"))
-
 
 # ------------------------------------------------------------------ admin upload delivery photo --
 
