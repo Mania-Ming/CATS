@@ -301,11 +301,13 @@
                             {% if r.completion_photo_url %}
                             <div style="margin-top:6px;display:flex;align-items:center;gap:7px;">
                                 <img src="{{ r.completion_photo_url }}" alt="Completion photo"
-                                     class="completion-thumb"
-                                     onclick="openPhotoModal('{{ r.completion_photo_url }}', '{{ r.full_name or r.cat_name }}')"
+                                     class="completion-thumb photo-trigger"
+                                     data-url="{{ r.completion_photo_url }}"
+                                     data-name="{{ r.full_name or r.cat_name }}"
                                      onerror="this.style.display='none'">
-                                <button type="button" class="act-btn ab-green" style="height:24px;font-size:10px;padding:0 10px;"
-                                        onclick="openPhotoModal('{{ r.completion_photo_url }}', '{{ r.full_name or r.cat_name }}')"
+                                <button type="button" class="act-btn ab-green photo-trigger" style="height:24px;font-size:10px;padding:0 10px;"
+                                        data-url="{{ r.completion_photo_url }}"
+                                        data-name="{{ r.full_name or r.cat_name }}"
                                 ><i class="fas fa-image"></i> View Photo</button>
                             </div>
                             {% else %}
@@ -411,52 +413,84 @@
                     <div id="delivery-{{ sid }}" style="display:none;padding:0 12px 10px;">
                         <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;">
                             <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:8px;"><i class="fas fa-truck"></i> Schedule Delivery</div>
-                            <form method="POST" action="{{ url_for('admin_schedule_delivery', req_id=r.id) }}">
-                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px;">
-                                    <div>
-                                        <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Date *</div>
-                                        <input type="date" name="delivery_date" class="act-inp" value="{{ r.delivery_date or '' }}" required style="width:100%;">
-                                    </div>
-                                    <div>
-                                        <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Start Time</div>
-                                        <input type="time" name="delivery_time_start" class="act-inp" value="{{ r.delivery_time_start or '' }}" style="width:100%;">
-                                    </div>
-                                    <div>
-                                        <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">End Time</div>
-                                        <input type="time" name="delivery_time_end" class="act-inp" value="{{ r.delivery_time_end or '' }}" style="width:100%;">
-                                    </div>
-                                    <div>
-                                        <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Rider Name</div>
-                                        <input type="text" name="rider_name" class="act-inp" value="{{ r.rider_name or '' }}" placeholder="Enter rider name" style="width:100%;">
-                                    </div>
+                           <form method="POST" action="{{ url_for('admin_schedule_delivery', req_id=r.id) }}">
+
+                            <!-- FORCE DEBUG -->
+                            <input type="hidden" name="debug" value="1">
+
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px;">
+                                
+                                <div>
+                                    <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Date *</div>
+                                    <input type="date" name="delivery_date"
+                                        value="{{ r.delivery_date if r.delivery_date else '' }}"
+                                        class="act-inp" required>
                                 </div>
-                                <div style="margin-bottom:5px;">
-                                    <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Delivery Address</div>
-                                    <input type="text" name="delivery_address" class="act-inp" value="{{ r.delivery_address or r.address or '' }}" placeholder="Delivery address" style="width:100%;">
+
+                                <div>
+                                    <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Start Time</div>
+                                    <input type="time" name="delivery_time_start"
+                                        value="{{ r.delivery_time_start if r.delivery_time_start else '' }}"
+                                        class="act-inp">
                                 </div>
-                                <div style="margin-bottom:8px;">
-                                    <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Rider Contact</div>
-                                    <input type="text" name="rider_contact" class="act-inp" value="{{ r.rider_contact or '' }}" placeholder="Enter rider contact" style="width:100%;">
+
+                                <div>
+                                    <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">End Time</div>
+                                    <input type="time" name="delivery_time_end"
+                                        value="{{ r.delivery_time_end if r.delivery_time_end else '' }}"
+                                        class="act-inp">
                                 </div>
-                                <div style="display:flex;gap:5px;align-items:center;">
-                                    <select name="delivery_status" class="act-sel">
-                                        {% for s in ['Preparing','Out for Delivery','Delivered'] %}
-                                        <option value="{{ s }}" {% if (r.delivery_status or 'Preparing') == s %}selected{% endif %}>{{ s }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <button type="submit" class="act-btn ab-orange"><i class="fas fa-save"></i> Save Delivery</button>
+
+                                <div>
+                                    <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Rider Name</div>
+                                    <input type="text" name="rider_name"
+                                        value="{{ r.rider_name if r.rider_name else '' }}"
+                                        placeholder="Enter rider name"
+                                        class="act-inp">
                                 </div>
-                            </form>
+
+                            </div>
+
+                            <div style="margin-bottom:5px;">
+                                <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Delivery Address</div>
+                                <input type="text" name="delivery_address"
+                                    value="{{ r.delivery_address if r.delivery_address else r.address }}"
+                                    class="act-inp">
+                            </div>
+
+                            <div style="margin-bottom:8px;">
+                                <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Rider Contact</div>
+                                <input type="text" name="rider_contact"
+                                    value="{{ r.rider_contact if r.rider_contact else '' }}"
+                                    placeholder="Enter rider contact"
+                                    class="act-inp">
+                            </div>
+
+                            <div style="display:flex;gap:5px;align-items:center;">
+                                <select name="delivery_status" class="act-sel">
+                                    <option value="Preparing" {{ 'selected' if (r.delivery_status == 'Preparing') else '' }}>Preparing</option>
+                                    <option value="Out for Delivery" {{ 'selected' if (r.delivery_status == 'Out for Delivery') else '' }}>Out for Delivery</option>
+                                    <option value="Delivered" {{ 'selected' if (r.delivery_status == 'Delivered') else '' }}>Delivered</option>
+                                </select>
+
+                                <button type="submit" class="act-btn ab-orange">
+                                    <i class="fas fa-save"></i> Save Delivery
+                                </button>
+                            </div>
+
+                        </form>
                             <!-- Delivery photo upload -->
                             <div style="margin-top:8px;border-top:1px solid #fed7aa;padding-top:8px;">
                                 <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:4px;"><i class="fas fa-camera"></i> Proof of Delivery</div>
                                 {% if r.delivery_photo_url %}
                                 <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;">
-                                    <img src="{{ r.delivery_photo_url }}" class="completion-thumb"
-                                         onclick="openPhotoModal('{{ r.delivery_photo_url }}', 'Delivery — {{ r.full_name or r.cat_name }}')"
+                                    <img src="{{ r.delivery_photo_url }}" class="completion-thumb photo-trigger"
+                                         data-url="{{ r.delivery_photo_url }}"
+                                         data-name="Delivery - {{ r.full_name or r.cat_name }}"
                                          onerror="this.style.display='none'">
-                                    <button type="button" class="act-btn ab-green" style="height:24px;font-size:10px;padding:0 10px;"
-                                            onclick="openPhotoModal('{{ r.delivery_photo_url }}', 'Delivery — {{ r.full_name or r.cat_name }}')"
+                                    <button type="button" class="act-btn ab-green photo-trigger" style="height:24px;font-size:10px;padding:0 10px;"
+                                            data-url="{{ r.delivery_photo_url }}"
+                                            data-name="Delivery - {{ r.full_name or r.cat_name }}"
                                     ><i class="fas fa-image"></i> View Photo</button>
                                 </div>
                                 {% endif %}
@@ -548,7 +582,7 @@ function toggleChat(id) {
 }
 function openPhotoModal(url, name) {
     document.getElementById('photoModalImg').src = url;
-    document.getElementById('photoModalTitle').textContent = (name || 'Completion') + ' — Photo';
+    document.getElementById('photoModalTitle').textContent = (name || 'Completion') + ' - Photo';
     document.getElementById('photoModalDownload').href = url;
     document.getElementById('photoModal').classList.add('open');
 }
@@ -557,6 +591,10 @@ function closePhotoModal(e) {
     document.getElementById('photoModal').classList.remove('open');
     document.getElementById('photoModalImg').src = '';
 }
+document.addEventListener('click', function(e) {
+    const el = e.target.closest('.photo-trigger');
+    if (el) openPhotoModal(el.dataset.url, el.dataset.name);
+});
 </script>
 </body>
 </html>
