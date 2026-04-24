@@ -1528,7 +1528,46 @@ def adopt_request():
         flash(f"Failed to submit request: {e}", "error")
     return redirect(url_for("dashboard"))
 
+def build_request_cards(rows, admin=False):
+    result = []
 
+    for row in rows:
+        result.append({
+            "id": row.get("id"),
+            "cat_name": row.get("cat_name"),
+            "cat_breed": row.get("cat_breed"),
+            "status": row.get("status"),
+            "payment_status": row.get("payment_status"),
+
+            # ✅ DELIVERY FIX (VERY IMPORTANT)
+            "delivery_date": row.get("delivery_date"),
+            "delivery_time_start": row.get("delivery_time_start"),
+            "delivery_time_end": row.get("delivery_time_end"),
+            "rider_name": row.get("rider_name"),
+            "rider_contact": row.get("rider_contact"),
+            "delivery_address": row.get("delivery_address"),
+            "delivery_status": row.get("delivery_status"),
+
+            # existing fields
+            "delivery_method": row.get("delivery_method"),
+            "created_at": row.get("created_at"),
+            "full_name": row.get("full_name"),
+            "email": row.get("email"),
+            "contact_number": row.get("contact_number"),
+        })
+
+    return result
+
+
+def _fetch_requests(db, filters=None):
+    query = db.table("adoption_requests").select("*")
+
+    if filters:
+        for k, v in filters.items():
+            query = query.eq(k, v)
+
+    res = query.execute()
+    return res.data or []
 # ------------------------------------------------------------------ history --
 
 @app.route("/history")
