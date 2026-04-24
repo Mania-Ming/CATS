@@ -1271,51 +1271,86 @@ def admin_update_delivery(req_id):
 def admin_schedule_delivery(req_id):
     if not admin_required():
         return redirect(url_for("login"))
-    delivery_date       = request.form.get("delivery_date", "").strip() or None
-    delivery_time_start = request.form.get("delivery_time_start", "").strip() or None
-    delivery_time_end   = request.form.get("delivery_time_end", "").strip() or None
-    delivery_address    = request.form.get("delivery_address", "").strip() or None
-    delivery_status     = request.form.get("delivery_status", "").strip() or "Preparing"
-    rider_name          = request.form.get("rider_name", "").strip() or None
-    rider_contact       = request.form.get("rider_contact", "").strip() or None
+
+    # Read all fields — keep empty strings as empty strings, do NOT coerce to None
+    delivery_date       = request.form.get("delivery_date", "").strip()
+    delivery_time_start = request.form.get("delivery_time_start", "").strip()
+    delivery_time_end   = request.form.get("delivery_time_end", "").strip()
+    delivery_address    = request.form.get("delivery_address", "").strip()
+    delivery_status     = request.form.get("delivery_status", "Preparing").strip() or "Preparing"
+    rider_name          = request.form.get("rider_name", "").strip()
+    rider_contact       = request.form.get("rider_contact", "").strip()
+
     if not delivery_date:
         flash("Delivery date is required.", "error")
         return redirect(url_for("admin_requests"))
     if delivery_status not in {"Preparing", "Out for Delivery", "Delivered"}:
         flash("Invalid delivery status.", "error")
         return redirect(url_for("admin_requests"))
-    log.warning("admin_schedule_delivery req=%s status=%s date=%s rider=%s contact=%s",
-                req_id, delivery_status, delivery_date, rider_name, rider_contact)
+
+    # Build update payload — only include non-empty values to avoid
+    # Supabase silently failing on columns that may not exist yet
+    update_data = {
+        "status": "Scheduled",
+        "delivery_status": delivery_status,
+        "delivery_date": delivery_date,
+    }
+    if delivery_time_start:
+        update_data["delivery_time_start"] = delivery_time_start
+    if delivery_time_end:
+        update_data["delivery_time_end"] = delivery_time_end
+    if delivery_address:
+        update_data["delivery_address"] = delivery_address
+    if rider_name:
+        update_data["rider_name"] = rider_name
+    if rider_contact:
+        update_data["rider_contact"] = rider_contact
+
+    print(f"DEBUG admin_schedule_delivery req={req_id} payload={update_data}")
+
+    db = _admin_db()
+
+    # --- Try full payload first; if it fails, fall back to core fields only ---
+    res = None
     try:
-        row = fetch_request_row(req_id, admin=True) or {}
-        delivery_method = row.get("delivery_method") or "Delivery"
-        # Save all fields directly into adoption_requests (primary source of truth)
-        _admin_db().table("adoption_requests").update({
-            "status":               "Scheduled",
-            "delivery_status":      delivery_status,
-            "delivery_date":        delivery_date,
-            "delivery_time_start":  delivery_time_start,
-            "delivery_time_end":    delivery_time_end,
-            "delivery_address":     delivery_address,
-            "rider_name":           rider_name,
-            "rider_contact":        rider_contact,
-        }).eq("id", req_id).execute()
-        # Mirror to deliveries table as secondary store (best-effort)
-        sync_delivery_record(req_id, {
-            "delivery_method":          delivery_method,
-            "status":                   delivery_status,
-            "delivery_status":          delivery_status,
-            "delivery_date":            delivery_date,
-            "delivery_time_start":      delivery_time_start,
-            "delivery_time_end":        delivery_time_end,
-            "rider_name":               rider_name,
-            "rider_contact":            rider_contact,
-            "rider_phone":              rider_contact,
-        })
-        flash("Delivery scheduled.", "success")
+        res = db.table("adoption_requests").update(update_data).eq("id", req_id).execute()
+        print(f"DEBUG UPDATE RESULT: {res.data}")
     except Exception as e:
-        log.error("admin_schedule_delivery(%s) failed: %s", req_id, e)
-        flash(f"Failed to schedule delivery: {e}", "error")
+        print(f"DEBUG full update failed ({e}), retrying with core fields only")
+        log.warning("admin_schedule_delivery full update failed (%s), retrying core", e)
+        res = None
+
+    # If full payload returned no rows, the extended columns may not exist — retry with core only
+    if not res or not res.data:
+        core_data = {
+            "status": "Scheduled",
+            "delivery_status": delivery_status,
+        }
+        try:
+            res = db.table("adoption_requests").update(core_data).eq("id", req_id).execute()
+            print(f"DEBUG CORE UPDATE RESULT: {res.data}")
+            if not res.data:
+                log.error("admin_schedule_delivery(%s): update returned no rows — check RLS or req_id", req_id)
+                flash("Save failed: no rows updated. Check that the request ID exists and RLS allows updates.", "error")
+                return redirect(url_for("admin_requests"))
+        except Exception as e:
+            log.error("admin_schedule_delivery(%s) core update failed: %s", req_id, e)
+            flash(f"Failed to schedule delivery: {e}", "error")
+            return redirect(url_for("admin_requests"))
+
+    # Best-effort mirror to deliveries table (secondary store)
+    try:
+        sync_delivery_record(req_id, {
+            "delivery_status": delivery_status,
+            "delivery_date":   delivery_date,
+            "rider_name":      rider_name or None,
+            "rider_contact":   rider_contact or None,
+            "rider_phone":     rider_contact or None,
+        })
+    except Exception as e:
+        log.warning("admin_schedule_delivery sync_delivery_record failed (non-fatal): %s", e)
+
+    flash("Delivery scheduled.", "success")
     return redirect(url_for("admin_requests"))
 
 
