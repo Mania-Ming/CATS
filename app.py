@@ -1535,18 +1535,24 @@ def adopt_request():
 def history():
     if "user_id" not in session:
         return redirect(url_for("login"))
+
     try:
-        ar_data = _fetch_requests(_admin_db(), filters={"user_id": session["user_id"]})
-        requests = build_request_cards(ar_data, admin=True)
+        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
+        requests = build_request_cards(ar_data, admin=False)
     except Exception as e:
         log.error("history failed: %s", e)
         requests = []
 
     user = get_user_profile(session["user_id"])
-    return render_template("history.html", requests=requests, user=user,
-                           gcash_number=GCASH_NUMBER, gcash_name=GCASH_NAME,
-                           delivery_fee=DELIVERY_FEE,
-                           active_page="history")
+
+    return render_template("history.html",
+        requests=requests,
+        user=user,
+        gcash_number=GCASH_NUMBER,
+        gcash_name=GCASH_NAME,
+        delivery_fee=DELIVERY_FEE,
+        active_page="history"
+    )
 
 
 # ------------------------------------------------------------------ profile --
