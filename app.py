@@ -1272,7 +1272,6 @@ def admin_schedule_delivery(req_id):
     if not admin_required():
         return redirect(url_for("login"))
 
-    # Read all fields — keep empty strings as empty strings, do NOT coerce to None
     delivery_date       = request.form.get("delivery_date", "").strip()
     delivery_time_start = request.form.get("delivery_time_start", "").strip()
     delivery_time_end   = request.form.get("delivery_time_end", "").strip()
@@ -1281,6 +1280,10 @@ def admin_schedule_delivery(req_id):
     rider_name          = request.form.get("rider_name", "").strip()
     rider_contact       = request.form.get("rider_contact", "").strip()
 
+    print(f"DEBUG req_id: {req_id}")
+    print(f"FORM DATA: delivery_date={delivery_date!r} rider_name={rider_name!r} rider_contact={rider_contact!r}")
+    print(f"FORM DATA: delivery_status={delivery_status!r} delivery_address={delivery_address!r}")
+
     if not delivery_date:
         flash("Delivery date is required.", "error")
         return redirect(url_for("admin_requests"))
@@ -1288,12 +1291,12 @@ def admin_schedule_delivery(req_id):
         flash("Invalid delivery status.", "error")
         return redirect(url_for("admin_requests"))
 
-    # Build update payload — only include non-empty values to avoid
-    # Supabase silently failing on columns that may not exist yet
+    # Build payload — only include non-empty values so missing optional
+    # columns don't cause the entire update to fail
     update_data = {
-        "status": "Scheduled",
+        "status":          "Scheduled",
         "delivery_status": delivery_status,
-        "delivery_date": delivery_date,
+        "delivery_date":   delivery_date,
     }
     if delivery_time_start:
         update_data["delivery_time_start"] = delivery_time_start
@@ -1306,39 +1309,20 @@ def admin_schedule_delivery(req_id):
     if rider_contact:
         update_data["rider_contact"] = rider_contact
 
-    print(f"DEBUG admin_schedule_delivery req={req_id} payload={update_data}")
+    print(f"DEBUG UPDATE DATA: {update_data}")
 
     db = _admin_db()
-
-    # --- Try full payload first; if it fails, fall back to core fields only ---
-    res = None
     try:
         res = db.table("adoption_requests").update(update_data).eq("id", req_id).execute()
-        print(f"DEBUG UPDATE RESULT: {res.data}")
+        # NOTE: res.data may be empty when RLS blocks the implicit RETURNING SELECT
+        # even though the UPDATE itself succeeded. Do NOT treat empty res.data as failure.
+        print(f"DEBUG RESULT: {res.data}")
     except Exception as e:
-        print(f"DEBUG full update failed ({e}), retrying with core fields only")
-        log.warning("admin_schedule_delivery full update failed (%s), retrying core", e)
-        res = None
+        log.error("admin_schedule_delivery(%s) failed: %s", req_id, e)
+        flash(f"Failed to schedule delivery: {e}", "error")
+        return redirect(url_for("admin_requests"))
 
-    # If full payload returned no rows, the extended columns may not exist — retry with core only
-    if not res or not res.data:
-        core_data = {
-            "status": "Scheduled",
-            "delivery_status": delivery_status,
-        }
-        try:
-            res = db.table("adoption_requests").update(core_data).eq("id", req_id).execute()
-            print(f"DEBUG CORE UPDATE RESULT: {res.data}")
-            if not res.data:
-                log.error("admin_schedule_delivery(%s): update returned no rows — check RLS or req_id", req_id)
-                flash("Save failed: no rows updated. Check that the request ID exists and RLS allows updates.", "error")
-                return redirect(url_for("admin_requests"))
-        except Exception as e:
-            log.error("admin_schedule_delivery(%s) core update failed: %s", req_id, e)
-            flash(f"Failed to schedule delivery: {e}", "error")
-            return redirect(url_for("admin_requests"))
-
-    # Best-effort mirror to deliveries table (secondary store)
+    # Best-effort mirror to deliveries table (secondary store, non-fatal)
     try:
         sync_delivery_record(req_id, {
             "delivery_status": delivery_status,
