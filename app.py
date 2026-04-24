@@ -69,7 +69,7 @@ ADOPTION_REQUEST_COLUMNS = (
 # Extended columns added later — fetched separately so old DBs still work
 ADOPTION_REQUEST_COLUMNS_EXT = (
     "delivery_date, delivery_time_start, delivery_time_end, delivery_address, "
-    "rider_name, rider_contact, delivery_photo_url"
+    "rider_name, rider_contact, delivery_photo_url, delivery_status"
 )
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
@@ -1231,22 +1231,17 @@ def admin_update_payment(req_id):
 def admin_update_delivery(req_id):
     if not admin_required():
         return redirect(url_for("login"))
-    delivery_status    = request.form.get("delivery_status", "").strip()
-    estimated_delivery = request.form.get("estimated_delivery", "").strip() or None
-    rider_name         = request.form.get("rider_name", "").strip() or None
-    rider_contact      = request.form.get("rider_contact", "").strip() or None
+    delivery_status = request.form.get("delivery_status", "").strip()
+    delivery_date   = request.form.get("delivery_date", "").strip() or None
+    rider_name      = request.form.get("rider_name", "").strip() or None
+    rider_contact   = request.form.get("rider_contact", "").strip() or None
     if delivery_status not in {"Preparing", "Out for Delivery", "Delivered"}:
         flash("Invalid delivery status.", "error")
         return redirect(url_for("admin_requests"))
-    log.warning("admin_update_delivery req=%s status=%s estimated=%s rider=%s contact=%s",
-                req_id, delivery_status, estimated_delivery, rider_name, rider_contact)
     try:
-        update_payload = {
-            "status": "Scheduled",
-            "delivery_status": delivery_status,
-        }
-        if estimated_delivery:
-            update_payload["estimated_delivery"] = estimated_delivery
+        update_payload = {"status": "Scheduled", "delivery_status": delivery_status}
+        if delivery_date:
+            update_payload["delivery_date"] = delivery_date
         if rider_name:
             update_payload["rider_name"] = rider_name
         if rider_contact:
@@ -1255,7 +1250,7 @@ def admin_update_delivery(req_id):
         sync_delivery_record(req_id, {
             "status": delivery_status,
             "delivery_status": delivery_status,
-            "estimated_delivery": estimated_delivery,
+            "delivery_date": delivery_date,
             "rider_name": rider_name,
             "rider_contact": rider_contact,
             "rider_phone": rider_contact,
