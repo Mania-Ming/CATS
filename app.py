@@ -259,47 +259,33 @@ def sync_delivery_record(request_id, data):
 
 
 def _fetch_requests(db, filters=None, order_desc=True, limit=None):
-    """Fetch adoption_requests rows, falling back to base columns if extended ones don't exist."""
-    for cols in (
-        ADOPTION_REQUEST_COLUMNS + ", " + ADOPTION_REQUEST_COLUMNS_EXT,
-        ADOPTION_REQUEST_COLUMNS,
-    ):
-        try:
-            q = db.table("adoption_requests").select(cols)
-            for col, val in (filters or {}).items():
-                q = q.eq(col, val)
-            if order_desc:
-                q = q.order("created_at", desc=True)
-            if limit:
-                q = q.limit(limit)
-            result = q.execute().data
-            if result is not None:
-                return result
-        except Exception as e:
-            log.warning("_fetch_requests with cols failed (%s), retrying", e)
-            continue
-    log.error("_fetch_requests failed with all column sets")
-    return []
+    """Fetch adoption_requests rows using wildcard select to avoid missing-column errors."""
+    try:
+        q = db.table("adoption_requests").select("*")
+        for col, val in (filters or {}).items():
+            q = q.eq(col, val)
+        if order_desc:
+            q = q.order("created_at", desc=True)
+        if limit:
+            q = q.limit(limit)
+        result = q.execute().data
+        return result if result is not None else []
+    except Exception as e:
+        log.error("_fetch_requests failed: %s", e)
+        return []
 
 
 def fetch_request_row(request_id, user_id=None, admin=False):
-    """Fetch a single adoption_requests row by id, with fallback for missing extended columns."""
+    """Fetch a single adoption_requests row by id."""
     db = _admin_db() if admin else supabase
-    for cols in (
-        ADOPTION_REQUEST_COLUMNS + ", " + ADOPTION_REQUEST_COLUMNS_EXT,
-        ADOPTION_REQUEST_COLUMNS,
-    ):
-        try:
-            query = db.table("adoption_requests").select(cols).eq("id", request_id)
-            if user_id:
-                query = query.eq("user_id", user_id)
-            result = query.single().execute().data
-            if result is not None:
-                return result
-        except Exception:
-            continue
-    log.error("fetch_request_row(%s) failed with all column sets", request_id)
-    return None
+    try:
+        query = db.table("adoption_requests").select("*").eq("id", request_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        return query.single().execute().data
+    except Exception as e:
+        log.error("fetch_request_row(%s) failed: %s", request_id, e)
+        return None
 
 
 def build_request_cards(ar_rows, admin=False, include_messages=True):
@@ -1447,8 +1433,8 @@ def api_my_requests():
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
     try:
-        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
-        return jsonify(build_request_cards(ar_data, include_messages=False))
+        ar_data = _fetch_requests(_admin_db(), filters={"user_id": session["user_id"]})
+        return jsonify(build_request_cards(ar_data, admin=True, include_messages=False))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
