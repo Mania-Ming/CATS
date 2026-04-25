@@ -222,6 +222,24 @@
             background:#f8fafc; border-top:1px solid var(--border);
             padding:6px 14px; display:flex; align-items:center; gap:6px;
         }
+
+        /* Location autocomplete */
+        .loc-wrap { position:relative; width:100%; }
+        .suggestions-box {
+            position:absolute; top:100%; left:0; right:0;
+            border:1px solid #ddd; border-top:none;
+            max-height:150px; overflow-y:auto;
+            background:#fff; z-index:999;
+            border-radius:0 0 6px 6px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.1);
+        }
+        .suggestions-box div {
+            padding:6px 8px; cursor:pointer;
+            font-size:11px; color:var(--text); line-height:1.4;
+            border-bottom:1px solid #f1f5f9;
+        }
+        .suggestions-box div:last-child { border-bottom:none; }
+        .suggestions-box div:hover { background:#f2f2f2; }
     </style>
 </head>
 <body>
@@ -455,16 +473,15 @@
 
                             <div style="margin-bottom:5px;">
                                 <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Delivery Address</div>
-                                <select name="delivery_address" class="act-sel" style="height:28px;width:100%;" required>
-                                    <option value="">Select Location</option>
-                                    {% set cur_addr = r.delivery_address or r.address or '' %}
-                                    {% for loc in ['Cebu City','Oslob, Cebu','Daanlungsod, Oslob, Cebu'] %}
-                                    <option value="{{ loc }}" {% if cur_addr == loc %}selected{% endif %}>{{ loc }}</option>
-                                    {% endfor %}
-                                    {% if cur_addr and cur_addr not in ['Cebu City','Oslob, Cebu','Daanlungsod, Oslob, Cebu'] %}
-                                    <option value="{{ cur_addr }}" selected>{{ cur_addr }}</option>
-                                    {% endif %}
-                                </select>
+                                <div class="loc-wrap">
+                                    <input type="text" name="delivery_address"
+                                        class="act-inp" style="width:100%;"
+                                        value="{{ r.delivery_address or r.address or '' }}"
+                                        placeholder="Search location..."
+                                        autocomplete="off"
+                                        data-loc-input="delivery-{{ sid }}">
+                                    <div class="suggestions-box" data-loc-box="delivery-{{ sid }}"></div>
+                                </div>
                             </div>
 
                             <div style="margin-bottom:8px;">
@@ -570,6 +587,45 @@
 document.getElementById('menuToggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open'));
 setTimeout(() => document.querySelectorAll('.flash-msg').forEach(el => el.style.opacity = '0'), 4000);
+
+// ── Location autocomplete (Nominatim / OpenStreetMap) ──
+let _locTimer = null;
+document.addEventListener('input', function(e) {
+    const input = e.target.closest('[data-loc-input]');
+    if (!input) return;
+    const key = input.dataset.locInput;
+    const box = document.querySelector('[data-loc-box="' + key + '"]');
+    if (!box) return;
+    clearTimeout(_locTimer);
+    const q = input.value.trim();
+    if (q.length < 3) { box.innerHTML = ''; return; }
+    _locTimer = setTimeout(async () => {
+        try {
+            const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&q=' + encodeURIComponent(q), {
+                headers: { 'Accept-Language': 'en' }
+            });
+            const data = await res.json();
+            box.innerHTML = '';
+            data.forEach(place => {
+                const div = document.createElement('div');
+                div.textContent = place.display_name;
+                div.addEventListener('mousedown', function(ev) {
+                    ev.preventDefault();
+                    input.value = place.display_name;
+                    box.innerHTML = '';
+                });
+                box.appendChild(div);
+            });
+        } catch(err) { console.error('Location search error:', err); }
+    }, 350);
+});
+document.addEventListener('blur', function(e) {
+    if (e.target.closest('[data-loc-input]')) {
+        const key = e.target.dataset.locInput;
+        const box = document.querySelector('[data-loc-box="' + key + '"]');
+        if (box) setTimeout(() => { box.innerHTML = ''; }, 200);
+    }
+}, true);
 
 function toggleDetails(id) {
     const body = document.getElementById('det-' + id);
