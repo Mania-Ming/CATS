@@ -256,8 +256,14 @@
                 {% for r in requests %}
                 {% set sid = loop.index %}
 
-                {% set status_cls = {'Pending':'rb-pending','Approved':'rb-approved','Scheduled':'rb-scheduled','Completed':'rb-completed','Rejected':'rb-rejected'}.get(r.status,'rb-pending') %}
-                {% set pay_cls = {'Paid':'rb-pay-paid','For Verification':'rb-pay-verify'}.get(r.payment_status,'rb-pay-pending') %}
+                {% if r.status == 'Approved' %}{% set status_cls = 'rb-approved' %}
+                {% elif r.status == 'Scheduled' %}{% set status_cls = 'rb-scheduled' %}
+                {% elif r.status == 'Completed' %}{% set status_cls = 'rb-completed' %}
+                {% elif r.status == 'Rejected' %}{% set status_cls = 'rb-rejected' %}
+                {% else %}{% set status_cls = 'rb-pending' %}{% endif %}
+                {% if r.payment_status == 'Paid' %}{% set pay_cls = 'rb-pay-paid' %}
+                {% elif r.payment_status == 'For Verification' %}{% set pay_cls = 'rb-pay-verify' %}
+                {% else %}{% set pay_cls = 'rb-pay-pending' %}{% endif %}
 
                 <div class="req-card">
                     <div class="req-grid">
@@ -401,7 +407,6 @@
                                 <input type="text" name="meetup_location" class="act-inp" value="{{ r.meetup_location or '' }}" placeholder="📍 Location" required style="min-width:130px;">
                                 <input type="date" name="schedule_date" class="act-inp" value="{{ r.meetup_date or '' }}" required style="width:120px;flex:none;">
                                 <input type="time" name="schedule_time" class="act-inp" value="{{ r.meetup_time or '' }}" required style="width:100px;flex:none;">
-                                <input type="url" name="meetup_map_link" class="act-inp" value="{{ r.meetup_map_link or '' }}" placeholder="Maps URL" style="min-width:110px;">
                                 <button type="submit" class="act-btn ab-teal"><i class="fas fa-save"></i> Save</button>
                             </div>
                         </form>
