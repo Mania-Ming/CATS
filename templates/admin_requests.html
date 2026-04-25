@@ -415,9 +415,6 @@
                             <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:8px;"><i class="fas fa-truck"></i> Schedule Delivery</div>
                            <form method="POST" action="{{ url_for('admin_schedule_delivery', req_id=r.id) }}">
 
-                            <!-- FORCE DEBUG -->
-                            <input type="hidden" name="debug" value="1">
-
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px;">
                                 
                                 <div>
@@ -453,9 +450,16 @@
 
                             <div style="margin-bottom:5px;">
                                 <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Delivery Address</div>
-                                <input type="text" name="delivery_address"
-                                    value="{{ r.delivery_address if r.delivery_address else r.address }}"
-                                    class="act-inp">
+                                <select name="delivery_address" class="act-sel" style="height:28px;width:100%;" required>
+                                    <option value="">Select Location</option>
+                                    {% set cur_addr = r.delivery_address or r.address or '' %}
+                                    {% for loc in ['Cebu City','Oslob, Cebu','Daanlungsod, Oslob, Cebu'] %}
+                                    <option value="{{ loc }}" {% if cur_addr == loc %}selected{% endif %}>{{ loc }}</option>
+                                    {% endfor %}
+                                    {% if cur_addr and cur_addr not in ['Cebu City','Oslob, Cebu','Daanlungsod, Oslob, Cebu'] %}
+                                    <option value="{{ cur_addr }}" selected>{{ cur_addr }}</option>
+                                    {% endif %}
+                                </select>
                             </div>
 
                             <div style="margin-bottom:8px;">
