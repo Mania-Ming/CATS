@@ -316,16 +316,34 @@ create table if not exists conversations (
   unique (user_id, cat_id)
 );
 
--- Drop old adoption_id FK on messages and add conversation_id
+-- Add conversation_id + is_read to messages
 alter table messages add column if not exists conversation_id bigint references conversations(id) on delete cascade;
 alter table messages add column if not exists is_read boolean default false;
 
--- RLS for conversations
+-- ============================================================
+-- RLS FOR conversations TABLE
+-- Drop first so this block is safe to re-run
+-- ============================================================
 alter table conversations enable row level security;
+
+drop policy if exists "convos_insert" on conversations;
+drop policy if exists "convos_select" on conversations;
+drop policy if exists "convos_delete" on conversations;
+
 create policy "convos_insert" on conversations for insert to anon with check (true);
 create policy "convos_select" on conversations for select to anon using (true);
 create policy "convos_delete" on conversations for delete to anon using (true);
 
--- Allow update on messages (for marking is_read)
+-- ============================================================
+-- RLS FOR messages TABLE (full set, safe to re-run)
+-- ============================================================
+alter table messages enable row level security;
+
+drop policy if exists "allow_messages_insert" on messages;
+drop policy if exists "allow_messages_select" on messages;
+drop policy if exists "allow_messages_update" on messages;
+
+create policy "allow_messages_insert" on messages for insert to anon with check (true);
+create policy "allow_messages_select" on messages for select to anon using (true);
 create policy "allow_messages_update" on messages for update to anon using (true);
 
