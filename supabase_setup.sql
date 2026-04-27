@@ -297,6 +297,10 @@ create policy "completion_anon_insert"
   on storage.objects for insert to anon
   with check ( bucket_id = 'adoption-completions' );
 
-create policy "completion_anon_update"
-  on storage.objects for update to anon
-  using ( bucket_id = 'adoption-completions' );
+-- ============================================================
+-- MESSAGING: read flag + soft-delete for user chat threads
+-- Run in Supabase SQL Editor
+-- ============================================================
+alter table messages add column if not exists read boolean default false;
+alter table adoption_requests add column if not exists user_deleted_chat boolean default false;
+

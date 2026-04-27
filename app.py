@@ -961,7 +961,8 @@ def api_user_unread_messages():
         return jsonify({"unread": 0})
     try:
         ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
-        request_ids = [r["id"] for r in ar_data if r.get("id")]
+        # Exclude soft-deleted threads from badge count
+        request_ids = [r["id"] for r in ar_data if r.get("id") and not r.get("user_deleted_chat")]
         if not request_ids:
             return jsonify({"unread": 0})
         rows = supabase.table("messages").select("id").eq("sender", "admin").eq("read", False).in_("adoption_id", request_ids).execute().data or []
@@ -1572,8 +1573,13 @@ def delete_thread(req_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
     try:
-        # Only delete messages, keep the adoption request intact
         supabase.table("messages").delete().eq("adoption_id", req_id).execute()
+        # Soft-delete: hide thread from user's view without removing the request
+        try:
+            supabase.table("adoption_requests").update({"user_deleted_chat": True}) \
+                .eq("id", req_id).eq("user_id", session["user_id"]).execute()
+        except Exception:
+            pass  # column may not exist yet; messages are still cleared
         flash("Conversation deleted.", "success")
     except Exception as e:
         log.error("delete_thread(%s) failed: %s", req_id, e)
@@ -1600,21 +1606,54 @@ def api_mark_read(req_id):
 def user_messages():
     if "user_id" not in session:
         return redirect(url_for("login"))
+    user_id = session["user_id"]
     cat_id = request.args.get("cat_id")
+    auto_open_id = None
     try:
-        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
+        ar_data = _fetch_requests(supabase, filters={"user_id": user_id})
+
+        # If cat_id provided, restore a previously deleted thread so user can message again
+        if cat_id:
+            for row in ar_data:
+                if str(row.get("cat_id")) == str(cat_id) and row.get("user_deleted_chat"):
+                    try:
+                        supabase.table("adoption_requests").update({"user_deleted_chat": False}) \
+                            .eq("id", row["id"]).eq("user_id", user_id).execute()
+                        row["user_deleted_chat"] = False
+                    except Exception:
+                        pass
+
+        # Filter out soft-deleted threads
+        ar_data = [r for r in ar_data if not r.get("user_deleted_chat")]
+
         conversations = build_request_cards(ar_data, admin=False)
+
+        # Compute unread BEFORE marking as read
         request_ids = [c["id"] for c in conversations if c.get("id")]
+        unread_ids = set()
         if request_ids:
             try:
-                supabase.table("messages").update({"read": True}).eq("sender", "admin").in_("adoption_id", request_ids).execute()
+                unread_rows = supabase.table("messages").select("adoption_id") \
+                    .eq("sender", "admin").eq("read", False) \
+                    .in_("adoption_id", request_ids).execute().data or []
+                unread_ids = {r["adoption_id"] for r in unread_rows}
             except Exception:
                 pass
+
         for conv in conversations:
-            conv["has_unread"] = False
+            conv["has_unread"] = conv["id"] in unread_ids
+
+        # Only show threads that have messages
         conversations = [c for c in conversations if c.get("messages")]
-        # Find req_id to auto-open based on cat_id
-        auto_open_id = None
+
+        # Mark all as read now that we've computed badges
+        if request_ids:
+            try:
+                supabase.table("messages").update({"read": True}) \
+                    .eq("sender", "admin").in_("adoption_id", request_ids).execute()
+            except Exception:
+                pass
+
         if cat_id:
             match = next((c for c in conversations if str(c.get("cat_id")) == str(cat_id)), None)
             if match:
@@ -1622,9 +1661,8 @@ def user_messages():
     except Exception as e:
         log.error("user_messages failed: %s", e)
         conversations = []
-        auto_open_id = None
     return render_template("user_messages.html", conversations=conversations,
-                           user=get_user_profile(session["user_id"]),
+                           user=get_user_profile(user_id),
                            active_page="messages", auto_open_id=auto_open_id)
 
 
