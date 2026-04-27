@@ -994,7 +994,8 @@ def api_admin_badges():
 
 @app.route("/dashboard")
 def dashboard():
-    if "user_id" not in session:
+    user_id = session.get("user_id")
+    if not user_id:
         return redirect(url_for("login"))
     search = request.args.get("search", "")
     breed  = request.args.get("breed", "")
@@ -1004,25 +1005,24 @@ def dashboard():
             q = q.ilike("name", f"%{search}%")
         if breed and breed != "All Breeds":
             q = q.eq("breed", breed)
-        cats = [c for c in (q.execute().data or [])]
+        cats = q.execute().data or []
         pending_count = len(
             supabase.table("adoption_requests").select("id")
-            .eq("user_id", session["user_id"]).eq("status", "Pending")
+            .eq("user_id", user_id).eq("status", "Pending")
             .execute().data or []
         )
     except Exception as e:
         log.error("dashboard failed: %s", e)
         cats = []
         pending_count = 0
-
-    user = get_user_profile(session["user_id"])
-    # Fetch ALL breeds independently so filter dropdown is always complete
+    user = get_user_profile(user_id)
     try:
         all_cats_for_breeds = supabase.table("cats").select("breed").execute().data or []
         breeds = sorted({c.get("breed") for c in all_cats_for_breeds if c.get("breed")})
     except Exception:
         breeds = sorted({c.get("breed") for c in cats if c.get("breed")})
-    return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count, active_page="dashboard", breeds=breeds, delivery_fee=DELIVERY_FEE)
+    return render_template("dashboard.html", cats=cats, user=user, pending_count=pending_count,
+                           active_page="dashboard", breeds=breeds, delivery_fee=DELIVERY_FEE)
 
 
 # ------------------------------------------------------------------ avatar upload API --
@@ -1410,31 +1410,29 @@ def admin_upload_delivery_photo(req_id):
     return redirect(url_for("admin_requests"))
 
 
+# ------------------------------------------------------------------ send_message (legacy adoption-based, admin only) --
+
 @app.route("/messages/<int:req_id>", methods=["POST"])
 def send_message(req_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
+    if not admin_required():
+        return redirect(url_for("user_messages"))
     message = request.form.get("message", "").strip()
     if not message:
         flash("Message cannot be empty.", "error")
-        return redirect(request.referrer or url_for("history"))
-
-    is_admin = admin_required()
-    row = fetch_request_row(req_id, admin=is_admin, user_id=None if is_admin else session["user_id"])
-    if not row:
-        flash("Adoption request not found.", "error")
-        return redirect(request.referrer or url_for("history"))
+        return redirect(request.referrer or url_for("admin_messages"))
     try:
-        (_admin_db() if is_admin else supabase).table("messages").insert({
+        _admin_db().table("messages").insert({
             "adoption_id": req_id,
-            "sender": "admin" if is_admin else "user",
+            "sender": "admin",
             "message": message,
         }).execute()
         flash("Message sent.", "success")
     except Exception as e:
         log.error("send_message(%s) failed: %s", req_id, e)
         flash("Failed to send message.", "error")
-    return redirect(request.referrer or (url_for("admin_requests") if is_admin else url_for("history")))
+    return redirect(request.referrer or url_for("admin_messages"))
 
 
 @app.route("/upload_completion_photo/<int:req_id>", methods=["POST"])
@@ -1638,6 +1636,9 @@ def api_mark_read(convo_id):
         pass
     return jsonify({"ok": True})
 
+
+# ------------------------------------------------------------------ send first message (from cat card modal) --
+
 @app.route("/api/send-first-message", methods=["POST"])
 def api_send_first_message():
     if "user_id" not in session:
@@ -1647,7 +1648,7 @@ def api_send_first_message():
     text    = (data.get("message") or "").strip()
     if not cat_id or not text:
         return jsonify({"ok": False, "error": "cat_id and message are required"}), 400
-    user_id = session["user_id"]
+    user_id = session.get("user_id")
     try:
         convo_id = _get_or_create_convo(user_id, cat_id)
         supabase.table("messages").insert({
@@ -1659,19 +1660,6 @@ def api_send_first_message():
     except Exception as e:
         log.error("api_send_first_message failed: %s", e)
         return jsonify({"ok": False, "error": str(e)}), 500
-
-
-# ------------------------------------------------------------------ mark messages read --
-
-@app.route("/api/mark_read/<int:req_id>", methods=["POST"])
-def api_mark_read(req_id):
-    if "user_id" not in session:
-        return jsonify({"ok": False}), 401
-    try:
-        supabase.table("messages").update({"read": True}).eq("adoption_id", req_id).eq("sender", "admin").execute()
-    except Exception:
-        pass
-    return jsonify({"ok": True})
 
 
 
