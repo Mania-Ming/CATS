@@ -1593,26 +1593,63 @@ def delete_thread(req_id):
 def api_send_first_message():
     if "user_id" not in session:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-    data = request.get_json(force=True) or {}
-    cat_id = data.get("cat_id")
-    text   = (data.get("message") or "").strip()
+    data    = request.get_json(force=True) or {}
+    cat_id  = data.get("cat_id")
+    text    = (data.get("message") or "").strip()
     if not cat_id or not text:
         return jsonify({"ok": False, "error": "cat_id and message are required"}), 400
     user_id = session["user_id"]
     try:
+        # Find any existing adoption_request for this user + cat
         rows = _fetch_requests(supabase, filters={"user_id": user_id})
         row  = next((r for r in rows if str(r.get("cat_id")) == str(cat_id)), None)
-        if not row:
-            return jsonify({"ok": False, "error": "No adoption request found for this cat. Please submit an adoption request first."}), 404
-        req_id = row["id"]
-        # Restore soft-deleted thread if needed
-        if row.get("user_deleted_chat"):
-            supabase.table("adoption_requests").update({"user_deleted_chat": False}) \
-                .eq("id", req_id).eq("user_id", user_id).execute()
+
+        if row:
+            req_id = row["id"]
+            # Restore soft-deleted thread if needed
+            if row.get("user_deleted_chat"):
+                try:
+                    supabase.table("adoption_requests").update({"user_deleted_chat": False}) \
+                        .eq("id", req_id).eq("user_id", user_id).execute()
+                except Exception:
+                    pass
+        else:
+            # No adoption request exists — create a lightweight chat-only thread
+            profile = get_user_profile(user_id)
+            insert_payload = {
+                "user_id":        user_id,
+                "cat_id":         int(cat_id),
+                "status":         "Chat",
+                "full_name":      profile[3] if profile else "",
+                "email":          profile[1] if profile else "",
+                "contact_number": profile[4] if profile else "",
+                "address":        profile[5] if profile else "",
+                "reason":         "Direct message",
+                "experience_with_pets": "",
+                "payment_status": "Pending Payment",
+                "payment_method": "Cash on Arrival",
+                "delivery_method": "Meet-up",
+            }
+            try:
+                result = supabase.table("adoption_requests").insert(insert_payload).execute()
+            except Exception:
+                # Retry with minimal fields if optional columns fail
+                result = supabase.table("adoption_requests").insert({
+                    "user_id":  user_id,
+                    "cat_id":   int(cat_id),
+                    "status":   "Chat",
+                    "reason":   "Direct message",
+                    "experience_with_pets": "",
+                    "payment_status": "Pending Payment",
+                    "payment_method": "Cash on Arrival",
+                    "delivery_method": "Meet-up",
+                }).execute()
+            req_id = result.data[0]["id"]
+
         supabase.table("messages").insert({
             "adoption_id": req_id,
-            "sender": "user",
-            "message": text,
+            "sender":      "user",
+            "message":     text,
         }).execute()
         return jsonify({"ok": True, "cat_id": cat_id})
     except Exception as e:
