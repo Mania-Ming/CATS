@@ -20,9 +20,8 @@
             cursor:pointer; user-select:none;
         }
         .msg-card-head:hover { background:#f1f5f9; }
-        .msg-card-head-left { display:flex; flex-direction:column; gap:2px; }
         .msg-card-title { font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
-        .msg-card-sub { font-size:11px; color:var(--text-muted); }
+        .msg-card-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
         .msg-unread-badge {
             background:#ef4444; color:#fff;
             border-radius:10px; padding:1px 7px;
@@ -33,14 +32,22 @@
         .msg-body { display:none; }
         .msg-body.open { display:block; }
         .chat-msgs {
-            max-height:220px; overflow-y:auto;
-            display:flex; flex-direction:column; gap:6px;
-            padding:10px 14px;
+            max-height:260px; overflow-y:auto;
+            display:flex; flex-direction:column; gap:8px;
+            padding:12px 14px;
         }
-        .chat-msg { border-radius:8px; padding:6px 10px; font-size:12px; line-height:1.5; max-width:80%; }
-        .chat-admin { background:#fefce8; color:#854d0e; align-self:flex-end; }
-        .chat-user  { background:#eff6ff; color:#1d4ed8; align-self:flex-start; }
-        .chat-time  { font-size:10px; color:#94a3b8; margin-top:2px; }
+        .bubble-wrap-user  { display:flex; justify-content:flex-start; }
+        .bubble-wrap-admin { display:flex; justify-content:flex-end; }
+        .bubble {
+            max-width:72%; padding:8px 12px;
+            border-radius:14px; font-size:12px; line-height:1.5;
+        }
+        .bubble-user  { background:#eff6ff; color:#1d4ed8; border-bottom-left-radius:4px; }
+        .bubble-admin { background:#fefce8; color:#854d0e; border-bottom-right-radius:4px; }
+        .bubble-meta {
+            font-size:10px; color:#94a3b8; margin-top:3px;
+        }
+        .bubble-wrap-admin .bubble-meta { text-align:right; }
         .chat-empty { font-size:12px; color:var(--text-muted); padding:10px 14px; }
         .chat-reply {
             display:flex; gap:6px; padding:8px 14px;
@@ -61,6 +68,14 @@
             display:flex; align-items:center; gap:5px;
         }
         .chat-reply button:hover { opacity:.88; }
+        .delete-convo-btn {
+            height:28px; padding:0 12px;
+            background:#fef2f2; color:#dc2626;
+            border:1px solid #fecaca; border-radius:7px;
+            font-size:11px; font-weight:700; cursor:pointer;
+            display:flex; align-items:center; gap:4px;
+        }
+        .delete-convo-btn:hover { background:#fee2e2; }
     </style>
 </head>
 <body>
@@ -84,7 +99,7 @@
                 <button class="hamburger" id="menuToggle">&#9776;</button>
                 <div>
                     <div class="topbar-title">Messages</div>
-                    <div class="topbar-subtitle">All user conversations</div>
+                    <div class="topbar-subtitle">All user conversations ({{ conversations|length }})</div>
                 </div>
             </div>
         </div>
@@ -93,34 +108,40 @@
             {% if conversations %}
             <div class="msg-list">
                 {% for conv in conversations %}
-                <div class="msg-card">
+                <div class="msg-card" data-convo-id="{{ conv.id }}">
                     <div class="msg-card-head" onclick="toggleMsg(this)">
-                        <div class="msg-card-head-left">
+                        <div>
                             <div class="msg-card-title">
-                                {{ conv.full_name or '—' }} &mdash; {{ conv.cat_name or '—' }}
-                                {% if conv.has_unread %}<span class="msg-unread-badge">New</span>{% endif %}
+                                <i class="fas fa-user-circle" style="color:var(--primary);"></i>
+                                {{ conv.full_name or '—' }} &mdash;
+                                <i class="fas fa-cat" style="color:#7c3aed;"></i>
+                                {{ conv.cat_name or '—' }}
+                                {% if conv.has_unread %}
+                                <span class="msg-unread-badge">New</span>
+                                {% endif %}
                             </div>
-                            <div class="msg-card-sub">Request #{{ conv.id }} &bull; {{ conv.status }}</div>
+                            <div class="msg-card-sub">
+                                {{ conv.email or '' }}
+                                &bull; {{ conv.messages|length }} message{{ 's' if conv.messages|length != 1 }}
+                            </div>
                         </div>
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <a href="{{ url_for('admin_requests') }}" style="font-size:11px;color:var(--primary);" onclick="event.stopPropagation()">View Request</a>
-                            <i class="fas fa-chevron-down msg-arrow"></i>
-                        </div>
+                        <i class="fas fa-chevron-down msg-arrow"></i>
                     </div>
 
                     <div class="msg-body">
                         {% if conv.messages %}
-                        <div class="chat-msgs">
+                        <div class="chat-msgs" id="chat-{{ conv.id }}">
                             {% for msg in conv.messages %}
-                            <div>
-                                <div class="chat-msg {% if msg.sender == 'admin' %}chat-admin{% else %}chat-user{% endif %}">
-                                    <strong>{{ 'Admin' if msg.sender == 'admin' else conv.full_name or 'User' }}:</strong> {{ msg.message }}
+                            <div class="bubble-wrap-{{ 'admin' if msg.sender == 'admin' else 'user' }}">
+                                <div>
+                                    <div class="bubble bubble-{{ 'admin' if msg.sender == 'admin' else 'user' }}">
+                                        {{ msg.message }}
+                                    </div>
+                                    <div class="bubble-meta">
+                                        {{ 'You (Admin)' if msg.sender == 'admin' else conv.full_name or 'User' }}
+                                        {% if msg.created_at %} · {{ msg.created_at.strftime('%b %d, %I:%M %p') }}{% endif %}
+                                    </div>
                                 </div>
-                                {% if msg.created_at %}
-                                <div class="chat-time" style="text-align:{% if msg.sender == 'admin' %}right{% else %}left{% endif %};">
-                                    {{ msg.created_at.strftime('%b %d, %I:%M %p') }}
-                                </div>
-                                {% endif %}
                             </div>
                             {% endfor %}
                         </div>
@@ -129,9 +150,18 @@
                         {% endif %}
 
                         <div class="chat-reply">
-                            <form method="POST" action="{{ url_for('send_message', req_id=conv.id) }}" style="display:contents;">
+                            <form method="POST" action="{{ url_for('admin_convo_reply', convo_id=conv.id) }}" style="display:contents;">
                                 <input type="text" name="message" placeholder="Reply to {{ conv.full_name or 'user' }}..." required>
                                 <button type="submit"><i class="fas fa-paper-plane"></i> Send</button>
+                            </form>
+                        </div>
+
+                        <div style="padding:6px 14px 10px;border-top:1px solid var(--border);background:#f8fafc;display:flex;justify-content:flex-end;">
+                            <form method="POST" action="{{ url_for('admin_delete_convo', convo_id=conv.id) }}"
+                                  onsubmit="return confirm('Delete this conversation and all its messages?')">
+                                <button type="submit" class="delete-convo-btn">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
                             </form>
                         </div>
                     </div>
@@ -160,9 +190,11 @@ function toggleMsg(header) {
     const isOpen = body.classList.toggle('open');
     arrow.classList.toggle('open', isOpen);
     if (isOpen) {
-        // scroll chat to bottom
-        const chat = body.querySelector('.chat-msgs');
+        const convoId = header.closest('.msg-card').dataset.convoId;
+        const chat = document.getElementById('chat-' + convoId);
         if (chat) chat.scrollTop = chat.scrollHeight;
+        const badge = header.querySelector('.msg-unread-badge');
+        if (badge) badge.remove();
     }
 }
 </script>

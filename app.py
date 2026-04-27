@@ -663,24 +663,112 @@ def admin_delete_request(req_id):
 def admin_messages():
     if not admin_required():
         return redirect(url_for("login"))
+    db = _admin_db()
+    conversations = []
     try:
-        ar_data = _fetch_requests(_admin_db())
-        conversations = build_request_cards(ar_data, admin=True)
-        # Mark all user messages as read
-        try:
-            _admin_db().table("messages").update({"read": True}).eq("sender", "user").eq("read", False).execute()
-        except Exception:
-            pass
-        # Flag which conversations have unread messages
-        for conv in conversations:
-            conv["has_unread"] = any(
-                not m.get("read", True) and m.get("sender") == "user"
-                for m in (conv.get("messages") or [])
-            )
+        convo_rows = db.table("conversations") \
+            .select("id, user_id, cat_id, created_at") \
+            .order("created_at", desc=True).execute().data or []
+
+        if convo_rows:
+            convo_ids = [c["id"] for c in convo_rows]
+            user_ids  = list({c["user_id"] for c in convo_rows if c.get("user_id")})
+            cat_ids   = list({c["cat_id"]  for c in convo_rows if c.get("cat_id")})
+
+            users_by_id = {}
+            if user_ids:
+                u_rows = db.table("users").select("id, full_name, email") \
+                    .in_("id", user_ids).execute().data or []
+                users_by_id = {r["id"]: r for r in u_rows}
+
+            cats_by_id = {}
+            if cat_ids:
+                c_rows = db.table("cats").select("id, name") \
+                    .in_("id", cat_ids).execute().data or []
+                cats_by_id = {r["id"]: r["name"] for r in c_rows}
+
+            msg_rows = db.table("messages") \
+                .select("id, conversation_id, sender, message, created_at, is_read") \
+                .in_("conversation_id", convo_ids) \
+                .order("created_at").execute().data or []
+
+            msgs_by_convo = {cid: [] for cid in convo_ids}
+            for m in msg_rows:
+                msgs_by_convo.setdefault(m["conversation_id"], []).append({
+                    "id":         m.get("id"),
+                    "sender":     m.get("sender") or "user",
+                    "message":    m.get("message") or "",
+                    "created_at": parse_dt(m.get("created_at")),
+                    "is_read":    m.get("is_read", True),
+                })
+
+            for c in convo_rows:
+                msgs = msgs_by_convo.get(c["id"], [])
+                user = users_by_id.get(c["user_id"], {})
+                has_unread = any(
+                    not m["is_read"] and m["sender"] == "user" for m in msgs
+                )
+                conversations.append({
+                    "id":        c["id"],
+                    "user_id":   c["user_id"],
+                    "cat_id":    c["cat_id"],
+                    "full_name": user.get("full_name") or "Unknown User",
+                    "email":     user.get("email") or "",
+                    "cat_name":  cats_by_id.get(c["cat_id"], "Unknown Cat"),
+                    "messages":  msgs,
+                    "has_unread": has_unread,
+                })
+
+        # Mark all user messages as read now that admin has opened the page
+        if convo_rows:
+            try:
+                db.table("messages").update({"is_read": True}) \
+                    .eq("sender", "user").eq("is_read", False) \
+                    .in_("conversation_id", [c["id"] for c in convo_rows]).execute()
+            except Exception:
+                pass
+
     except Exception as e:
         log.error("admin_messages failed: %s", e)
-        conversations = []
     return render_template("admin_messages.html", conversations=conversations, active_page="messages")
+
+
+# ------------------------------------------------------------------ admin reply in conversation --
+
+@app.route("/admin/convo/reply/<int:convo_id>", methods=["POST"])
+def admin_convo_reply(convo_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+    text = request.form.get("message", "").strip()
+    if not text:
+        flash("Message cannot be empty.", "error")
+        return redirect(url_for("admin_messages"))
+    try:
+        _admin_db().table("messages").insert({
+            "conversation_id": convo_id,
+            "sender": "admin",
+            "message": text,
+        }).execute()
+    except Exception as e:
+        log.error("admin_convo_reply(%s) failed: %s", convo_id, e)
+        flash("Failed to send message.", "error")
+    return redirect(url_for("admin_messages"))
+
+
+# ------------------------------------------------------------------ admin delete conversation --
+
+@app.route("/admin/convo/delete/<int:convo_id>", methods=["POST"])
+def admin_delete_convo(convo_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+    try:
+        _admin_db().table("messages").delete().eq("conversation_id", convo_id).execute()
+        _admin_db().table("conversations").delete().eq("id", convo_id).execute()
+        flash("Conversation deleted.", "success")
+    except Exception as e:
+        log.error("admin_delete_convo(%s) failed: %s", convo_id, e)
+        flash("Failed to delete conversation.", "error")
+    return redirect(url_for("admin_messages"))
 
 
 
@@ -984,7 +1072,7 @@ def api_admin_badges():
     except Exception:
         pending = 0
     try:
-        unread = len(_admin_db().table("messages").select("id").eq("sender", "user").eq("read", False).execute().data or [])
+        unread = len(_admin_db().table("messages").select("id").eq("sender", "user").eq("is_read", False).execute().data or [])
     except Exception:
         unread = 0
     return jsonify({"pending_requests": pending, "unread_messages": unread})
