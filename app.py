@@ -131,13 +131,18 @@ def get_user_profile(user_id):
 
 def upload_valid_id(file, user_id):
     try:
-        filename = secure_filename(f"uid_{user_id}_{file.filename}")
+        import uuid
+        ext = file.filename.rsplit(".", 1)[-1].lower()
+        filename = f"{uuid.uuid4()}_{user_id}.{ext}"
         file_bytes = file.read()
-        supabase.storage.from_(STORAGE_BUCKET).upload(
+        client = supabase_admin or supabase
+        client.storage.from_(STORAGE_BUCKET).upload(
             filename, file_bytes,
             {"content-type": file.content_type, "upsert": "true"}
         )
-        return supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
+        public_url = client.storage.from_(STORAGE_BUCKET).get_public_url(filename)
+        log.warning("upload_valid_id: saved %s/%s for user %s", STORAGE_BUCKET, filename, user_id)
+        return public_url
     except Exception as e:
         log.error("upload_valid_id(%s) failed: %s", user_id, e)
         return None
