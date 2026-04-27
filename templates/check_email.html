@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Your Email — Cat Adoption</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+</head>
+<body>
+<div class="auth-page">
+
+    <div class="auth-left">
+        <div class="auth-left-bg" id="authBg"></div>
+        <div class="auth-left-overlay"></div>
+        <img class="paw paw-1" src="{{ url_for('static', filename='images/logo.png') }}" alt="">
+        <img class="paw paw-2" src="{{ url_for('static', filename='images/logo.png') }}" alt="">
+        <img class="paw paw-3" src="{{ url_for('static', filename='images/logo.png') }}" alt="">
+        <div class="auth-left-content">
+            <img class="auth-brand-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Cat Adoption logo">
+            <h1 class="auth-brand-title">Almost there!</h1>
+            <p class="auth-brand-sub">One last step before you can adopt your perfect companion.</p>
+        </div>
+    </div>
+
+    <div class="auth-right">
+        <div class="auth-card">
+            <h2 class="auth-heading">Check your email</h2>
+            <p class="auth-subheading">
+                We sent a verification link to your email address.<br>
+                Click the link to verify your account, then come back to sign in.
+            </p>
+            <a href="{{ url_for('login') }}" class="btn btn-auth" style="display:block;text-align:center;margin-top:1.5rem;">
+                Go to Sign In
+            </a>
+            <p class="auth-switch" style="margin-top:1rem;">
+                Wrong email? <a href="{{ url_for('register') }}">Register again</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('authBg').style.backgroundImage =
+    "url('{{ url_for('static', filename='images/cat6.jpg') }}')";
+</script>
+</body>
+</html>

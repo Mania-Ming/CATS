@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email — Cat Adoption</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
+    <style>
+        .otp-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .otp-box {
+            width: 50px;
+            height: 55px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+            outline: none;
+            transition: 0.2s;
+            background: var(--input-bg, #fff);
+            color: var(--text, #111);
+        }
+        .otp-box:focus {
+            border-color: #ff6b3d;
+            box-shadow: 0 0 5px rgba(255, 107, 61, 0.5);
+        }
+        .otp-box.filled {
+            border-color: #ff6b3d;
+            background: #fff7ed;
+        }
+        #submitBtn:disabled { opacity: .5; cursor: default; }
+    </style>
+</head>
+<body>
+<div class="auth-page">
+
+    <div class="auth-left">
+        <div class="auth-left-bg" id="authBg"></div>
+        <div class="auth-left-overlay"></div>
+        <img class="paw paw-1" src="{{ url_for('static', filename='images/logo.png') }}" alt="">
+        <img class="paw paw-2" src="{{ url_for('static', filename='images/logo.png') }}" alt="">
+        <img class="paw paw-3" src="{{ url_for('static', filename='images/logo.png') }}" alt="">
+        <div class="auth-left-content">
+            <img class="auth-brand-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Cat Adoption logo">
+            <h1 class="auth-brand-title">Check Your Email</h1>
+            <p class="auth-brand-sub">We sent a 6-digit code to your inbox.</p>
+        </div>
+    </div>
+
+    <div class="auth-right">
+        <div class="auth-card">
+            <h2 class="auth-heading">Enter verification code</h2>
+            {% if email %}
+            <p class="auth-subheading">Code sent to <strong>{{ email }}</strong></p>
+            {% else %}
+            <p class="auth-subheading">Check your inbox for the 6-digit code.</p>
+            {% endif %}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% for category, message in messages %}
+                <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">{{ message }}</div>
+              {% endfor %}
+            {% endwith %}
+
+            {% if error %}
+            <div class="alert alert-error">⚠ {{ error }}</div>
+            {% endif %}
+
+            <form method="POST" id="otp-form">
+                <input type="hidden" name="otp" id="otp-hidden">
+
+                <div class="otp-container">
+                    <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="off" autofocus>
+                    <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="off">
+                    <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="off">
+                    <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="off">
+                    <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="off">
+                    <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="off">
+                </div>
+
+                <button type="submit" class="btn btn-auth" id="submitBtn" disabled>Verify &amp; Continue</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('authBg').style.backgroundImage =
+    "url('{{ url_for('static', filename='images/cat3.jpg') }}')";
+
+const inputs     = document.querySelectorAll('.otp-box');
+const hiddenInput = document.getElementById('otp-hidden');
+const submitBtn  = document.getElementById('submitBtn');
+
+function updateOTP() {
+    let otp = '';
+    inputs.forEach(input => otp += input.value);
+    hiddenInput.value = otp;
+    submitBtn.disabled = otp.length !== 6;
+    inputs.forEach(input => input.classList.toggle('filled', input.value !== ''));
+}
+
+inputs.forEach((input, index) => {
+    input.addEventListener('input', () => {
+        input.value = input.value.replace(/[^0-9]/g, '');
+        if (input.value && index < inputs.length - 1) {
+            inputs[index + 1].focus();
+        }
+        updateOTP();
+    });
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !input.value && index > 0) {
+            inputs[index - 1].focus();
+        }
+    });
+
+    input.addEventListener('paste', e => {
+        e.preventDefault();
+        const digits = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+        digits.split('').forEach((d, j) => { if (inputs[j]) inputs[j].value = d; });
+        updateOTP();
+        inputs[Math.min(digits.length, 5)].focus();
+    });
+});
+
+document.getElementById('otp-form').addEventListener('submit', e => {
+    if (hiddenInput.value.length !== 6) e.preventDefault();
+});
+</script>
+</body>
+</html>

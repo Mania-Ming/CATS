@@ -1,12 +1,9 @@
 import os
 import time
-import smtplib
 import logging
 from datetime import datetime
-from email.message import EmailMessage
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
 from supabase_client import supabase as _supabase_client, supabase_admin as _supabase_admin
 
 _log_level = os.environ.get("LOG_LEVEL", "WARNING").upper()
@@ -51,13 +48,6 @@ COMPLETE_PHOTO_BUCKET = "adoption-completions"
 GCASH_NUMBER   = os.environ.get("GCASH_NUMBER", "09XX-XXX-XXXX")
 GCASH_NAME     = os.environ.get("GCASH_NAME",   "Cat Adoption PH")
 DELIVERY_FEE   = int(os.environ.get("DELIVERY_FEE", "50"))  # configurable delivery fee in PHP
-
-SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "").strip()
-SMTP_PASS = os.environ.get("SMTP_PASS", "").strip()
-SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER or "no-reply@catadoption.local").strip()
-SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").strip().lower() != "false"
 
 ADOPTION_REQUEST_COLUMNS = (
     "id, user_id, cat_id, status, created_at, payment_status, payment_proof, payment_method, "
@@ -176,26 +166,6 @@ def upload_public_file(bucket, path, file_bytes, content_type):
     )
     return client.storage.from_(bucket).get_public_url(path)
 
-
-def send_email_notification(to_email, subject, body):
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASS and to_email):
-        log.info("Email skipped for %s subject=%s due to missing SMTP config.", to_email, subject)
-        return False
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = SMTP_FROM
-        msg["To"] = to_email
-        msg.set_content(body)
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
-            if SMTP_USE_TLS:
-                smtp.starttls()
-            smtp.login(SMTP_USER, SMTP_PASS)
-            smtp.send_message(msg)
-        return True
-    except Exception as e:
-        log.error("send_email_notification(%s) failed: %s", to_email, e)
-        return False
 
 
 def fetch_messages_for_requests(request_ids, admin=False):
@@ -417,33 +387,6 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
     return cards
 
 
-def notify_request_update(card, event_name):
-    if not card or not card.get("email"):
-        return
-    detail_lines = [
-        f"Cat: {card.get('cat_name')}",
-        f"Payment status: {card.get('payment_status')}",
-        f"Payment method: {card.get('payment_method')}",
-        f"Delivery method: {card.get('delivery_method')}",
-    ]
-    if card.get("delivery_method") == "Meet-up":
-        detail_lines.extend([
-            f"Meet-up location: {card.get('meetup_location') or 'TBA'}",
-            f"Meet-up date: {card.get('meetup_date') or 'TBA'}",
-            f"Meet-up time: {card.get('meetup_time') or 'TBA'}",
-            f"Map link: {card.get('meetup_map_link') or 'Not yet provided'}",
-        ])
-    else:
-        detail_lines.extend([
-            f"Delivery address: {card.get('address') or 'TBA'}",
-            f"Delivery status: {card.get('delivery_status') or 'Preparing'}",
-        ])
-    send_email_notification(
-        card.get("email"),
-        f"{event_name} for {card.get('cat_name')}",
-        "\n".join(detail_lines),
-    )
-
 
 # ------------------------------------------------------------------ browse --
 
@@ -483,26 +426,31 @@ def login():
             return redirect(url_for("admin_dashboard"))
         return redirect(url_for("dashboard"))
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
+        email    = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
         if not email or not password:
             return render_template("login.html", error="Please fill all fields")
         try:
-            res = supabase.table("users").select("*").eq("email", email).execute()
-            user = res.data[0] if res.data else None
-        except Exception as e:
-            log.error("login — users fetch failed: %s", e)
-            return render_template("login.html", error="Something went wrong. Please try again.")
-
-        if user and check_password_hash(user.get("password", ""), password):
+            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+            if res.user.email_confirmed_at is None:
+                return render_template("login.html", error="Please verify your email first.")
+            user_data = supabase.table("users").select("role").eq("email", email).single().execute().data
+            role = user_data["role"] if user_data else "user"
             session.clear()
-            session["user_id"] = user["id"]
-            session["email"]   = user["email"]
-            session["role"]    = user.get("role") or "user"
-            if session["role"] == "admin":
+            session["user_id"] = res.user.id
+            session["email"]   = res.user.email
+            session["role"]    = role
+            if role == "admin":
                 return redirect(url_for("admin_dashboard"))
             return redirect(url_for("dashboard"))
-        return render_template("login.html", error="Invalid email or password")
+        except Exception as e:
+            err = str(e)
+            print("LOGIN ERROR:", err)
+            if "Invalid login credentials" in err:
+                return render_template("login.html", error="Invalid email or password")
+            if "Email not confirmed" in err:
+                return render_template("login.html", error="Please verify your email first")
+            return render_template("login.html", error=err)
     return render_template("login.html")
 
 
@@ -619,9 +567,6 @@ def admin_schedule(req_id):
             "meetup_location":  meetup_location or None,
             "meetup_map_link":  meetup_map_link or None,
         }).eq("id", req_id).execute()
-        latest = fetch_request_row(req_id, admin=True)
-        if latest:
-            notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Meet-up scheduled")
         flash("Meet-up scheduled.", "success")
     except Exception as e:
         log.error("admin_schedule(%s) failed: %s", req_id, e)
@@ -641,9 +586,6 @@ def admin_complete(req_id):
         db.table("adoption_requests").update({"status": "Completed"}).eq("id", req_id).execute()
         if ar and ar.get("cat_id"):
             db.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
-        latest = fetch_request_row(req_id, admin=True)
-        if latest:
-            notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Adoption completed")
         flash("Adoption marked as Completed.", "success")
     except Exception as e:
         log.error("admin_complete(%s) failed: %s", req_id, e)
@@ -879,55 +821,52 @@ def register():
         email    = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         fullname = request.form.get("fullname", "").strip()
-
-        log.warning("register — received: email=%s fullname=%s password_len=%d",
-                    email, fullname, len(password))
-
         if not email or not password or not fullname:
             return render_template("register.html", error="Please fill all fields")
-
         if len(password) < 6:
             return render_template("register.html", error="Password must be at least 6 characters")
-
-        if supabase is None:
-            log.error("register — supabase client is None")
-            return render_template("register.html", error="Service unavailable.")
-
         try:
-            existing = supabase.table("users").select("id").eq("email", email).execute()
-            log.warning("register — duplicate check: %s", existing.data)
-            if existing.data:
-                return render_template("register.html", error="Email already registered")
-        except Exception as e:
-            log.error("DUPLICATE CHECK ERROR: %s", str(e))
-            log.error("FULL ERROR: %r", e)
-            return render_template("register.html", error="Registration failed.")
-
-        try:
-            res = supabase.table("users").insert({
+            res = supabase.auth.sign_up({
                 "email": email,
-                "password": generate_password_hash(password),
-                "full_name": fullname,
-            }).execute()
-
-            log.warning("INSERT RAW RESPONSE: %s", res)
-            log.warning("INSERT DATA: %s", res.data)
-
-            if not res.data:
-                log.error("INSERT FAILED — EMPTY DATA")
-                if hasattr(res, "error"):
-                    log.error("SUPABASE ERROR: %s", res.error)
-                return render_template("register.html", error="Registration failed. Check logs.")
-
+                "password": password,
+                "options": {"data": {"full_name": fullname}},
+            })
+            if res.user:
+                session["pending_verify_email"] = email
+                flash("Enter the verification code sent to your email.", "success")
+                return redirect(url_for("verify"))
+            else:
+                return render_template("register.html", error="Registration failed.")
         except Exception as e:
-            log.error("INSERT EXCEPTION: %s", str(e))
-            log.error("FULL INSERT ERROR: %r", e)
-            return render_template("register.html", error="Registration failed. Check logs.")
-
-        flash("Account created! Please login.", "success")
-        return redirect(url_for("login"))
-
+            return render_template("register.html", error=str(e))
     return render_template("register.html")
+
+
+# ------------------------------------------------------------------ verify --
+
+@app.route("/verify", methods=["GET", "POST"])
+def verify():
+    email = session.get("pending_verify_email")
+    if not email:
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        otp = request.form.get("otp", "").strip()
+        if not otp:
+            return render_template("verify.html", error="Enter the code.", email=email)
+        try:
+            res = supabase.auth.verify_otp({
+                "email": email,
+                "token": otp,
+                "type": "signup",
+            })
+            if res.user:
+                session.pop("pending_verify_email", None)
+                flash("Email verified! You can now login.", "success")
+                return redirect(url_for("login"))
+        except Exception as e:
+            log.error("verify failed: %s", e)
+            return render_template("verify.html", error="Invalid or expired code.", email=email)
+    return render_template("verify.html", email=email)
 
 
 # ------------------------------------------------------------------ dashboard --
@@ -1202,10 +1141,6 @@ def admin_update_payment(req_id):
         _admin_db().table("adoption_requests").update(
             {"payment_status": new_payment_status}
         ).eq("id", req_id).execute()
-        if new_payment_status == "Paid":
-            latest = fetch_request_row(req_id, admin=True)
-            if latest:
-                notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Payment confirmed")
         flash(f"Payment status updated to {new_payment_status}.", "success")
     except Exception as e:
         log.error("admin_update_payment(%s) failed: %s", req_id, e)
@@ -1241,9 +1176,6 @@ def admin_update_delivery(req_id):
             "rider_contact": rider_contact,
             "rider_phone": rider_contact,
         })
-        latest = fetch_request_row(req_id, admin=True)
-        if latest and delivery_status == "Delivered":
-            notify_request_update(build_request_cards([latest], admin=True, include_messages=False)[0], "Delivery confirmed")
         flash(f"Delivery status updated to {delivery_status}.", "success")
     except Exception as e:
         log.error("admin_update_delivery(%s) failed: %s", req_id, e)
@@ -1606,6 +1538,10 @@ def delete_account():
 
 @app.route("/logout")
 def logout():
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
     session.clear()
     return redirect(url_for("login"))
 
