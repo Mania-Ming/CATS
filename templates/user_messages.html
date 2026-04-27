@@ -220,11 +220,20 @@ function toggleMsg(header) {
     if (isOpen) {
         const chat = body.querySelector('.chat-msgs');
         if (chat) chat.scrollTop = chat.scrollHeight;
-        // Remove "New" badge and mark as read
         const badge = header.querySelector('.msg-unread-badge');
         if (badge) badge.remove();
         const reqId = header.closest('.msg-card').dataset.reqId;
         if (reqId) fetch('/api/mark_read/' + reqId, { method: 'POST' }).catch(() => {});
+    }
+}
+
+// Auto-open thread if cat_id was passed
+const autoOpenId = {{ auto_open_id | tojson }};
+if (autoOpenId) {
+    const card = document.querySelector('[data-req-id="' + autoOpenId + '"]');
+    if (card) {
+        const head = card.querySelector('.msg-card-head');
+        if (head) { toggleMsg(head); card.scrollIntoView({behavior:'smooth', block:'center'}); }
     }
 }
 </script>

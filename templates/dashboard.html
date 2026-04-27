@@ -6,6 +6,17 @@
     <title>Dashboard — Cat Adoption</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" referrerpolicy="no-referrer">
+    <style>
+    .msg-btn {
+        display:inline-flex; align-items:center; justify-content:center;
+        margin-top:8px; padding:4px 10px;
+        background:#f97316; color:#fff;
+        border:none; border-radius:20px;
+        font-size:12px; font-weight:600; cursor:pointer;
+        gap:4px; transition:opacity .15s;
+    }
+    .msg-btn:hover { opacity:.85; }
+    </style>
 </head>
 <body>
 
@@ -59,7 +70,8 @@
                  role="{% if is_adopted %}img{% else %}button{% endif %}"
                  tabindex="{% if is_adopted %}-1{% else %}0{% endif %}"
                  aria-label="{{ cat.name }}{% if is_adopted %} — Adopted{% endif %}"
-                 {% if not is_adopted %}data-cat-id="{{ cat.id }}"{% endif %}>
+                 {% if not is_adopted %}data-cat-id="{{ cat.id }}"{% endif %}
+                 style="position:relative;">
                 <div class="cat-card-img-wrap">
                     {% set img = cat.image or 'cat1.jpg' %}
                     <img src="{% if img.startswith('http') %}{{ img }}{% else %}{{ url_for('static', filename='images/' ~ img) }}{% endif %}"
@@ -94,6 +106,9 @@
                         <span class="cat-badge" style="background:#f0fdf4;color:#15803d;border-color:#bbf7d0;">Available</span>
                         {% endif %}
                     </div>
+                    {% if not is_adopted %}
+                    <button class="msg-btn" onclick="event.stopPropagation(); messageCat('{{ cat.id }}')" title="Message about this cat">💬</button>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -241,6 +256,7 @@ document.getElementById("menuToggle").addEventListener("click", function() {
 
 // Cat card click via data attribute (avoids Jinja inside inline handlers)
 document.addEventListener('click', function(e) {
+    if (e.target.closest('.msg-btn')) return;
     const card = e.target.closest('[data-cat-id]');
     if (card) openBreedDetail(parseInt(card.dataset.catId));
 });
@@ -249,6 +265,10 @@ document.addEventListener('keydown', function(e) {
     const card = e.target.closest('[data-cat-id]');
     if (card) openBreedDetail(parseInt(card.dataset.catId));
 });
+
+function messageCat(catId) {
+    window.location.href = '/user/messages?cat_id=' + catId;
+}
 
 // ── Delivery method + fee ──────────────────────────────────
 const DELIVERY_FEE = parseInt("{{ delivery_fee }}", 10) || 0;
