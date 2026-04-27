@@ -1,3 +1,20 @@
+<style>
+.nav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: auto;
+}
+</style>
+
 <aside class="sidebar admin-sidebar" id="sidebar">
     <div class="sidebar-brand">
         <img src="{{ url_for('static', filename='images/logo.png') }}" class="logo-icon" alt="Cat Adoption">
@@ -14,8 +31,13 @@
         <a href="{{ url_for('admin_users') }}" class="nav-item {{ 'active' if active_page == 'users' }}">
             <i class="fas fa-users nav-icon"></i> Manage Users
         </a>
-        <a href="{{ url_for('admin_requests') }}" class="nav-item {{ 'active' if active_page == 'requests' }}">
+        <a href="{{ url_for('admin_requests') }}" class="nav-item {{ 'active' if active_page == 'requests' }}" style="display:flex;align-items:center;">
             <i class="fas fa-clipboard-list nav-icon"></i> Adoption Requests
+            <span class="nav-badge" id="badge-requests" style="display:none;"></span>
+        </a>
+        <a href="{{ url_for('admin_requests') }}" class="nav-item" style="display:flex;align-items:center;">
+            <i class="fas fa-comments nav-icon"></i> Messages
+            <span class="nav-badge" id="badge-messages" style="display:none;"></span>
         </a>
     </nav>
     <div class="sidebar-footer">
@@ -24,3 +46,28 @@
         </a>
     </div>
 </aside>
+
+<script>
+(function pollBadges() {
+    fetch('/api/admin/badges')
+        .then(r => r.json())
+        .then(data => {
+            const rb = document.getElementById('badge-requests');
+            const mb = document.getElementById('badge-messages');
+            if (data.pending_requests > 0) {
+                rb.textContent = data.pending_requests;
+                rb.style.display = 'inline-flex';
+            } else {
+                rb.style.display = 'none';
+            }
+            if (data.unread_messages > 0) {
+                mb.textContent = data.unread_messages;
+                mb.style.display = 'inline-flex';
+            } else {
+                mb.style.display = 'none';
+            }
+        })
+        .catch(() => {});
+    setTimeout(pollBadges, 30000);
+})();
+</script>

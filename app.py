@@ -893,7 +893,76 @@ def verify():
     return render_template("verify.html", email=email)
 
 
-# ------------------------------------------------------------------ dashboard --
+# ------------------------------------------------------------------ forgot password --
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        if not email:
+            return render_template("forgot_password.html", error="Please enter your email.")
+        try:
+            supabase.auth.reset_password_email(
+                email,
+                {"redirect_to": url_for("reset_password", _external=True)}
+            )
+        except Exception as e:
+            log.error("forgot_password failed: %s", e)
+        flash("If that email exists, a reset link has been sent.", "success")
+        return redirect(url_for("forgot_password"))
+    return render_template("forgot_password.html")
+
+
+@app.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+    if request.method == "POST":
+        password = request.form.get("password", "").strip()
+        if not password or len(password) < 6:
+            return render_template("reset_password.html", error="Password must be at least 6 characters.")
+        access_token = session.get("reset_access_token")
+        if not access_token:
+            flash("Reset session expired. Please request a new link.", "error")
+            return redirect(url_for("forgot_password"))
+        try:
+            from supabase_client import SUPABASE_URL, SUPABASE_KEY
+            from supabase import create_client
+            client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            client.auth.set_session(access_token, session.get("reset_refresh_token", ""))
+            client.auth.update_user({"password": password})
+            session.pop("reset_access_token", None)
+            session.pop("reset_refresh_token", None)
+            flash("Password updated! You can now login.", "success")
+            return redirect(url_for("login"))
+        except Exception as e:
+            log.error("reset_password failed: %s", e)
+            return render_template("reset_password.html", error="Failed to reset password. Please request a new link.")
+    # Supabase redirects here with tokens in the URL fragment — capture via JS
+    access_token = request.args.get("access_token")
+    refresh_token = request.args.get("refresh_token")
+    if access_token:
+        session["reset_access_token"]  = access_token
+        session["reset_refresh_token"] = refresh_token or ""
+    return render_template("reset_password.html")
+
+
+# ------------------------------------------------------------------ admin badges API --
+
+@app.route("/api/admin/badges")
+def api_admin_badges():
+    if not admin_required():
+        return jsonify({"pending_requests": 0, "unread_messages": 0})
+    try:
+        pending = len(_admin_db().table("adoption_requests").select("id").eq("status", "Pending").execute().data or [])
+    except Exception:
+        pending = 0
+    try:
+        unread = len(_admin_db().table("messages").select("id").eq("sender", "user").eq("read", False).execute().data or [])
+    except Exception:
+        unread = 0
+    return jsonify({"pending_requests": pending, "unread_messages": unread})
+
+
+
 
 @app.route("/dashboard")
 def dashboard():
