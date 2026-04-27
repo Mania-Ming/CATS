@@ -1565,7 +1565,29 @@ def adopt_request():
     return redirect(url_for("dashboard"))
 
 
-# ------------------------------------------------------------------ history --
+# ------------------------------------------------------------------ user messages --
+
+@app.route("/user/messages")
+def user_messages():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    try:
+        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
+        conversations = build_request_cards(ar_data, admin=False)
+        for conv in conversations:
+            conv["has_unread"] = any(
+                m.get("sender") == "admin" for m in (conv.get("messages") or [])
+            )
+        # Only show requests that have messages
+        conversations = [c for c in conversations if c.get("messages")]
+    except Exception as e:
+        log.error("user_messages failed: %s", e)
+        conversations = []
+    return render_template("user_messages.html", conversations=conversations,
+                           user=get_user_profile(session["user_id"]), active_page="messages")
+
+
+
 
 @app.route("/history")
 def history():

@@ -617,38 +617,6 @@
                         </div>
                         {% endif %}
 
-                        <!-- Messages (collapsible, default CLOSED) -->
-                        <div class="hsection">
-                            <div class="hsection-toggle hsection-title" onclick="toggleSection(this)" style="margin-bottom:0;">
-                                <span>
-                                    <i class="fas fa-comments" style="color:var(--primary);"></i> Messages
-                                    {% set unread_count = req.messages | selectattr('sender', 'equalto', 'admin') | list | length %}
-                                    {% if unread_count > 0 %}
-                                    <span style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:4px;">{{ unread_count }}</span>
-                                    {% endif %}
-                                </span>
-                                <i class="fas fa-chevron-down toggle-chevron"></i>
-                            </div>
-                            <div class="hsection-body">
-                                <div class="chat-msgs">
-                                    {% if req.messages %}
-                                        {% for msg in req.messages %}
-                                        <div class="chat-msg {% if msg.sender == 'admin' %}chat-admin{% else %}chat-user{% endif %}">
-                                            <strong>{{ 'Admin' if msg.sender == 'admin' else 'You' }}:</strong> {{ msg.message }}
-                                            <span class="chat-meta">{{ msg.created_at.strftime('%b %d, %I:%M %p') if msg.created_at else '' }}</span>
-                                        </div>
-                                        {% endfor %}
-                                    {% else %}
-                                        <span class="chat-empty">No messages yet.</span>
-                                    {% endif %}
-                                </div>
-                                <form method="POST" action="{{ url_for('send_message', req_id=req.id) }}" class="chat-form">
-                                    <input type="text" name="message" placeholder="Send a message to admin..." required>
-                                    <button type="submit" class="hbtn hbtn-primary"><i class="fas fa-paper-plane"></i> Send</button>
-                                </form>
-                            </div>
-                        </div>
-
                     </div><!-- /hcard-body -->
                 </div>
                 {% endfor %}
