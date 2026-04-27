@@ -432,8 +432,6 @@ def login():
             return render_template("login.html", error="Please fill all fields")
         try:
             res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-            if res.user.email_confirmed_at is None:
-                return render_template("login.html", error="Please verify your email first.")
             user_data = supabase.table("users").select("role").eq("email", email).single().execute().data
             role = user_data["role"] if user_data else "user"
             session.clear()
@@ -832,9 +830,8 @@ def register():
                 "options": {"data": {"full_name": fullname}},
             })
             if res.user:
-                session["pending_verify_email"] = email
-                flash("Enter the verification code sent to your email.", "success")
-                return redirect(url_for("verify"))
+                flash("Account created! You can now sign in.", "success")
+                return redirect(url_for("login"))
             else:
                 return render_template("register.html", error="Registration failed.")
         except Exception as e:
