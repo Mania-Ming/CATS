@@ -152,13 +152,13 @@
                         {% endif %}
 
                         <div class="chat-reply">
-                            <form method="POST" action="{{ url_for('send_message', req_id=conv.id) }}" style="display:contents;">
+                            <form method="POST" action="{{ url_for('convo_reply', convo_id=conv.id) }}" style="display:contents;">
                                 <input type="text" name="message" placeholder="Type a message..." required>
                                 <button type="submit"><i class="fas fa-paper-plane"></i> Send</button>
                             </form>
                         </div>
                         <div style="padding:6px 16px 10px;border-top:1px solid var(--border);background:#fafbff;display:flex;justify-content:flex-end;">
-                            <form method="POST" action="{{ url_for('delete_thread', req_id=conv.id) }}"
+                            <form method="POST" action="{{ url_for('delete_thread', convo_id=conv.id) }}"
                                   onsubmit="return confirm('Delete this conversation?')">
                                 <button type="submit" style="height:28px;padding:0 12px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;">
                                     <i class="fas fa-trash"></i> Delete Thread

@@ -960,12 +960,14 @@ def api_user_unread_messages():
     if "user_id" not in session:
         return jsonify({"unread": 0})
     try:
-        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
-        # Exclude soft-deleted threads from badge count
-        request_ids = [r["id"] for r in ar_data if r.get("id") and not r.get("user_deleted_chat")]
-        if not request_ids:
+        convo_rows = supabase.table("conversations").select("id") \
+            .eq("user_id", session["user_id"]).execute().data or []
+        if not convo_rows:
             return jsonify({"unread": 0})
-        rows = supabase.table("messages").select("id").eq("sender", "admin").eq("read", False).in_("adoption_id", request_ids).execute().data or []
+        convo_ids = [r["id"] for r in convo_rows]
+        rows = supabase.table("messages").select("id") \
+            .eq("sender", "admin").eq("is_read", False) \
+            .in_("conversation_id", convo_ids).execute().data or []
         return jsonify({"unread": len(rows)})
     except Exception:
         return jsonify({"unread": 0})
@@ -1566,28 +1568,75 @@ def adopt_request():
     return redirect(url_for("dashboard"))
 
 
-# ------------------------------------------------------------------ delete thread --
+# ------------------------------------------------------------------ conversations helper --
 
-@app.route("/delete_thread/<int:req_id>", methods=["POST"])
-def delete_thread(req_id):
+def _get_or_create_convo(user_id, cat_id):
+    """Return existing conversation id or create a new one."""
+    existing = supabase.table("conversations") \
+        .select("id") \
+        .eq("user_id", user_id) \
+        .eq("cat_id", int(cat_id)) \
+        .execute().data
+    if existing:
+        return existing[0]["id"]
+    result = supabase.table("conversations").insert({
+        "user_id": user_id,
+        "cat_id":  int(cat_id),
+    }).execute()
+    return result.data[0]["id"]
+
+
+# ------------------------------------------------------------------ delete conversation --
+
+@app.route("/delete_thread/<int:convo_id>", methods=["POST"])
+def delete_thread(convo_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
     try:
-        supabase.table("messages").delete().eq("adoption_id", req_id).execute()
-        # Soft-delete: hide thread from user's view without removing the request
-        try:
-            supabase.table("adoption_requests").update({"user_deleted_chat": True}) \
-                .eq("id", req_id).eq("user_id", session["user_id"]).execute()
-        except Exception:
-            pass  # column may not exist yet; messages are still cleared
+        supabase.table("messages").delete().eq("conversation_id", convo_id).execute()
+        supabase.table("conversations").delete() \
+            .eq("id", convo_id).eq("user_id", session["user_id"]).execute()
         flash("Conversation deleted.", "success")
     except Exception as e:
-        log.error("delete_thread(%s) failed: %s", req_id, e)
+        log.error("delete_thread(%s) failed: %s", convo_id, e)
         flash("Failed to delete conversation.", "error")
     return redirect(url_for("user_messages"))
 
 
-# ------------------------------------------------------------------ send first message (from cat card modal) --
+# ------------------------------------------------------------------ reply in conversation --
+
+@app.route("/convo/reply/<int:convo_id>", methods=["POST"])
+def convo_reply(convo_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    text = request.form.get("message", "").strip()
+    if not text:
+        flash("Message cannot be empty.", "error")
+        return redirect(url_for("user_messages"))
+    try:
+        supabase.table("messages").insert({
+            "conversation_id": convo_id,
+            "sender": "user",
+            "message": text,
+        }).execute()
+    except Exception as e:
+        log.error("convo_reply(%s) failed: %s", convo_id, e)
+        flash("Failed to send message.", "error")
+    return redirect(url_for("user_messages"))
+
+
+# ------------------------------------------------------------------ mark messages read --
+
+@app.route("/api/mark_read/<int:convo_id>", methods=["POST"])
+def api_mark_read(convo_id):
+    if "user_id" not in session:
+        return jsonify({"ok": False}), 401
+    try:
+        supabase.table("messages").update({"is_read": True}) \
+            .eq("conversation_id", convo_id).eq("sender", "admin").execute()
+    except Exception:
+        pass
+    return jsonify({"ok": True})
 
 @app.route("/api/send-first-message", methods=["POST"])
 def api_send_first_message():
@@ -1600,58 +1649,13 @@ def api_send_first_message():
         return jsonify({"ok": False, "error": "cat_id and message are required"}), 400
     user_id = session["user_id"]
     try:
-        # Find any existing adoption_request for this user + cat
-        rows = _fetch_requests(supabase, filters={"user_id": user_id})
-        row  = next((r for r in rows if str(r.get("cat_id")) == str(cat_id)), None)
-
-        if row:
-            req_id = row["id"]
-            # Restore soft-deleted thread if needed
-            if row.get("user_deleted_chat"):
-                try:
-                    supabase.table("adoption_requests").update({"user_deleted_chat": False}) \
-                        .eq("id", req_id).eq("user_id", user_id).execute()
-                except Exception:
-                    pass
-        else:
-            # No adoption request exists — create a lightweight chat-only thread
-            profile = get_user_profile(user_id)
-            insert_payload = {
-                "user_id":        user_id,
-                "cat_id":         int(cat_id),
-                "status":         "Chat",
-                "full_name":      profile[3] if profile else "",
-                "email":          profile[1] if profile else "",
-                "contact_number": profile[4] if profile else "",
-                "address":        profile[5] if profile else "",
-                "reason":         "Direct message",
-                "experience_with_pets": "",
-                "payment_status": "Pending Payment",
-                "payment_method": "Cash on Arrival",
-                "delivery_method": "Meet-up",
-            }
-            try:
-                result = supabase.table("adoption_requests").insert(insert_payload).execute()
-            except Exception:
-                # Retry with minimal fields if optional columns fail
-                result = supabase.table("adoption_requests").insert({
-                    "user_id":  user_id,
-                    "cat_id":   int(cat_id),
-                    "status":   "Chat",
-                    "reason":   "Direct message",
-                    "experience_with_pets": "",
-                    "payment_status": "Pending Payment",
-                    "payment_method": "Cash on Arrival",
-                    "delivery_method": "Meet-up",
-                }).execute()
-            req_id = result.data[0]["id"]
-
+        convo_id = _get_or_create_convo(user_id, cat_id)
         supabase.table("messages").insert({
-            "adoption_id": req_id,
-            "sender":      "user",
-            "message":     text,
+            "conversation_id": convo_id,
+            "sender": "user",
+            "message": text,
         }).execute()
-        return jsonify({"ok": True, "cat_id": cat_id})
+        return jsonify({"ok": True, "cat_id": cat_id, "convo_id": convo_id})
     except Exception as e:
         log.error("api_send_first_message failed: %s", e)
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -1676,61 +1680,80 @@ def api_mark_read(req_id):
 def user_messages():
     if "user_id" not in session:
         return redirect(url_for("login"))
-    user_id = session["user_id"]
-    cat_id = request.args.get("cat_id")
+    user_id  = session["user_id"]
+    cat_id   = request.args.get("cat_id")
     auto_open_id = None
+    conversations = []
     try:
-        ar_data = _fetch_requests(supabase, filters={"user_id": user_id})
-
-        # If cat_id provided, restore a previously deleted thread so user can message again
+        # If cat_id passed, ensure a conversation exists then redirect cleanly
         if cat_id:
-            for row in ar_data:
-                if str(row.get("cat_id")) == str(cat_id) and row.get("user_deleted_chat"):
-                    try:
-                        supabase.table("adoption_requests").update({"user_deleted_chat": False}) \
-                            .eq("id", row["id"]).eq("user_id", user_id).execute()
-                        row["user_deleted_chat"] = False
-                    except Exception:
-                        pass
+            convo_id = _get_or_create_convo(user_id, cat_id)
+            auto_open_id = convo_id
 
-        # Filter out soft-deleted threads
-        ar_data = [r for r in ar_data if not r.get("user_deleted_chat")]
+        # Fetch all conversations for this user
+        convo_rows = supabase.table("conversations") \
+            .select("id, cat_id, created_at") \
+            .eq("user_id", user_id) \
+            .order("created_at", desc=True) \
+            .execute().data or []
 
-        conversations = build_request_cards(ar_data, admin=False)
+        if convo_rows:
+            convo_ids = [c["id"] for c in convo_rows]
+            cat_ids   = list({c["cat_id"] for c in convo_rows if c.get("cat_id")})
 
-        # Compute unread BEFORE marking as read
-        request_ids = [c["id"] for c in conversations if c.get("id")]
-        unread_ids = set()
-        if request_ids:
+            # Fetch cat names
+            cats_by_id = {}
+            if cat_ids:
+                cat_rows = supabase.table("cats").select("id, name") \
+                    .in_("id", cat_ids).execute().data or []
+                cats_by_id = {r["id"]: r["name"] for r in cat_rows}
+
+            # Fetch messages grouped by conversation
+            msg_rows = supabase.table("messages") \
+                .select("id, conversation_id, sender, message, created_at, is_read") \
+                .in_("conversation_id", convo_ids) \
+                .order("created_at").execute().data or []
+
+            msgs_by_convo = {cid: [] for cid in convo_ids}
+            for m in msg_rows:
+                msgs_by_convo.setdefault(m["conversation_id"], []).append({
+                    "id":         m.get("id"),
+                    "sender":     m.get("sender") or "user",
+                    "message":    m.get("message") or "",
+                    "created_at": parse_dt(m.get("created_at")),
+                    "is_read":    m.get("is_read", True),
+                })
+
+            # Mark admin messages as read
             try:
-                unread_rows = supabase.table("messages").select("adoption_id") \
-                    .eq("sender", "admin").eq("read", False) \
-                    .in_("adoption_id", request_ids).execute().data or []
-                unread_ids = {r["adoption_id"] for r in unread_rows}
+                supabase.table("messages").update({"is_read": True}) \
+                    .eq("sender", "admin").eq("is_read", False) \
+                    .in_("conversation_id", convo_ids).execute()
             except Exception:
                 pass
 
-        for conv in conversations:
-            conv["has_unread"] = conv["id"] in unread_ids
+            for c in convo_rows:
+                msgs = msgs_by_convo.get(c["id"], [])
+                if not msgs:
+                    continue  # hide empty conversations
+                has_unread = any(
+                    not m["is_read"] and m["sender"] == "admin" for m in msgs
+                )
+                conversations.append({
+                    "id":        c["id"],
+                    "cat_id":    c["cat_id"],
+                    "cat_name":  cats_by_id.get(c["cat_id"], "Unknown Cat"),
+                    "messages":  msgs,
+                    "has_unread": has_unread,
+                })
 
-        # Only show threads that have messages
-        conversations = [c for c in conversations if c.get("messages")]
-
-        # Mark all as read now that we've computed badges
-        if request_ids:
-            try:
-                supabase.table("messages").update({"read": True}) \
-                    .eq("sender", "admin").in_("adoption_id", request_ids).execute()
-            except Exception:
-                pass
-
-        if cat_id:
-            match = next((c for c in conversations if str(c.get("cat_id")) == str(cat_id)), None)
+        if cat_id and not auto_open_id:
+            match = next((c for c in conversations if str(c["cat_id"]) == str(cat_id)), None)
             if match:
                 auto_open_id = match["id"]
+
     except Exception as e:
         log.error("user_messages failed: %s", e)
-        conversations = []
     return render_template("user_messages.html", conversations=conversations,
                            user=get_user_profile(user_id),
                            active_page="messages", auto_open_id=auto_open_id)

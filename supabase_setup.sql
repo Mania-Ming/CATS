@@ -304,3 +304,28 @@ create policy "completion_anon_insert"
 alter table messages add column if not exists read boolean default false;
 alter table adoption_requests add column if not exists user_deleted_chat boolean default false;
 
+-- ============================================================
+-- CONVERSATIONS TABLE (independent from adoption_requests)
+-- Run in Supabase SQL Editor
+-- ============================================================
+create table if not exists conversations (
+  id bigint primary key generated always as identity,
+  user_id uuid references users(id) on delete cascade,
+  cat_id bigint references cats(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique (user_id, cat_id)
+);
+
+-- Drop old adoption_id FK on messages and add conversation_id
+alter table messages add column if not exists conversation_id bigint references conversations(id) on delete cascade;
+alter table messages add column if not exists is_read boolean default false;
+
+-- RLS for conversations
+alter table conversations enable row level security;
+create policy "convos_insert" on conversations for insert to anon with check (true);
+create policy "convos_select" on conversations for select to anon using (true);
+create policy "convos_delete" on conversations for delete to anon using (true);
+
+-- Allow update on messages (for marking is_read)
+create policy "allow_messages_update" on messages for update to anon using (true);
+
