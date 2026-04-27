@@ -1587,6 +1587,39 @@ def delete_thread(req_id):
     return redirect(url_for("user_messages"))
 
 
+# ------------------------------------------------------------------ send first message (from cat card modal) --
+
+@app.route("/api/send-first-message", methods=["POST"])
+def api_send_first_message():
+    if "user_id" not in session:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    data = request.get_json(force=True) or {}
+    cat_id = data.get("cat_id")
+    text   = (data.get("message") or "").strip()
+    if not cat_id or not text:
+        return jsonify({"ok": False, "error": "cat_id and message are required"}), 400
+    user_id = session["user_id"]
+    try:
+        rows = _fetch_requests(supabase, filters={"user_id": user_id})
+        row  = next((r for r in rows if str(r.get("cat_id")) == str(cat_id)), None)
+        if not row:
+            return jsonify({"ok": False, "error": "No adoption request found for this cat. Please submit an adoption request first."}), 404
+        req_id = row["id"]
+        # Restore soft-deleted thread if needed
+        if row.get("user_deleted_chat"):
+            supabase.table("adoption_requests").update({"user_deleted_chat": False}) \
+                .eq("id", req_id).eq("user_id", user_id).execute()
+        supabase.table("messages").insert({
+            "adoption_id": req_id,
+            "sender": "user",
+            "message": text,
+        }).execute()
+        return jsonify({"ok": True, "cat_id": cat_id})
+    except Exception as e:
+        log.error("api_send_first_message failed: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 # ------------------------------------------------------------------ mark messages read --
 
 @app.route("/api/mark_read/<int:req_id>", methods=["POST"])
