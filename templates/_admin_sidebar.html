@@ -35,7 +35,7 @@
             <i class="fas fa-clipboard-list nav-icon"></i> Adoption Requests
             <span class="nav-badge" id="badge-requests" style="display:none;"></span>
         </a>
-        <a href="{{ url_for('admin_requests') }}" class="nav-item" style="display:flex;align-items:center;">
+        <a href="/admin/messages" class="nav-item {{ 'active' if active_page == 'messages' }}" style="display:flex;align-items:center;">
             <i class="fas fa-comments nav-icon"></i> Messages
             <span class="nav-badge" id="badge-messages" style="display:none;"></span>
         </a>

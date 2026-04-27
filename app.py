@@ -657,7 +657,33 @@ def admin_delete_request(req_id):
     return redirect(url_for("admin_requests"))
 
 
-# ------------------------------------------------------------------ admin requests page --
+# ------------------------------------------------------------------ admin messages --
+
+@app.route("/admin/messages")
+def admin_messages():
+    if not admin_required():
+        return redirect(url_for("login"))
+    try:
+        ar_data = _fetch_requests(_admin_db())
+        conversations = build_request_cards(ar_data, admin=True)
+        # Mark all user messages as read
+        try:
+            _admin_db().table("messages").update({"read": True}).eq("sender", "user").eq("read", False).execute()
+        except Exception:
+            pass
+        # Flag which conversations have unread messages
+        for conv in conversations:
+            conv["has_unread"] = any(
+                not m.get("read", True) and m.get("sender") == "user"
+                for m in (conv.get("messages") or [])
+            )
+    except Exception as e:
+        log.error("admin_messages failed: %s", e)
+        conversations = []
+    return render_template("admin_messages.html", conversations=conversations, active_page="messages")
+
+
+
 
 @app.route("/admin/requests")
 def admin_requests():

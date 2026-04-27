@@ -394,12 +394,6 @@
                             </button>
                             {% endif %}
 
-                            <!-- Chat toggle -->
-                            <button type="button" class="act-btn ab-ghost" style="width:100%;justify-content:center;" onclick="toggleChat({{ sid }})">
-                                <i class="fas fa-comment-dots"></i> Messages
-                                {% if r.messages %}<span style="background:#7c3aed;color:#fff;border-radius:10px;padding:0 5px;font-size:9px;margin-left:2px;">{{ r.messages|length }}</span>{% endif %}
-                            </button>
-
                             <div class="act-divider"></div>
 
                             <!-- Complete + Delete -->
@@ -529,26 +523,7 @@
                     </div>
                     {% endif %}
 
-                    <!-- Chat (collapsible) -->
-                    <div id="chat-{{ sid }}" style="display:none;padding:0 12px 10px;">
-                        <div class="chat-wrap">
-                            <div class="chat-msgs">
-                                {% if r.messages %}
-                                    {% for msg in r.messages %}
-                                    <div class="chat-msg {% if msg.sender == 'admin' %}chat-admin{% else %}chat-user{% endif %}">
-                                        <strong>{{ 'Admin' if msg.sender == 'admin' else 'User' }}:</strong> {{ msg.message }}
-                                    </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <span class="chat-empty">No messages yet.</span>
-                                {% endif %}
-                            </div>
-                            <form method="POST" action="{{ url_for('send_message', req_id=r.id) }}" style="display:flex;gap:5px;">
-                                <input type="text" name="message" class="act-inp" placeholder="Reply to user..." required style="flex:1;">
-                                <button type="submit" class="act-btn ab-purple"><i class="fas fa-paper-plane"></i> Send</button>
-                            </form>
-                        </div>
-                    </div>
+
 
                 </div>
                 {% endfor %}
