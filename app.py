@@ -1,5 +1,6 @@
 import os
 import time
+import random
 import logging
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
@@ -62,8 +63,28 @@ ADOPTION_REQUEST_COLUMNS_EXT = (
     "rider_name, rider_contact, delivery_photo_url, delivery_status"
 )
 
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+ADMIN_USERNAME  = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD  = os.environ.get("ADMIN_PASSWORD", "admin123")
+GMAIL_USER      = os.environ.get("GMAIL_USER", "")
+GMAIL_APP_PASS  = os.environ.get("GMAIL_APP_PASSWORD", "")
+
+
+def send_verification_email(to_email, user_name, code):
+    if not GMAIL_USER or not GMAIL_APP_PASS:
+        log.warning("GMAIL_USER or GMAIL_APP_PASSWORD not set — skipping email")
+        return
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    html = render_template("email_verification.html", user_name=user_name, code=code)
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Your Verification Code - Cat Adoption PH"
+    msg["From"]    = f"Cat Adoption PH <{GMAIL_USER}>"
+    msg["To"]      = to_email
+    msg.attach(MIMEText(html, "html"))
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(GMAIL_USER, GMAIL_APP_PASS)
+        smtp.sendmail(GMAIL_USER, to_email, msg.as_string())
 
 
 # ------------------------------------------------------------------ helpers --
@@ -830,8 +851,17 @@ def register():
                 "options": {"data": {"full_name": fullname}},
             })
             if res.user:
-                flash("Account created! You can now sign in.", "success")
-                return redirect(url_for("login"))
+                code = str(random.randint(100000, 999999))
+                session["pending_verify_email"]    = email
+                session["pending_verify_name"]     = fullname
+                session["pending_verify_code"]     = code
+                session["pending_verify_expires"]  = time.time() + 600  # 10 min
+                try:
+                    send_verification_email(email, fullname, code)
+                except Exception as mail_err:
+                    log.error("send_verification_email failed: %s", mail_err)
+                flash("Enter the verification code sent to your email.", "success")
+                return redirect(url_for("verify"))
             else:
                 return render_template("register.html", error="Registration failed.")
         except Exception as e:
@@ -850,19 +880,16 @@ def verify():
         otp = request.form.get("otp", "").strip()
         if not otp:
             return render_template("verify.html", error="Enter the code.", email=email)
-        try:
-            res = supabase.auth.verify_otp({
-                "email": email,
-                "token": otp,
-                "type": "signup",
-            })
-            if res.user:
-                session.pop("pending_verify_email", None)
-                flash("Email verified! You can now login.", "success")
-                return redirect(url_for("login"))
-        except Exception as e:
-            log.error("verify failed: %s", e)
-            return render_template("verify.html", error="Invalid or expired code.", email=email)
+        stored_code    = session.get("pending_verify_code", "")
+        expires_at     = session.get("pending_verify_expires", 0)
+        if time.time() > expires_at:
+            return render_template("verify.html", error="Code expired. Please register again.", email=email)
+        if otp != stored_code:
+            return render_template("verify.html", error="Invalid code. Please try again.", email=email)
+        for key in ("pending_verify_email", "pending_verify_name", "pending_verify_code", "pending_verify_expires"):
+            session.pop(key, None)
+        flash("Email verified! You can now sign in.", "success")
+        return redirect(url_for("login"))
     return render_template("verify.html", email=email)
 
 

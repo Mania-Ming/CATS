@@ -2,4 +2,3 @@ flask
 supabase
 python-dotenv
 werkzeug
-resend
