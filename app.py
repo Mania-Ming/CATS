@@ -953,7 +953,24 @@ def reset_password():
     )
 
 
-# ------------------------------------------------------------------ admin badges API --
+# ------------------------------------------------------------------ user unread messages API --
+
+@app.route("/api/user/unread_messages")
+def api_user_unread_messages():
+    if "user_id" not in session:
+        return jsonify({"unread": 0})
+    try:
+        ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
+        request_ids = [r["id"] for r in ar_data if r.get("id")]
+        if not request_ids:
+            return jsonify({"unread": 0})
+        rows = supabase.table("messages").select("id").eq("sender", "admin").in_("adoption_id", request_ids).execute().data or []
+        return jsonify({"unread": len(rows)})
+    except Exception:
+        return jsonify({"unread": 0})
+
+
+
 
 @app.route("/api/admin/badges")
 def api_admin_badges():
