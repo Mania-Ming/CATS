@@ -842,6 +842,47 @@ def register():
     return render_template("register.html")
 
 
+# ------------------------------------------------------------------ verify login (2FA) --
+
+@app.route("/verify-login", methods=["GET", "POST"])
+def verify_login():
+    email = session.get("pending_2fa_email")
+    if not email:
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        otp = request.form.get("otp", "").strip()
+        if not otp:
+            return render_template("verify_login.html", error="Enter the code.", email=email)
+        try:
+            res = supabase.auth.verify_otp({"email": email, "token": otp, "type": "email"})
+            if res.user:
+                user_data = supabase.table("users").select("role").eq("email", email).single().execute().data
+                role = (user_data or {}).get("role", "user")
+                session.pop("pending_2fa_email", None)
+                session["user_id"] = res.user.id
+                session["email"]   = res.user.email
+                session["role"]    = role
+                return redirect(url_for("admin_dashboard" if role == "admin" else "dashboard"))
+        except Exception as e:
+            log.error("verify_login failed: %s", e)
+            return render_template("verify_login.html", error="Invalid or expired code.", email=email)
+    return render_template("verify_login.html", email=email)
+
+
+@app.route("/verify-login/resend")
+def verify_login_resend():
+    email = session.get("pending_2fa_email")
+    if not email:
+        return redirect(url_for("login"))
+    try:
+        supabase.auth.resend({"type": "email", "email": email})
+        flash("A new code has been sent to your email.", "success")
+    except Exception as e:
+        log.error("verify_login_resend failed: %s", e)
+        flash("Failed to resend code. Please try again.", "error")
+    return redirect(url_for("verify_login"))
+
+
 # ------------------------------------------------------------------ verify --
 
 @app.route("/verify", methods=["GET", "POST"])
