@@ -913,31 +913,13 @@ def forgot_password():
     return render_template("forgot_password.html")
 
 
-@app.route("/reset-password", methods=["GET", "POST"])
+@app.route("/reset-password", methods=["GET"])
 def reset_password():
-    if request.method == "POST":
-        password = request.form.get("password", "").strip()
-        access_token = request.form.get("access_token", "").strip()
-        refresh_token = request.form.get("refresh_token", "").strip()
-        if not password or len(password) < 6:
-            return render_template("reset_password.html", error="Password must be at least 6 characters.",
-                                   access_token=access_token, refresh_token=refresh_token)
-        if not access_token:
-            flash("Reset session expired. Please request a new link.", "error")
-            return redirect(url_for("forgot_password"))
-        try:
-            from supabase_client import SUPABASE_URL, SUPABASE_KEY
-            from supabase import create_client
-            client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            client.auth.set_session(access_token, refresh_token)
-            client.auth.update_user({"password": password})
-            flash("Password updated! You can now login.", "success")
-            return redirect(url_for("login"))
-        except Exception as e:
-            log.error("reset_password failed: %s", e)
-            return render_template("reset_password.html", error="Failed to reset password. Please request a new link.",
-                                   access_token=access_token, refresh_token=refresh_token)
-    return render_template("reset_password.html")
+    return render_template(
+        "reset_password.html",
+        SUPABASE_URL=os.environ.get("SUPABASE_URL", ""),
+        SUPABASE_KEY=os.environ.get("SUPABASE_KEY", ""),
+    )
 
 
 # ------------------------------------------------------------------ admin badges API --
