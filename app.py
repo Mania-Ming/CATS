@@ -1072,7 +1072,11 @@ def api_admin_badges():
     except Exception:
         pending = 0
     try:
-        unread = len(_admin_db().table("messages").select("id").eq("sender", "user").eq("is_read", False).execute().data or [])
+        # Only count unread messages that belong to a conversation (conversation_id is not null)
+        rows = _admin_db().table("messages").select("id") \
+            .eq("sender", "user").eq("is_read", False) \
+            .not_.is_("conversation_id", "null").execute().data or []
+        unread = len(rows)
     except Exception:
         unread = 0
     return jsonify({"pending_requests": pending, "unread_messages": unread})

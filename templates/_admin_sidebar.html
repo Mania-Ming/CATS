@@ -54,20 +54,24 @@
         .then(data => {
             const rb = document.getElementById('badge-requests');
             const mb = document.getElementById('badge-messages');
-            if (data.pending_requests > 0) {
-                rb.textContent = data.pending_requests;
-                rb.style.display = 'inline-flex';
-            } else {
-                rb.style.display = 'none';
+            if (rb) {
+                if (data.pending_requests > 0) {
+                    rb.textContent = data.pending_requests;
+                    rb.style.display = 'inline-flex';
+                } else {
+                    rb.style.display = 'none';
+                }
             }
-            if (data.unread_messages > 0) {
-                mb.textContent = data.unread_messages;
-                mb.style.display = 'inline-flex';
-            } else {
-                mb.style.display = 'none';
+            if (mb) {
+                if (data.unread_messages > 0) {
+                    mb.textContent = data.unread_messages;
+                    mb.style.display = 'inline-flex';
+                } else {
+                    mb.style.display = 'none';
+                }
             }
         })
         .catch(() => {});
-    setTimeout(pollBadges, 30000);
+    setTimeout(pollBadges, 15000);
 })();
 </script>
