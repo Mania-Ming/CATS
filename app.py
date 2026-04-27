@@ -964,7 +964,7 @@ def api_user_unread_messages():
         request_ids = [r["id"] for r in ar_data if r.get("id")]
         if not request_ids:
             return jsonify({"unread": 0})
-        rows = supabase.table("messages").select("id").eq("sender", "admin").in_("adoption_id", request_ids).execute().data or []
+        rows = supabase.table("messages").select("id").eq("sender", "admin").eq("read", False).in_("adoption_id", request_ids).execute().data or []
         return jsonify({"unread": len(rows)})
     except Exception:
         return jsonify({"unread": 0})
@@ -1565,7 +1565,36 @@ def adopt_request():
     return redirect(url_for("dashboard"))
 
 
-# ------------------------------------------------------------------ user messages --
+# ------------------------------------------------------------------ delete thread --
+
+@app.route("/delete_thread/<int:req_id>", methods=["POST"])
+def delete_thread(req_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    try:
+        # Only delete messages, keep the adoption request intact
+        supabase.table("messages").delete().eq("adoption_id", req_id).execute()
+        flash("Conversation deleted.", "success")
+    except Exception as e:
+        log.error("delete_thread(%s) failed: %s", req_id, e)
+        flash("Failed to delete conversation.", "error")
+    return redirect(url_for("user_messages"))
+
+
+# ------------------------------------------------------------------ mark messages read --
+
+@app.route("/api/mark_read/<int:req_id>", methods=["POST"])
+def api_mark_read(req_id):
+    if "user_id" not in session:
+        return jsonify({"ok": False}), 401
+    try:
+        supabase.table("messages").update({"read": True}).eq("adoption_id", req_id).eq("sender", "admin").execute()
+    except Exception:
+        pass
+    return jsonify({"ok": True})
+
+
+
 
 @app.route("/user/messages")
 def user_messages():
