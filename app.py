@@ -1603,11 +1603,15 @@ def user_messages():
     try:
         ar_data = _fetch_requests(supabase, filters={"user_id": session["user_id"]})
         conversations = build_request_cards(ar_data, admin=False)
+        request_ids = [c["id"] for c in conversations if c.get("id")]
+        # Mark all admin messages as read on page load
+        if request_ids:
+            try:
+                supabase.table("messages").update({"read": True}).eq("sender", "admin").in_("adoption_id", request_ids).execute()
+            except Exception:
+                pass
         for conv in conversations:
-            conv["has_unread"] = any(
-                m.get("sender") == "admin" for m in (conv.get("messages") or [])
-            )
-        # Only show requests that have messages
+            conv["has_unread"] = False
         conversations = [c for c in conversations if c.get("messages")]
     except Exception as e:
         log.error("user_messages failed: %s", e)
