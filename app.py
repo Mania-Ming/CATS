@@ -1657,6 +1657,7 @@ DELIVERY_PHOTO_BUCKET = "delivery-photos"
 def admin_upload_delivery_photo(req_id):
     if not admin_required():
         return redirect(url_for("login"))
+    import uuid
     file = request.files.get("delivery_photo")
     if not file or not file.filename.strip():
         flash("Please choose a photo.", "error")
@@ -1673,8 +1674,14 @@ def admin_upload_delivery_photo(req_id):
         flash("Photo exceeds 2 MB limit.", "error")
         return redirect(url_for("admin_requests"))
     try:
-        path = f"delivery_{req_id}_{int(time.time())}.{ext}"
-        public_url = upload_public_file(DELIVERY_PHOTO_BUCKET, path, file_bytes, file.content_type)
+        client = _storage_client()
+        file_name = f"{uuid.uuid4()}_{req_id}.{ext}"
+        client.storage.from_(DELIVERY_PHOTO_BUCKET).upload(
+            file_name,
+            file_bytes,
+            {"content-type": file.content_type}
+        )
+        public_url = client.storage.from_(DELIVERY_PHOTO_BUCKET).get_public_url(file_name)
         _admin_db().table("adoption_requests").update({
             "delivery_photo_url": public_url,
             "delivery_status":    "Delivered",
