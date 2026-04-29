@@ -90,6 +90,10 @@ def send_verification_email(to_email, user_name, code):
 def send_status_email(to_email, user_name, subject, body_html):
     """Generic status notification email."""
     if not GMAIL_USER or not GMAIL_APP_PASS:
+        log.warning("send_status_email: GMAIL_USER or GMAIL_APP_PASSWORD not set — skipping email to %s", to_email)
+        return
+    if not to_email or "@" not in to_email:
+        log.warning("send_status_email: invalid or missing recipient email — skipping")
         return
     try:
         import smtplib
@@ -109,6 +113,7 @@ def send_status_email(to_email, user_name, subject, body_html):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(GMAIL_USER, GMAIL_APP_PASS)
             smtp.sendmail(GMAIL_USER, to_email, msg.as_string())
+        log.warning("send_status_email: sent '%s' to %s", subject, to_email)
     except Exception as e:
         log.error("send_status_email to %s failed: %s", to_email, e)
 
@@ -132,13 +137,18 @@ def notify_adoption_status(to_email, user_name, cat_name, adoption_status, extra
 
 def notify_delivery_scheduled(to_email, user_name, cat_name, delivery_date, time_start,
                                time_end, rider_name, rider_contact, delivery_address, delivery_status):
+    if not to_email:
+        log.warning("notify_delivery_scheduled: no email address for request — skipping")
+        return
+    log.warning("notify_delivery_scheduled: sending delivery email to %s for cat '%s'", to_email, cat_name)
     def _row(label, value):
         return f"<tr><td style='padding:4px 8px;color:#64748b;'>{label}</td><td style='padding:4px 8px;'><strong>{value or '—'}</strong></td></tr>"
+    time_window = f"{time_start} – {time_end}" if time_start and time_end else (time_start or "—")
     table = f"""
     <p>Your delivery for <strong>{cat_name}</strong> has been scheduled. Details below:</p>
     <table style='border-collapse:collapse;width:100%;margin:12px 0;'>
         {_row('Delivery Date', delivery_date)}
-        {_row('Time Window', f'{time_start} – {time_end}' if time_start else time_start)}
+        {_row('Time Window', time_window)}
         {_row('Rider', rider_name)}
         {_row('Rider Contact', rider_contact)}
         {_row('Delivery Address', delivery_address)}
