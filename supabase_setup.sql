@@ -263,6 +263,12 @@ alter table adoption_requests add column if not exists delivery_photo_url text;
 ALTER TABLE adoption_requests
   DROP CONSTRAINT IF EXISTS check_payment_status;
 
+-- Migrate any legacy/invalid values to 'Pending Payment' before adding constraint
+UPDATE adoption_requests
+  SET payment_status = 'Pending Payment'
+  WHERE payment_status IS NULL
+     OR payment_status NOT IN ('Pending Payment', 'For Verification', 'Paid');
+
 ALTER TABLE adoption_requests
   ADD CONSTRAINT check_payment_status
   CHECK (payment_status IN ('Pending Payment', 'For Verification', 'Paid'));

@@ -281,7 +281,6 @@
                 {% else %}{% set status_cls = 'rb-pending' %}{% endif %}
                 {% if r.payment_status == 'Paid' %}{% set pay_cls = 'rb-pay-paid' %}
                 {% elif r.payment_status == 'For Verification' %}{% set pay_cls = 'rb-pay-verify' %}
-                {% elif r.payment_status == 'Pending' %}{% set pay_cls = 'rb-pay-pending' %}
                 {% else %}{% set pay_cls = 'rb-pay-pending' %}{% endif %}
 
                 <div class="req-card">
