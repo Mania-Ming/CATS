@@ -281,6 +281,15 @@
         }
 
         .upload-status { font-size:11px; min-height:14px; }
+
+        /* ── Footer full-width fix ── */
+        .site-footer {
+            margin-left: calc(-1 * var(--sidebar-w));
+            width: 100vw;
+        }
+        @media (max-width: 768px) {
+            .site-footer { margin-left: 0; width: 100%; }
+        }
     </style>
 </head>
 <body>
