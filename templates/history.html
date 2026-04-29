@@ -573,7 +573,12 @@
                                     {% endif %}
                                 </div>
                                 {% if req.payment_status == 'Paid' %}
-                                {% if req.status == 'Approved' and req.payment_method == 'GCash' %}
+                                <p style="font-size:11px;color:#15803d;font-weight:600;"><i class="fas fa-circle-check"></i> Payment confirmed</p>
+                                {% elif req.payment_status == 'For Verification' %}
+                                <p style="font-size:11px;color:#854d0e;"><i class="fas fa-hourglass-half"></i> Your payment is being verified. Please wait.</p>
+                                {% elif req.payment_status == 'Pending Payment' %}
+                                <p style="font-size:11px;color:var(--text-muted);">Pay {{ 'upon delivery' if is_delivery else 'when you receive your cat' }}. The admin will update your payment status.</p>
+                                {% if req.payment_method == 'GCash' %}
                                 <div class="upload-row">
                                     <input type="file" id="rf_{{ req.id }}" accept=".jpg,.jpeg,.png">
                                     <button type="button" onclick="uploadReceipt({{ req.id }})" class="hbtn hbtn-blue">
@@ -581,20 +586,12 @@
                                     </button>
                                     <span id="rs_{{ req.id }}" class="upload-status"></span>
                                 </div>
-
-                                {% if req.receipt_url %}
-                                <a href="{{ req.receipt_url }}" target="_blank" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">
+                                {% if req.payment_proof %}
+                                <a href="{{ req.payment_proof }}" target="_blank" class="hbtn hbtn-outline" style="height:26px;font-size:10px;">
                                     <i class="fas fa-image"></i> View Receipt
                                 </a>
-                                {% else %}
-                                <p style="font-size:11px;color:#64748b;">No receipt uploaded yet.</p>
                                 {% endif %}
                                 {% endif %}
-                                <p style="font-size:11px;color:#15803d;font-weight:600;"><i class="fas fa-circle-check"></i> Payment confirmed</p>
-                                {% if req.payment_status in ('Pending Payment',) %}
-                                <p style="font-size:11px;color:var(--text-muted);">Pay {{ 'upon delivery' if is_delivery else 'when you receive your cat' }}. The admin will update your payment status.</p>
-                                {% elif req.payment_status == 'For Verification' %}
-                                <p style="font-size:11px;color:#854d0e;"><i class="fas fa-hourglass-half"></i> Your payment is being verified. Please wait.</p>
                                 {% else %}
                                 <p style="font-size:11px;color:var(--text-muted);">Pay {{ 'upon delivery' if is_delivery else 'when you receive your cat' }}. The admin will update your payment status.</p>
                                 {% endif %}

@@ -374,100 +374,104 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
 
     cards = []
     for row in ar_rows:
-        cat = cats_by_id.get(row.get("cat_id"), {})
-        user = users_by_id.get(row.get("user_id"), {})
-        # deliveries table is secondary — adoption_requests is the primary source of truth
-        delivery = deliveries_by_request.get(row.get("id"), {})
+        try:
+            cat = cats_by_id.get(row.get("cat_id") or 0, {})
+            user = users_by_id.get(row.get("user_id") or "", {})
+            # deliveries table is secondary — adoption_requests is the primary source of truth
+            delivery = deliveries_by_request.get(row.get("id"), {})
 
-        payment_status = row.get("payment_status") or "None"
+            payment_status = row.get("payment_status") or "Pending Payment"
 
-        # delivery_method: prefer adoption_requests, fall back to deliveries
-        raw_delivery_method = row.get("delivery_method") or delivery.get("delivery_method") or delivery.get("method") or "Meet-up"
-        delivery_method = "Pick-up" if str(raw_delivery_method).strip().lower() in {"pickup", "pick-up"} else raw_delivery_method
+            # delivery_method: prefer adoption_requests, fall back to deliveries
+            raw_delivery_method = row.get("delivery_method") or delivery.get("delivery_method") or delivery.get("method") or "Meet-up"
+            delivery_method = "Pick-up" if str(raw_delivery_method).strip().lower() in {"pickup", "pick-up"} else raw_delivery_method
 
-        # delivery_status: adoption_requests first, then deliveries
-        delivery_status = (
-            row.get("delivery_status")
-            or delivery.get("delivery_status")
-            or delivery.get("status")
-            or ("Preparing" if delivery_method in ("Delivery", "Pick-up") else None)
-        )
+            # delivery_status: adoption_requests first, then deliveries
+            delivery_status = (
+                row.get("delivery_status")
+                or delivery.get("delivery_status")
+                or delivery.get("status")
+                or ("Preparing" if delivery_method in ("Delivery", "Pick-up") else None)
+            )
 
-        # estimated delivery date: adoption_requests columns first, then deliveries
-        estimated_delivery_date = (
-            row.get("delivery_date")
-            or row.get("estimated_delivery")
-            or delivery.get("delivery_date")
-            or delivery.get("estimated_delivery")
-            or delivery.get("estimated_delivery_date")
-            or delivery.get("scheduled_date")
-        )
+            # estimated delivery date: adoption_requests columns first, then deliveries
+            estimated_delivery_date = (
+                row.get("delivery_date")
+                or row.get("estimated_delivery")
+                or delivery.get("delivery_date")
+                or delivery.get("estimated_delivery")
+                or delivery.get("estimated_delivery_date")
+                or delivery.get("scheduled_date")
+            )
 
-        # rider fields: adoption_requests first, then deliveries
-        rider_name = row.get("rider_name") or delivery.get("rider_name")
-        rider_contact = row.get("rider_contact") or delivery.get("rider_contact") or delivery.get("rider_phone")
+            # rider fields: adoption_requests first, then deliveries
+            rider_name = row.get("rider_name") or delivery.get("rider_name")
+            rider_contact = row.get("rider_contact") or delivery.get("rider_contact") or delivery.get("rider_phone")
 
-        # time window: always from adoption_requests
-        delivery_time_start = row.get("delivery_time_start") or delivery.get("delivery_time_start")
-        delivery_time_end   = row.get("delivery_time_end")   or delivery.get("delivery_time_end")
+            # time window: always from adoption_requests
+            delivery_time_start = row.get("delivery_time_start") or delivery.get("delivery_time_start")
+            delivery_time_end   = row.get("delivery_time_end")   or delivery.get("delivery_time_end")
 
-        # delivery address: adoption_requests first
-        delivery_address = row.get("delivery_address") or delivery.get("delivery_address") or row.get("address") or ""
+            # delivery address: adoption_requests first
+            delivery_address = row.get("delivery_address") or delivery.get("delivery_address") or row.get("address") or ""
 
-        # pickup-specific fields (only relevant for Pick-up method)
-        pickup_location = (
-            delivery.get("pickup_location")
-            or delivery.get("location")
-            or row.get("delivery_address")
-            or row.get("address")
-            or user.get("address")
-        )
-        pickup_contact_person = delivery.get("contact_person") or delivery.get("contact_name") or row.get("rider_name")
-        pickup_contact_number = delivery.get("contact_number") or delivery.get("contact_phone") or row.get("rider_contact")
+            # pickup-specific fields (only relevant for Pick-up method)
+            pickup_location = (
+                delivery.get("pickup_location")
+                or delivery.get("location")
+                or row.get("delivery_address")
+                or row.get("address")
+                or user.get("address")
+            )
+            pickup_contact_person = delivery.get("contact_person") or delivery.get("contact_name") or row.get("rider_name")
+            pickup_contact_number = delivery.get("contact_number") or delivery.get("contact_phone") or row.get("rider_contact")
 
-        payment_method = row.get("payment_method") or ("Cash on Delivery" if delivery_method == "Delivery" else "Cash on Arrival")
+            payment_method = row.get("payment_method") or ("Cash on Delivery" if delivery_method == "Delivery" else "Cash on Arrival")
 
-        card = {
-            "id": row.get("id"),
-            "user_id": row.get("user_id"),
-            "cat_id": row.get("cat_id"),
-            "cat_name": cat.get("name") or "Unknown Cat",
-            "cat_breed": cat.get("breed") or "",
-            "cat_fee": cat.get("adoption_fee"),
-            "status": row.get("status") or "Pending",
-            "created_at": parse_dt(row.get("created_at")),
-            "payment_status": payment_status,
-            "payment_proof": row.get("payment_proof"),
-            "payment_method": payment_method,
-            "delivery_fee": DELIVERY_FEE if delivery_method == "Delivery" else 0,
-            "delivery_method": delivery_method,
-            "delivery_status": delivery_status,
-            "meetup_location": row.get("meetup_location"),
-            "meetup_map_link": row.get("meetup_map_link"),
-            "meetup_date": row.get("meetup_date") or row.get("schedule_date"),
-            "meetup_time": row.get("meetup_time") or row.get("schedule_time"),
-            "full_name": row.get("full_name") or user.get("full_name") or "",
-            "email": row.get("email") or user.get("email") or "",
-            "contact_number": row.get("contact_number") or user.get("phone") or "",
-            "address": row.get("address") or user.get("address") or "",
-            "reason": row.get("reason") or "",
-            "experience_with_pets": row.get("experience_with_pets") or "",
-            "valid_id_url": user.get("valid_id_url"),
-            "completion_photo_url": row.get("completion_photo_url"),
-            "delivery_date": estimated_delivery_date,
-            "estimated_delivery": estimated_delivery_date,
-            "delivery_time_start": delivery_time_start,
-            "delivery_time_end": delivery_time_end,
-            "delivery_address": delivery_address,
-            "rider_name": rider_name,
-            "rider_contact": rider_contact,
-            "pickup_location": pickup_location,
-            "pickup_contact_person": pickup_contact_person,
-            "pickup_contact_number": pickup_contact_number,
-            "delivery_photo_url": row.get("delivery_photo_url"),
-            "messages": messages_by_request.get(row.get("id"), []),
-        }
-        cards.append(card)
+            card = {
+                "id": row.get("id"),
+                "user_id": row.get("user_id"),
+                "cat_id": row.get("cat_id"),
+                "cat_name": cat.get("name") or "Unknown Cat",
+                "cat_breed": cat.get("breed") or "",
+                "cat_fee": cat.get("adoption_fee"),
+                "status": row.get("status") or "Pending",
+                "created_at": parse_dt(row.get("created_at")),
+                "payment_status": payment_status,
+                "payment_proof": row.get("payment_proof"),
+                "payment_method": payment_method,
+                "delivery_fee": DELIVERY_FEE if delivery_method == "Delivery" else 0,
+                "delivery_method": delivery_method,
+                "delivery_status": delivery_status,
+                "meetup_location": row.get("meetup_location"),
+                "meetup_map_link": row.get("meetup_map_link"),
+                "meetup_date": row.get("meetup_date") or row.get("schedule_date"),
+                "meetup_time": row.get("meetup_time") or row.get("schedule_time"),
+                "full_name": row.get("full_name") or user.get("full_name") or "",
+                "email": row.get("email") or user.get("email") or "",
+                "contact_number": row.get("contact_number") or user.get("phone") or "",
+                "address": row.get("address") or user.get("address") or "",
+                "reason": row.get("reason") or "",
+                "experience_with_pets": row.get("experience_with_pets") or "",
+                "valid_id_url": user.get("valid_id_url"),
+                "completion_photo_url": row.get("completion_photo_url"),
+                "delivery_date": estimated_delivery_date,
+                "estimated_delivery": estimated_delivery_date,
+                "delivery_time_start": delivery_time_start,
+                "delivery_time_end": delivery_time_end,
+                "delivery_address": delivery_address,
+                "rider_name": rider_name,
+                "rider_contact": rider_contact,
+                "pickup_location": pickup_location,
+                "pickup_contact_person": pickup_contact_person,
+                "pickup_contact_number": pickup_contact_number,
+                "delivery_photo_url": row.get("delivery_photo_url"),
+                "messages": messages_by_request.get(row.get("id"), []),
+            }
+            cards.append(card)
+        except Exception as e:
+            log.error("build_request_cards row=%s failed: %s", row.get("id"), e)
+            continue
     return cards
 
 
