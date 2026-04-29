@@ -310,7 +310,7 @@
                 {% for req in requests %}
 
                 {% set status_cls = {'Pending':'hb-pending','Approved':'hb-approved','Scheduled':'hb-scheduled','Completed':'hb-completed','Rejected':'hb-rejected'}.get(req.status,'hb-pending') %}
-                {% set pay_cls = {'Paid':'hb-pay-paid','For Verification':'hb-pay-verify','Pending':'hb-pay-pending'}.get(req.payment_status,'hb-pay-pending') %}
+                {% set pay_cls = {'Paid':'hb-pay-paid','For Verification':'hb-pay-verify','Pending Payment':'hb-pay-pending'}.get(req.payment_status,'hb-pay-pending') %}
 
                 <div class="hcard">
 
@@ -591,7 +591,7 @@
                                 {% endif %}
                                 {% endif %}
                                 <p style="font-size:11px;color:#15803d;font-weight:600;"><i class="fas fa-circle-check"></i> Payment confirmed</p>
-                                {% if req.payment_status in ('None', 'Pending') %}
+                                {% if req.payment_status in ('Pending Payment',) %}
                                 <p style="font-size:11px;color:var(--text-muted);">Pay {{ 'upon delivery' if is_delivery else 'when you receive your cat' }}. The admin will update your payment status.</p>
                                 {% elif req.payment_status == 'For Verification' %}
                                 <p style="font-size:11px;color:#854d0e;"><i class="fas fa-hourglass-half"></i> Your payment is being verified. Please wait.</p>

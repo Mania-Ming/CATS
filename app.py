@@ -132,7 +132,7 @@ def notify_adoption_status(to_email, user_name, cat_name, adoption_status):
 
 def notify_payment_status(to_email, user_name, cat_name, payment_status):
     messages = {
-        "Pending":          ("Payment Pending",
+        "Pending Payment":  ("Payment Pending",
                              f"<p>Your payment for <strong>{cat_name}</strong> is now <strong>pending</strong>. Please complete your payment.</p>"),
         "For Verification": ("Payment Under Verification 🔍",
                              f"<p>We received your payment proof for <strong>{cat_name}</strong> and it is currently being <strong>verified</strong>.</p>"),
@@ -691,7 +691,7 @@ def update_status(req_id):
         ar = db.table("adoption_requests").select("cat_id, email, full_name").eq("id", req_id).single().execute().data
         update_payload = {"status": new_status}
         if new_status == "Approved":
-            update_payload["payment_status"] = "Pending"
+            update_payload["payment_status"] = "Pending Payment"
         db.table("adoption_requests").update(update_payload).eq("id", req_id).execute()
         if ar and ar.get("cat_id"):
             if new_status in ("Approved", "Completed"):
@@ -1300,7 +1300,7 @@ def update_payment_method(request_id):
             return jsonify({"error": "Invalid payment method. Must be GCash or COD."}), 400
         supabase.table("adoption_requests").update({
             "payment_method": payment_method,
-            "payment_status": "Pending",
+            "payment_status": "Pending Payment",
         }).eq("id", request_id).eq("user_id", session["user_id"]).execute()
         latest = fetch_request_row(request_id, user_id=session["user_id"])
         if not latest:
@@ -1324,7 +1324,7 @@ def select_payment_method(req_id):
     try:
         supabase.table("adoption_requests").update({
             "payment_method": method,
-            "payment_status": "Pending",
+            "payment_status": "Pending Payment",
         }).eq(
             "id", req_id).eq("user_id", session["user_id"]).execute()
         latest = fetch_request_row(req_id, user_id=session["user_id"])
@@ -1426,7 +1426,7 @@ def admin_update_payment(req_id):
     if not admin_required():
         return redirect(url_for("login"))
     new_payment_status = request.form.get("payment_status")
-    valid = {"None", "Pending", "For Verification", "Paid"}
+    valid = {"Pending Payment", "For Verification", "Paid"}
     if new_payment_status not in valid:
         flash("Invalid payment status.", "error")
         return redirect(url_for("admin_requests"))
@@ -1715,7 +1715,7 @@ def adopt_request():
             "reason": reason,
             "experience_with_pets": experience,
             "status": "Pending",
-            "payment_status": "None",
+            "payment_status": "Pending Payment",
             "payment_method": "Cash on Delivery" if delivery_method == "Delivery" else "Cash on Arrival",
             "delivery_method": delivery_method,
             "delivery_status": "Preparing" if delivery_method in ("Delivery", "Pickup") else None,

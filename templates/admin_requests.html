@@ -374,7 +374,7 @@
                             <form method="POST" action="{{ url_for('admin_update_payment', req_id=r.id) }}">
                                 <div class="act-row">
                                     <select name="payment_status" class="act-sel">
-                                        {% for s in ['None','Pending','For Verification','Paid'] %}
+                                        {% for s in ['Pending Payment','For Verification','Paid'] %}
                                         <option value="{{ s }}" {% if r.payment_status == s %}selected{% endif %}>{{ s }}</option>
                                         {% endfor %}
                                     </select>

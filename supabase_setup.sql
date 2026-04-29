@@ -256,6 +256,18 @@ alter table adoption_requests add column if not exists rider_contact text;
 alter table adoption_requests add column if not exists delivery_photo_url text;
 
 -- ============================================================
+-- PAYMENT STATUS CONSTRAINT FIX
+-- Run in Supabase SQL Editor to align check_payment_status
+-- with the values used by the application.
+-- ============================================================
+ALTER TABLE adoption_requests
+  DROP CONSTRAINT IF EXISTS check_payment_status;
+
+ALTER TABLE adoption_requests
+  ADD CONSTRAINT check_payment_status
+  CHECK (payment_status IN ('Pending Payment', 'For Verification', 'Paid'));
+
+-- ============================================================
 -- PAYMENT METHOD CONSTRAINT FIX
 -- Run in Supabase SQL Editor to allow new payment method values
 -- ============================================================
