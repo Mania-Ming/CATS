@@ -391,7 +391,7 @@ a { text-decoration: none; color: inherit; }
 .alert-info { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
 
 /* ===== LAYOUT ===== */
-.app-layout { display: flex; min-height: 100vh; }
+.app-layout { display: flex; }
 
 /* ===== SIDEBAR ===== */
 .sidebar {

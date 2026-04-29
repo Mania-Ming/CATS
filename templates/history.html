@@ -283,12 +283,16 @@
         .upload-status { font-size:11px; min-height:14px; }
 
         /* ── Footer full-width fix ── */
-        .site-footer {
-            margin-left: calc(-1 * var(--sidebar-w));
+        body { display: flex; flex-direction: column; min-height: 100vh; margin: 0; }
+        .app-layout { flex: 1; }
+        .main { flex: 1; padding-bottom: 60px; }
+        footer {
             width: 100vw;
-        }
-        @media (max-width: 768px) {
-            .site-footer { margin-left: 0; width: 100%; }
+            position: relative;
+            margin-top: 60px;
+            background: #0f172a;
+            color: white;
+            padding: 40px 20px;
         }
     </style>
 </head>
@@ -712,33 +716,33 @@
             </div>
             {% endif %}
         </div><!-- /page-content -->
-
-        <footer class="site-footer">
-            <div class="footer-inner">
-                <div class="footer-brand">
-                    <h3>Cat Adoption</h3>
-                    <p>Connecting loving families with cats in need of a forever home.</p>
-                </div>
-                <div class="footer-col">
-                    <h4>Navigate</h4>
-                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
-                    <a href="{{ url_for('profile') }}">My Profile</a>
-                    <a href="{{ url_for('history') }}">Adoption History</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Account</h4>
-                    <a href="{{ url_for('logout') }}">Sign Out</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Contact</h4>
-                    <a href="#">support@catadoption.ph</a>
-                    <a href="#">Manila, Philippines</a>
-                </div>
-            </div>
-            <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
-        </footer>
     </div>
 </div>
+
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <h3>Cat Adoption</h3>
+            <p>Connecting loving families with cats in need of a forever home.</p>
+        </div>
+        <div class="footer-col">
+            <h4>Navigate</h4>
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('profile') }}">My Profile</a>
+            <a href="{{ url_for('history') }}">Adoption History</a>
+        </div>
+        <div class="footer-col">
+            <h4>Account</h4>
+            <a href="{{ url_for('logout') }}">Sign Out</a>
+        </div>
+        <div class="footer-col">
+            <h4>Contact</h4>
+            <a href="#">support@catadoption.ph</a>
+            <a href="#">Manila, Philippines</a>
+        </div>
+    </div>
+    <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
+</footer>
 
 <script>
 function toggleSection(header) {
