@@ -135,28 +135,142 @@ def notify_adoption_status(to_email, user_name, cat_name, adoption_status, extra
     send_status_email(to_email, user_name, subject, body)
 
 
+def send_delivery_email(to_email, name, cat_name, delivery_details, photo_url=None):
+    """
+    Send a styled HTML delivery notification email.
+    delivery_details = {date, start_time, end_time, rider, contact, address, status}
+    """
+    if not GMAIL_USER or not GMAIL_APP_PASS:
+        log.warning("send_delivery_email: Gmail credentials not set — skipping")
+        return
+    if not to_email or "@" not in to_email:
+        log.warning("send_delivery_email: invalid recipient '%s' — skipping", to_email)
+        return
+
+    d = delivery_details or {}
+
+    def _row(label, value):
+        v = value or "—"
+        return (
+            f"<tr>"
+            f"<td style='padding:8px 12px;color:#64748b;font-size:13px;white-space:nowrap;'>{label}</td>"
+            f"<td style='padding:8px 12px;font-size:13px;font-weight:600;color:#1a1d2e;'>{v}</td>"
+            f"</tr>"
+        )
+
+    time_window = (
+        f"{d.get('start_time')} – {d.get('end_time')}"
+        if d.get('start_time') and d.get('end_time')
+        else (d.get('start_time') or d.get('end_time') or "—")
+    )
+
+    photo_block = ""
+    if photo_url:
+        photo_block = f"""
+        <div style='margin:20px 0;text-align:center;'>
+            <p style='font-size:13px;color:#64748b;margin-bottom:8px;'>📸 Proof of Delivery</p>
+            <img src='{photo_url}' alt='Proof of Delivery'
+                 style='max-width:100%;border-radius:10px;border:2px solid #e8eaf0;
+                        box-shadow:0 4px 12px rgba(0,0,0,0.10);'>
+            <div style='margin-top:12px;'>
+                <a href='{photo_url}' target='_blank'
+                   style='display:inline-block;background:#ff6b35;color:#fff;
+                          padding:10px 24px;border-radius:30px;font-size:13px;
+                          font-weight:700;text-decoration:none;
+                          box-shadow:0 4px 12px rgba(255,107,53,0.35);'>
+                    View Full Image
+                </a>
+            </div>
+        </div>"""
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style='margin:0;padding:0;background:#f7f8fc;font-family:Inter,sans-serif;'>
+    <div style='max-width:520px;margin:32px auto;background:#fff;border-radius:16px;
+                box-shadow:0 4px 24px rgba(0,0,0,0.08);overflow:hidden;'>
+
+        <!-- Header -->
+        <div style='background:linear-gradient(135deg,#ff6b35,#e85520);
+                    padding:28px 32px;text-align:center;'>
+            <div style='font-size:32px;margin-bottom:6px;'>🚚</div>
+            <h1 style='margin:0;color:#fff;font-size:20px;font-weight:700;
+                       letter-spacing:-0.3px;'>Delivery Update</h1>
+            <p style='margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;'>
+                Cat Adoption PH
+            </p>
+        </div>
+
+        <!-- Body -->
+        <div style='padding:28px 32px;'>
+            <p style='font-size:15px;color:#1a1d2e;margin:0 0 6px;'>
+                Hi <strong>{name}</strong>,
+            </p>
+            <p style='font-size:13px;color:#64748b;margin:0 0 20px;line-height:1.6;'>
+                Your cat <strong>{cat_name}</strong> is on its way!
+                Here are the delivery details:
+            </p>
+
+            <!-- Details table -->
+            <table style='width:100%;border-collapse:collapse;
+                          background:#f8fafc;border-radius:10px;overflow:hidden;
+                          border:1px solid #e8eaf0;margin-bottom:20px;'>
+                {_row('📅 Delivery Date', d.get('date'))}
+                {_row('⏰ Time Window',   time_window)}
+                {_row('🏍️ Rider',         d.get('rider'))}
+                {_row('📞 Rider Contact', d.get('contact'))}
+                {_row('📍 Address',       d.get('address'))}
+                {_row('📦 Status',        d.get('status'))}
+            </table>
+
+            {photo_block}
+
+            <p style='font-size:12px;color:#94a3b8;margin:20px 0 0;
+                      border-top:1px solid #e8eaf0;padding-top:16px;'>
+                Cat Adoption PH &mdash; Thank you for adopting! 🐱
+            </p>
+        </div>
+    </div>
+    </body>
+    </html>
+    """
+
+    try:
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"🚚 Delivery Update for {cat_name} — Cat Adoption PH"
+        msg["From"]    = f"Cat Adoption PH <{GMAIL_USER}>"
+        msg["To"]      = to_email
+        msg.attach(MIMEText(html, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(GMAIL_USER, GMAIL_APP_PASS)
+            smtp.sendmail(GMAIL_USER, to_email, msg.as_string())
+        log.warning("send_delivery_email: sent to %s for cat '%s'", to_email, cat_name)
+    except Exception as e:
+        log.error("send_delivery_email to %s failed: %s", to_email, e)
+
+
 def notify_delivery_scheduled(to_email, user_name, cat_name, delivery_date, time_start,
                                time_end, rider_name, rider_contact, delivery_address, delivery_status):
+    """Thin wrapper kept for backward compatibility — delegates to send_delivery_email."""
     if not to_email:
-        log.warning("notify_delivery_scheduled: no email address for request — skipping")
+        log.warning("notify_delivery_scheduled: no email address — skipping")
         return
-    log.warning("notify_delivery_scheduled: sending delivery email to %s for cat '%s'", to_email, cat_name)
-    def _row(label, value):
-        return f"<tr><td style='padding:4px 8px;color:#64748b;'>{label}</td><td style='padding:4px 8px;'><strong>{value or '—'}</strong></td></tr>"
-    time_window = f"{time_start} – {time_end}" if time_start and time_end else (time_start or "—")
-    table = f"""
-    <p>Your delivery for <strong>{cat_name}</strong> has been scheduled. Details below:</p>
-    <table style='border-collapse:collapse;width:100%;margin:12px 0;'>
-        {_row('Delivery Date', delivery_date)}
-        {_row('Time Window', time_window)}
-        {_row('Rider', rider_name)}
-        {_row('Rider Contact', rider_contact)}
-        {_row('Delivery Address', delivery_address)}
-        {_row('Status', delivery_status)}
-    </table>
-    <p>Please be available at the address on the scheduled date.</p>
-    """
-    send_status_email(to_email, user_name, f"Delivery Scheduled for {cat_name} 🚚", table)
+    send_delivery_email(
+        to_email, user_name, cat_name,
+        {
+            "date":       delivery_date,
+            "start_time": time_start,
+            "end_time":   time_end,
+            "rider":      rider_name,
+            "contact":    rider_contact,
+            "address":    delivery_address,
+            "status":     delivery_status,
+        },
+        photo_url=None,
+    )
 
 
 def _get_cat_name(cat_id):
@@ -1689,6 +1803,30 @@ def admin_upload_delivery_photo(req_id):
         }).eq("id", req_id).execute()
         sync_delivery_record(req_id, {"status": "Delivered", "delivery_status": "Delivered"})
         log.warning("admin_upload_delivery_photo: req=%s url=%s", req_id, public_url)
+
+        # Send proof-of-delivery email
+        try:
+            row = fetch_request_row(req_id, admin=True)
+            if row:
+                cat_name = _get_cat_name(row.get("cat_id"))
+                send_delivery_email(
+                    to_email=row.get("email", ""),
+                    name=row.get("full_name") or "Adopter",
+                    cat_name=cat_name,
+                    delivery_details={
+                        "date":       row.get("delivery_date"),
+                        "start_time": row.get("delivery_time_start"),
+                        "end_time":   row.get("delivery_time_end"),
+                        "rider":      row.get("rider_name"),
+                        "contact":    row.get("rider_contact"),
+                        "address":    row.get("delivery_address") or row.get("address"),
+                        "status":     "Delivered",
+                    },
+                    photo_url=public_url,
+                )
+        except Exception as mail_err:
+            log.error("admin_upload_delivery_photo: email failed for req=%s: %s", req_id, mail_err)
+
         flash("Delivery photo uploaded and status set to Delivered.", "success")
     except Exception as e:
         log.error("admin_upload_delivery_photo(%s) failed: %s", req_id, e)
