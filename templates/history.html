@@ -309,6 +309,7 @@
             <div class="history-list">
                 {% for req in requests %}
 
+                {% macro fmt_time(t) %}{% if t %}{% set parts = t.split(':') %}{% set h = parts[0]|int %}{% set m = parts[1] if parts|length > 1 else '00' %}{% set h12 = h % 12 or 12 %}{{ h12 }}:{{ m }} {{ 'AM' if h < 12 else 'PM' }}{% endif %}{% endmacro %}
                 {% set status_cls = {'Pending':'hb-pending','Approved':'hb-approved','Scheduled':'hb-scheduled','Completed':'hb-completed','Rejected':'hb-rejected'}.get(req.status,'hb-pending') %}
                 {% set pay_cls = {'Paid':'hb-pay-paid','For Verification':'hb-pay-verify','Pending Payment':'hb-pay-pending'}.get(req.payment_status,'hb-pay-pending') %}
 
@@ -339,19 +340,24 @@
                         {% if req.delivery_method %}
                         <div class="hsection">
                             <div class="hsection-title" style="margin-bottom:0;">
-                                <i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}" style="color:var(--primary);"></i>
-                                {{ req.delivery_method }}
-                                {% if req.delivery_method != 'Meet-up' and req.delivery_status %}
+                                {% if req.delivery_method == 'Meet-up' %}
+                                <i class="fas fa-handshake" style="color:var(--primary);"></i> Meet-up
+                                {% elif req.delivery_method == 'Pickup' %}
+                                <i class="fas fa-box" style="color:#7c3aed;"></i> Pickup
+                                {% else %}
+                                <i class="fas fa-truck" style="color:var(--primary);"></i> Delivery
+                                {% endif %}
+                                {% if req.delivery_method == 'Delivery' and req.delivery_status %}
                                 <span class="delivery-pill {% if req.delivery_status == 'Delivered' %}dp-delivered{% elif req.delivery_status == 'Out for Delivery' %}dp-transit{% else %}dp-preparing{% endif %}" style="margin-left:4px;">{{ req.delivery_status }}</span>
-                                {% elif req.delivery_method != 'Meet-up' %}
-                                <span class="delivery-pill dp-preparing" style="margin-left:4px;">Pending</span>
+                                {% elif req.delivery_method == 'Pickup' and req.delivery_status %}
+                                <span class="delivery-pill {% if req.delivery_status == 'Claimed' %}dp-delivered{% elif req.delivery_status == 'Ready for Pickup' %}dp-transit{% else %}dp-preparing{% endif %}" style="margin-left:4px;">{{ req.delivery_status }}</span>
                                 {% endif %}
                             </div>
                         </div>
                         {% endif %}
 
-                        <!-- Delivery Details (collapsible, default CLOSED) -->
-                        {% if req.delivery_method and req.delivery_method != 'Meet-up' %}
+                        <!-- Delivery Details (collapsible, only for Delivery method) -->
+                        {% if req.delivery_method == 'Delivery' %}
                         <div class="detail-section">
                             <div class="hsection-toggle detail-section-title" onclick="toggleSection(this)" style="margin-bottom:0;">
                                 <span><i class="fas fa-box" style="color:#ea580c;"></i> Delivery Details</span>
@@ -446,7 +452,6 @@
                                         <div class="detail-copy">
                                             <span class="detail-label">Delivery Time Window</span>
                                             <span class="detail-value">
-                                                {% macro fmt_time(t) %}{% if t %}{% set parts = t.split(':') %}{% set h = parts[0]|int %}{% set m = parts[1] if parts|length > 1 else '00' %}{% set h12 = h % 12 or 12 %}{{ h12 }}:{{ m }} {{ 'AM' if h < 12 else 'PM' }}{% endif %}{% endmacro %}
                                                 {{ fmt_time(req.delivery_time_start) }}{% if req.delivery_time_start and req.delivery_time_end %} &ndash; {% endif %}{{ fmt_time(req.delivery_time_end) }}
                                             </span>
                                         </div>
@@ -494,6 +499,60 @@
 
                             </div>
                         </div>
+                        {% endif %}
+
+                        <!-- Pickup Details (collapsible, only for Pickup method) -->
+                        {% if req.delivery_method == 'Pickup' %}
+                        <div class="detail-section" style="background:#f5f3ff;border-color:#c4b5fd;">
+                            <div class="hsection-toggle detail-section-title" onclick="toggleSection(this)" style="margin-bottom:0;color:#7c3aed;">
+                                <span><i class="fas fa-box" style="color:#7c3aed;"></i> Pickup Details</span>
+                                <i class="fas fa-chevron-down toggle-chevron"></i>
+                            </div>
+                            <div class="hsection-body">
+                                <div class="detail-grid">
+                                    <div class="detail-item" style="border-color:#c4b5fd;">
+                                        <div class="detail-icon" style="background:#ede9fe;"><i class="fas fa-calendar" style="color:#7c3aed;"></i></div>
+                                        <div class="detail-copy">
+                                            <span class="detail-label" style="color:#6d28d9;">Pickup Date</span>
+                                            <span class="detail-value">
+                                                {% if req.pickup_date %}
+                                                    {% set p = req.pickup_date.split('-') %}
+                                                    {% if p|length == 3 %}{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][p[1]|int-1] }} {{ p[2]|int }}, {{ p[0] }}{% else %}{{ req.pickup_date }}{% endif %}
+                                                {% else %}To be scheduled{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="detail-item" style="border-color:#c4b5fd;">
+                                        <div class="detail-icon" style="background:#ede9fe;"><i class="fas fa-clock" style="color:#7c3aed;"></i></div>
+                                        <div class="detail-copy">
+                                            <span class="detail-label" style="color:#6d28d9;">Pickup Time</span>
+                                            <span class="detail-value">
+                                                {% if req.pickup_time %}
+                                                    {% set t = req.pickup_time.split(':') %}
+                                                    {% set h = t[0]|int %}{% set m = t[1] if t|length > 1 else '00' %}
+                                                    {% set h12 = h % 12 or 12 %}{{ h12 }}:{{ m }} {{ 'AM' if h < 12 else 'PM' }}
+                                                {% else %}To be announced{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="detail-item detail-item-wide" style="border-color:#c4b5fd;">
+                                        <div class="detail-icon" style="background:#ede9fe;"><i class="fas fa-map-marker-alt" style="color:#7c3aed;"></i></div>
+                                        <div class="detail-copy">
+                                            <span class="detail-label" style="color:#6d28d9;">Pickup Location</span>
+                                            <span class="detail-value">{{ req.pickup_location or 'To be announced' }}</span>
+                                        </div>
+                                    </div>
+                                    {% if req.pickup_notes %}
+                                    <div class="detail-item detail-item-wide" style="border-color:#c4b5fd;">
+                                        <div class="detail-icon" style="background:#ede9fe;"><i class="fas fa-sticky-note" style="color:#7c3aed;"></i></div>
+                                        <div class="detail-copy">
+                                            <span class="detail-label" style="color:#6d28d9;">Notes</span>
+                                            <span class="detail-value">{{ req.pickup_notes }}</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
                         {% endif %}
 

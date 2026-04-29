@@ -273,6 +273,113 @@ def notify_delivery_scheduled(to_email, user_name, cat_name, delivery_date, time
     )
 
 
+def send_pickup_email(to_email, user_name, cat_name, pickup_date, pickup_time, pickup_location, pickup_notes=None):
+    """Send a 📦 Pickup Scheduled email."""
+    if not GMAIL_USER or not GMAIL_APP_PASS:
+        log.warning("send_pickup_email: Gmail credentials not set — skipping")
+        return
+    if not to_email or "@" not in to_email:
+        log.warning("send_pickup_email: invalid recipient '%s' — skipping", to_email)
+        return
+
+    notes_block = f"<tr><td style='padding:8px 12px;color:#64748b;font-size:13px;'>📝 Notes</td><td style='padding:8px 12px;font-size:13px;font-weight:600;color:#1a1d2e;'>{pickup_notes}</td></tr>" if pickup_notes else ""
+
+    html = f"""
+    <!DOCTYPE html><html><body style='margin:0;padding:0;background:#f7f8fc;font-family:Inter,sans-serif;'>
+    <div style='max-width:520px;margin:32px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);overflow:hidden;'>
+        <div style='background:linear-gradient(135deg,#7c3aed,#5b21b6);padding:28px 32px;text-align:center;'>
+            <div style='font-size:32px;margin-bottom:6px;'>📦</div>
+            <h1 style='margin:0;color:#fff;font-size:20px;font-weight:700;'>Pickup Scheduled</h1>
+            <p style='margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;'>Cat Adoption PH</p>
+        </div>
+        <div style='padding:28px 32px;'>
+            <p style='font-size:15px;color:#1a1d2e;margin:0 0 6px;'>Hi <strong>{user_name}</strong>,</p>
+            <p style='font-size:13px;color:#64748b;margin:0 0 20px;line-height:1.6;'>
+                Your pickup for <strong>{cat_name}</strong> has been scheduled. Here are the details:
+            </p>
+            <table style='width:100%;border-collapse:collapse;background:#f8fafc;border-radius:10px;overflow:hidden;border:1px solid #e8eaf0;margin-bottom:20px;'>
+                <tr><td style='padding:8px 12px;color:#64748b;font-size:13px;'>📅 Pickup Date</td><td style='padding:8px 12px;font-size:13px;font-weight:600;color:#1a1d2e;'>{pickup_date or '—'}</td></tr>
+                <tr><td style='padding:8px 12px;color:#64748b;font-size:13px;'>⏰ Pickup Time</td><td style='padding:8px 12px;font-size:13px;font-weight:600;color:#1a1d2e;'>{pickup_time or '—'}</td></tr>
+                <tr><td style='padding:8px 12px;color:#64748b;font-size:13px;'>📍 Location</td><td style='padding:8px 12px;font-size:13px;font-weight:600;color:#1a1d2e;'>{pickup_location or '—'}</td></tr>
+                {notes_block}
+            </table>
+            <p style='font-size:12px;color:#94a3b8;margin:20px 0 0;border-top:1px solid #e8eaf0;padding-top:16px;'>Cat Adoption PH &mdash; Thank you for adopting! 🐱</p>
+        </div>
+    </div>
+    </body></html>
+    """
+    try:
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"📦 Pickup Scheduled for {cat_name} — Cat Adoption PH"
+        msg["From"]    = f"Cat Adoption PH <{GMAIL_USER}>"
+        msg["To"]      = to_email
+        msg.attach(MIMEText(html, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(GMAIL_USER, GMAIL_APP_PASS)
+            smtp.sendmail(GMAIL_USER, to_email, msg.as_string())
+        log.warning("send_pickup_email: sent to %s for cat '%s'", to_email, cat_name)
+    except Exception as e:
+        log.error("send_pickup_email to %s failed: %s", to_email, e)
+
+
+def save_delivery_details(req_id, delivery_date, start_time, end_time, rider_name,
+                           rider_contact, delivery_address, delivery_status):
+    """Persist delivery fields to adoption_requests and mirror to deliveries table."""
+    if not delivery_date:
+        raise ValueError("delivery_date is required")
+    if delivery_status not in {"Preparing", "Out for Delivery", "Delivered"}:
+        raise ValueError(f"Invalid delivery_status: {delivery_status}")
+    if not rider_name or not delivery_address:
+        raise ValueError("Delivery requires rider_name and delivery_address")
+
+    update_data = {
+        "status":          "Scheduled",
+        "delivery_status": delivery_status,
+        "delivery_date":   delivery_date,
+    }
+    if start_time:
+        update_data["delivery_time_start"] = start_time
+        update_data["start_time"] = start_time
+    if end_time:
+        update_data["delivery_time_end"] = end_time
+        update_data["end_time"] = end_time
+    if rider_name:
+        update_data["rider_name"] = rider_name
+    if rider_contact:
+        update_data["rider_contact"] = rider_contact
+    if delivery_address:
+        update_data["delivery_address"] = delivery_address
+
+    _admin_db().table("adoption_requests").update(update_data).eq("id", req_id).execute()
+    sync_delivery_record(req_id, {
+        "delivery_status": delivery_status,
+        "delivery_date":   delivery_date,
+        "rider_name":      rider_name or None,
+        "rider_contact":   rider_contact or None,
+    })
+
+
+def save_pickup_details(req_id, pickup_date, pickup_time, pickup_location, pickup_notes=None):
+    """Persist pickup fields to adoption_requests. Rider fields are NOT required."""
+    if not pickup_date or not pickup_time or not pickup_location:
+        raise ValueError("pickup_date, pickup_time, and pickup_location are required")
+
+    update_data = {
+        "status":          "Scheduled",
+        "delivery_status": "Ready for Pickup",
+        "pickup_date":     pickup_date,
+        "pickup_time":     pickup_time,
+        "pickup_location": pickup_location,
+    }
+    if pickup_notes:
+        update_data["pickup_notes"] = pickup_notes
+
+    _admin_db().table("adoption_requests").update(update_data).eq("id", req_id).execute()
+
+
 def _get_cat_name(cat_id):
     try:
         res = _admin_db().table("cats").select("name").eq("id", cat_id).single().execute()
@@ -577,12 +684,16 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
 
             # pickup-specific fields (only relevant for Pick-up method)
             pickup_location = (
-                delivery.get("pickup_location")
+                row.get("pickup_location")
+                or delivery.get("pickup_location")
                 or delivery.get("location")
                 or row.get("delivery_address")
                 or row.get("address")
                 or user.get("address")
             )
+            pickup_date    = row.get("pickup_date") or delivery.get("pickup_date")
+            pickup_time    = row.get("pickup_time") or delivery.get("pickup_time")
+            pickup_notes   = row.get("pickup_notes") or delivery.get("pickup_notes")
             pickup_contact_person = delivery.get("contact_person") or delivery.get("contact_name") or row.get("rider_name")
             pickup_contact_number = delivery.get("contact_number") or delivery.get("contact_phone") or row.get("rider_contact")
 
@@ -623,6 +734,9 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
                 "rider_name": rider_name,
                 "rider_contact": rider_contact,
                 "pickup_location": pickup_location,
+                "pickup_date": pickup_date,
+                "pickup_time": pickup_time,
+                "pickup_notes": pickup_notes,
                 "pickup_contact_person": pickup_contact_person,
                 "pickup_contact_number": pickup_contact_number,
                 "delivery_photo_url": row.get("delivery_photo_url"),
@@ -856,7 +970,8 @@ def update_status(req_id):
     if not admin_required():
         return redirect(url_for("login"))
     new_status = request.form.get("status")
-    valid_statuses = {"Pending", "Approved", "Scheduled", "Completed", "Rejected"}
+    valid_statuses = {"Pending", "Approved", "Scheduled", "Completed", "Rejected",
+                      "Preparing", "Out for Delivery", "Delivered", "Ready for Pickup", "Claimed"}
     if new_status not in valid_statuses:
         flash("Invalid status.", "error")
         return redirect(url_for("admin_requests"))
@@ -1679,6 +1794,43 @@ def admin_update_delivery(req_id):
     return redirect(url_for("admin_requests"))
 
 
+# ------------------------------------------------------------------ admin schedule pickup --
+
+@app.route("/admin/schedule_pickup/<int:req_id>", methods=["POST"])
+def admin_schedule_pickup(req_id):
+    if not admin_required():
+        return redirect(url_for("login"))
+
+    pickup_date     = request.form.get("pickup_date", "").strip()
+    pickup_time     = request.form.get("pickup_time", "").strip()
+    pickup_location = request.form.get("pickup_location", "").strip()
+    pickup_notes    = request.form.get("pickup_notes", "").strip() or None
+
+    try:
+        save_pickup_details(req_id, pickup_date, pickup_time, pickup_location, pickup_notes)
+    except ValueError as ve:
+        flash(str(ve), "error")
+        return redirect(url_for("admin_requests"))
+    except Exception as e:
+        log.error("admin_schedule_pickup(%s) failed: %s", req_id, e)
+        flash(f"Failed to schedule pickup: {e}", "error")
+        return redirect(url_for("admin_requests"))
+
+    try:
+        row = fetch_request_row(req_id, admin=True)
+        if row:
+            cat_name = _get_cat_name(row.get("cat_id"))
+            send_pickup_email(
+                row.get("email", ""), row.get("full_name", "Adopter"), cat_name,
+                pickup_date, pickup_time, pickup_location, pickup_notes
+            )
+    except Exception as ne:
+        log.warning("admin_schedule_pickup notify failed: %s", ne)
+
+    flash("Pickup scheduled.", "success")
+    return redirect(url_for("admin_requests"))
+
+
 # ------------------------------------------------------------------ admin schedule delivery --
 
 @app.route("/admin/schedule_delivery/<int:req_id>", methods=["POST"])
@@ -1694,58 +1846,17 @@ def admin_schedule_delivery(req_id):
     rider_name          = request.form.get("rider_name", "").strip()
     rider_contact       = request.form.get("rider_contact", "").strip()
 
-    log.warning("admin_schedule_delivery req=%s date=%r status=%r",
-                req_id, delivery_date, delivery_status)
-
-    if not delivery_date:
-        flash("Delivery date is required.", "error")
-        return redirect(url_for("admin_requests"))
-    if delivery_status not in {"Preparing", "Out for Delivery", "Delivered"}:
-        flash("Invalid delivery status.", "error")
-        return redirect(url_for("admin_requests"))
-
-    # Only include non-empty values so missing optional columns don't break the update
-    update_data = {
-        "status":          "Scheduled",
-        "delivery_status": delivery_status,
-        "delivery_date":   delivery_date,
-    }
-    if delivery_time_start:
-        update_data["delivery_time_start"] = delivery_time_start
-    if delivery_time_end:
-        update_data["delivery_time_end"] = delivery_time_end
-    if delivery_address:
-        update_data["delivery_address"] = delivery_address
-    if rider_name:
-        update_data["rider_name"] = rider_name
-    if rider_contact:
-        update_data["rider_contact"] = rider_contact
-
-    log.info("admin_schedule_delivery req=%s payload keys=%s", req_id, list(update_data.keys()))
-
-    db = _admin_db()
     try:
-        # NOTE: do NOT chain .select() after .update() — the Supabase Python
-        # client does not support it and will silently fail the entire call.
-        db.table("adoption_requests").update(update_data).eq("id", req_id).execute()
+        save_delivery_details(req_id, delivery_date, delivery_time_start, delivery_time_end,
+                              rider_name, rider_contact, delivery_address, delivery_status)
+    except ValueError as ve:
+        flash(str(ve), "error")
+        return redirect(url_for("admin_requests"))
     except Exception as e:
         log.error("admin_schedule_delivery(%s) failed: %s", req_id, e)
         flash(f"Failed to schedule delivery: {e}", "error")
         return redirect(url_for("admin_requests"))
 
-    # Best-effort mirror to deliveries table (non-fatal)
-    try:
-        sync_delivery_record(req_id, {
-            "delivery_status": delivery_status,
-            "delivery_date":   delivery_date,
-            "rider_name":      rider_name or None,
-            "rider_contact":   rider_contact or None,
-            "rider_phone":     rider_contact or None,
-        })
-    except Exception as e:
-        log.warning("admin_schedule_delivery sync_delivery_record failed (non-fatal): %s", e)
-
-    # Send delivery email notification
     try:
         row = fetch_request_row(req_id, admin=True)
         if row:

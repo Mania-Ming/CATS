@@ -383,10 +383,14 @@
 
                             <div class="act-divider"></div>
 
-                            <!-- Meet-up / Delivery -->
+                            <!-- Meet-up / Delivery / Pickup -->
                             {% if r.delivery_method == 'Meet-up' %}
                             <button type="button" class="act-btn ab-teal" style="width:100%;justify-content:center;" onclick="toggleMeetup({{ sid }})">
                                 <i class="fas fa-calendar-check"></i> Schedule Meet-up
+                            </button>
+                            {% elif r.delivery_method == 'Pickup' %}
+                            <button type="button" class="act-btn ab-purple" style="width:100%;justify-content:center;" onclick="togglePickup({{ sid }})">
+                                <i class="fas fa-box"></i> Schedule Pickup
                             </button>
                             {% else %}
                             <button type="button" class="act-btn ab-orange" style="width:100%;justify-content:center;" onclick="toggleDelivery({{ sid }})">
@@ -425,8 +429,40 @@
                     </div>
                     {% endif %}
 
+                    <!-- Pickup schedule form (collapsible) -->
+                    {% if r.delivery_method == 'Pickup' %}
+                    <div id="pickup-{{ sid }}" style="display:none;padding:0 12px 10px;">
+                        <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:10px 12px;">
+                            <div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px;"><i class="fas fa-box"></i> Schedule Pickup</div>
+                            <form method="POST" action="{{ url_for('admin_schedule_pickup', req_id=r.id) }}">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px;">
+                                    <div>
+                                        <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Pickup Date *</div>
+                                        <input type="date" name="pickup_date" class="act-inp" value="{{ r.pickup_date or '' }}" required>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Pickup Time *</div>
+                                        <input type="time" name="pickup_time" class="act-inp" value="{{ r.pickup_time or '' }}" required>
+                                    </div>
+                                </div>
+                                <div style="margin-bottom:5px;">
+                                    <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Pickup Location *</div>
+                                    <input type="text" name="pickup_location" class="act-inp" style="width:100%;" value="{{ r.pickup_location or '' }}" placeholder="e.g. Our shelter address" required>
+                                </div>
+                                <div style="margin-bottom:8px;">
+                                    <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:2px;">Notes (optional)</div>
+                                    <input type="text" name="pickup_notes" class="act-inp" style="width:100%;" value="{{ r.pickup_notes or '' }}" placeholder="e.g. Bring a carrier">
+                                </div>
+                                <button type="submit" class="act-btn ab-purple" style="width:100%;justify-content:center;">
+                                    <i class="fas fa-save"></i> Save Pickup
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Delivery schedule form (collapsible) -->
-                    {% if r.delivery_method != 'Meet-up' %}
+                    {% if r.delivery_method == 'Delivery' %}
                     <div id="delivery-{{ sid }}" style="display:none;padding:0 12px 10px;">
                         <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;">
                             <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:8px;"><i class="fas fa-truck"></i> Schedule Delivery</div>
@@ -610,6 +646,10 @@ function toggleDetails(id) {
 }
 function toggleMeetup(id) {
     const el = document.getElementById('meetup-' + id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function togglePickup(id) {
+    const el = document.getElementById('pickup-' + id);
     el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 function toggleDelivery(id) {
