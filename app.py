@@ -87,6 +87,64 @@ def send_verification_email(to_email, user_name, code):
         smtp.sendmail(GMAIL_USER, to_email, msg.as_string())
 
 
+def send_status_email(to_email, user_name, subject, body_html):
+    """Generic status notification email."""
+    if not GMAIL_USER or not GMAIL_APP_PASS:
+        return
+    try:
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"Cat Adoption PH <{GMAIL_USER}>"
+        msg["To"]      = to_email
+        html = f"""<div style='font-family:sans-serif;max-width:480px;margin:auto;padding:24px;'>
+            <h2 style='color:#7c3aed;'>Cat Adoption PH</h2>
+            <p>Hi <strong>{user_name}</strong>,</p>
+            {body_html}
+            <p style='color:#64748b;font-size:12px;margin-top:24px;'>Cat Adoption PH &mdash; Thank you for adopting!</p>
+        </div>"""
+        msg.attach(MIMEText(html, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(GMAIL_USER, GMAIL_APP_PASS)
+            smtp.sendmail(GMAIL_USER, to_email, msg.as_string())
+    except Exception as e:
+        log.error("send_status_email to %s failed: %s", to_email, e)
+
+
+def notify_adoption_status(to_email, user_name, cat_name, adoption_status):
+    messages = {
+        "Approved":  ("Your Adoption Request is Approved! 🎉",
+                      f"<p>Great news! Your adoption request for <strong>{cat_name}</strong> has been <strong>approved</strong>.</p><p>Please proceed with the payment to continue.</p>"),
+        "Scheduled": ("Your Meet-up / Delivery is Scheduled 📅",
+                      f"<p>Your adoption of <strong>{cat_name}</strong> has been <strong>scheduled</strong>. Check your adoption history for details.</p>"),
+        "Completed": ("Adoption Completed! 🐱",
+                      f"<p>Your adoption of <strong>{cat_name}</strong> is now <strong>complete</strong>. Welcome to the family!</p>"),
+        "Rejected":  ("Adoption Request Update",
+                      f"<p>Unfortunately, your adoption request for <strong>{cat_name}</strong> was <strong>not approved</strong> at this time.</p>"),
+    }
+    if adoption_status not in messages:
+        return
+    subject, body = messages[adoption_status]
+    send_status_email(to_email, user_name, subject, body)
+
+
+def notify_payment_status(to_email, user_name, cat_name, payment_status):
+    messages = {
+        "Pending":          ("Payment Pending",
+                             f"<p>Your payment for <strong>{cat_name}</strong> is now <strong>pending</strong>. Please complete your payment.</p>"),
+        "For Verification": ("Payment Under Verification 🔍",
+                             f"<p>We received your payment proof for <strong>{cat_name}</strong> and it is currently being <strong>verified</strong>.</p>"),
+        "Paid":             ("Payment Confirmed! ✅",
+                             f"<p>Your payment for <strong>{cat_name}</strong> has been <strong>confirmed</strong>. Thank you!</p>"),
+    }
+    if payment_status not in messages:
+        return
+    subject, body = messages[payment_status]
+    send_status_email(to_email, user_name, subject, body)
+
+
 # ------------------------------------------------------------------ helpers --
 
 def allowed_file(filename):
@@ -321,7 +379,7 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
         # deliveries table is secondary — adoption_requests is the primary source of truth
         delivery = deliveries_by_request.get(row.get("id"), {})
 
-        payment_status = row.get("payment_status") or "Pending Payment"
+        payment_status = row.get("payment_status") or "None"
 
         # delivery_method: prefer adoption_requests, fall back to deliveries
         raw_delivery_method = row.get("delivery_method") or delivery.get("delivery_method") or delivery.get("method") or "Meet-up"
@@ -624,17 +682,27 @@ def update_status(req_id):
     if not admin_required():
         return redirect(url_for("login"))
     new_status = request.form.get("status")
+    valid_statuses = {"Pending", "Approved", "Scheduled", "Completed", "Rejected"}
+    if new_status not in valid_statuses:
+        flash("Invalid status.", "error")
+        return redirect(url_for("admin_requests"))
     try:
         db = _admin_db()
-        ar = db.table("adoption_requests").select("cat_id").eq("id", req_id).single().execute().data
-        db.table("adoption_requests").update({"status": new_status}).eq("id", req_id).execute()
+        ar = db.table("adoption_requests").select("cat_id, email, full_name").eq("id", req_id).single().execute().data
+        update_payload = {"status": new_status}
+        if new_status == "Approved":
+            update_payload["payment_status"] = "Pending"
+        db.table("adoption_requests").update(update_payload).eq("id", req_id).execute()
         if ar and ar.get("cat_id"):
-            if new_status == "Approved":
+            if new_status in ("Approved", "Completed"):
                 db.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
             elif new_status == "Rejected":
                 db.table("cats").update({"status": "available"}).eq("id", ar["cat_id"]).execute()
-            elif new_status == "Completed":
-                db.table("cats").update({"status": "adopted"}).eq("id", ar["cat_id"]).execute()
+        if ar:
+            try:
+                notify_adoption_status(ar.get("email", ""), ar.get("full_name", "Adopter"), "", new_status)
+            except Exception:
+                pass
         flash(f"Request updated to {new_status}.", "success")
     except Exception as e:
         log.error("update_status(%s) failed: %s", req_id, e)
@@ -1232,7 +1300,7 @@ def update_payment_method(request_id):
             return jsonify({"error": "Invalid payment method. Must be GCash or COD."}), 400
         supabase.table("adoption_requests").update({
             "payment_method": payment_method,
-            "payment_status": "Pending Payment",
+            "payment_status": "Pending",
         }).eq("id", request_id).eq("user_id", session["user_id"]).execute()
         latest = fetch_request_row(request_id, user_id=session["user_id"])
         if not latest:
@@ -1256,7 +1324,7 @@ def select_payment_method(req_id):
     try:
         supabase.table("adoption_requests").update({
             "payment_method": method,
-            "payment_status": "Pending Payment",
+            "payment_status": "Pending",
         }).eq(
             "id", req_id).eq("user_id", session["user_id"]).execute()
         latest = fetch_request_row(req_id, user_id=session["user_id"])
@@ -1315,6 +1383,18 @@ def upload_receipt(req_id):
             "payment_status": "For Verification",
         }).eq("id", req_id).eq("user_id", session["user_id"]).execute()
 
+        # Notify admin-side (user uploaded receipt)
+        try:
+            row_for_notify = fetch_request_row(req_id, user_id=session["user_id"])
+            if row_for_notify:
+                notify_payment_status(
+                    row_for_notify.get("email", ""),
+                    row_for_notify.get("full_name", "Adopter"),
+                    "", "For Verification"
+                )
+        except Exception:
+            pass
+
         # ✅ Fetch updated data
         latest = fetch_request_row(req_id, user_id=session["user_id"])
         data = build_request_cards([latest], include_messages=False)[0] if latest else None
@@ -1346,14 +1426,22 @@ def admin_update_payment(req_id):
     if not admin_required():
         return redirect(url_for("login"))
     new_payment_status = request.form.get("payment_status")
-    valid = {"Pending Payment", "For Verification", "Paid"}
+    valid = {"None", "Pending", "For Verification", "Paid"}
     if new_payment_status not in valid:
         flash("Invalid payment status.", "error")
         return redirect(url_for("admin_requests"))
     try:
-        _admin_db().table("adoption_requests").update(
+        db = _admin_db()
+        db.table("adoption_requests").update(
             {"payment_status": new_payment_status}
         ).eq("id", req_id).execute()
+        row = fetch_request_row(req_id, admin=True)
+        if row:
+            try:
+                notify_payment_status(row.get("email", ""), row.get("full_name", "Adopter"),
+                                      "", new_payment_status)
+            except Exception:
+                pass
         flash(f"Payment status updated to {new_payment_status}.", "success")
     except Exception as e:
         log.error("admin_update_payment(%s) failed: %s", req_id, e)
@@ -1627,7 +1715,7 @@ def adopt_request():
             "reason": reason,
             "experience_with_pets": experience,
             "status": "Pending",
-            "payment_status": "Pending Payment",
+            "payment_status": "None",
             "payment_method": "Cash on Delivery" if delivery_method == "Delivery" else "Cash on Arrival",
             "delivery_method": delivery_method,
             "delivery_status": "Preparing" if delivery_method in ("Delivery", "Pickup") else None,

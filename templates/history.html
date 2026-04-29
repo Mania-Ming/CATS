@@ -310,7 +310,7 @@
                 {% for req in requests %}
 
                 {% set status_cls = {'Pending':'hb-pending','Approved':'hb-approved','Scheduled':'hb-scheduled','Completed':'hb-completed','Rejected':'hb-rejected'}.get(req.status,'hb-pending') %}
-                {% set pay_cls = {'Paid':'hb-pay-paid','For Verification':'hb-pay-verify'}.get(req.payment_status,'hb-pay-pending') %}
+                {% set pay_cls = {'Paid':'hb-pay-paid','For Verification':'hb-pay-verify','Pending':'hb-pay-pending'}.get(req.payment_status,'hb-pay-pending') %}
 
                 <div class="hcard">
 
@@ -324,8 +324,11 @@
                             </div>
                         </div>
                         <div class="hcard-badges">
-                            <span class="hbadge {{ status_cls }}">{{ req.status }}</span>
-                            <span class="hbadge {{ pay_cls }}">{{ req.payment_status }}</span>
+                            <span class="hbadge {{ status_cls }}" title="Adoption Status"><i class="fas fa-circle-dot" style="font-size:8px;"></i> {{ req.status }}</span>
+                            <span class="hbadge {{ pay_cls }}" title="Payment Status"><i class="fas fa-credit-card" style="font-size:8px;"></i> {{ req.payment_status or 'None' }}</span>
+                            {% if req.delivery_method %}
+                            <span class="hbadge hb-pending" style="background:#ecfeff;color:#0f766e;border-color:#a5f3fc;" title="Delivery Method"><i class="fas fa-{% if req.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}" style="font-size:8px;"></i> {{ req.delivery_method }}</span>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -588,6 +591,10 @@
                                 {% endif %}
                                 {% endif %}
                                 <p style="font-size:11px;color:#15803d;font-weight:600;"><i class="fas fa-circle-check"></i> Payment confirmed</p>
+                                {% if req.payment_status in ('None', 'Pending') %}
+                                <p style="font-size:11px;color:var(--text-muted);">Pay {{ 'upon delivery' if is_delivery else 'when you receive your cat' }}. The admin will update your payment status.</p>
+                                {% elif req.payment_status == 'For Verification' %}
+                                <p style="font-size:11px;color:#854d0e;"><i class="fas fa-hourglass-half"></i> Your payment is being verified. Please wait.</p>
                                 {% else %}
                                 <p style="font-size:11px;color:var(--text-muted);">Pay {{ 'upon delivery' if is_delivery else 'when you receive your cat' }}. The admin will update your payment status.</p>
                                 {% endif %}

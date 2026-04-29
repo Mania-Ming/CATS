@@ -281,6 +281,7 @@
                 {% else %}{% set status_cls = 'rb-pending' %}{% endif %}
                 {% if r.payment_status == 'Paid' %}{% set pay_cls = 'rb-pay-paid' %}
                 {% elif r.payment_status == 'For Verification' %}{% set pay_cls = 'rb-pay-verify' %}
+                {% elif r.payment_status == 'Pending' %}{% set pay_cls = 'rb-pay-pending' %}
                 {% else %}{% set pay_cls = 'rb-pay-pending' %}{% endif %}
 
                 <div class="req-card">
@@ -309,10 +310,10 @@
                             <div class="req-reason">{{ r.reason }}</div>
                             {% endif %}
                             <div class="req-badges">
-                                <span class="rbadge {{ status_cls }}">{{ r.status }}</span>
-                                <span class="rbadge {{ pay_cls }}">{{ r.payment_status }}</span>
+                                <span class="rbadge {{ status_cls }}"><i class="fas fa-circle-dot" style="font-size:8px;"></i> {{ r.status }}</span>
+                                <span class="rbadge {{ pay_cls }}"><i class="fas fa-credit-card" style="font-size:8px;"></i> {{ r.payment_status }}</span>
+                                {% if r.delivery_method %}<span class="rbadge {% if r.delivery_method == 'Meet-up' %}rb-meetup{% else %}rb-delivery{% endif %}"><i class="fas fa-{% if r.delivery_method == 'Meet-up' %}handshake{% else %}truck{% endif %}" style="font-size:8px;"></i> {{ r.delivery_method }}</span>{% endif %}
                                 {% if r.payment_method %}<span class="rbadge {% if r.payment_method == 'GCash' %}rb-gcash{% else %}rb-cod{% endif %}">{{ r.payment_method }}</span>{% endif %}
-                                {% if r.delivery_method %}<span class="rbadge {% if r.delivery_method == 'Meet-up' %}rb-meetup{% else %}rb-delivery{% endif %}">{{ r.delivery_method }}</span>{% endif %}
                             </div>
                             {% if r.delivery_method == 'Meet-up' and r.meetup_location %}
                             <div style="margin-bottom:4px;">
@@ -373,7 +374,7 @@
                             <form method="POST" action="{{ url_for('admin_update_payment', req_id=r.id) }}">
                                 <div class="act-row">
                                     <select name="payment_status" class="act-sel">
-                                        {% for s in ['Pending Payment','For Verification','Paid'] %}
+                                        {% for s in ['None','Pending','For Verification','Paid'] %}
                                         <option value="{{ s }}" {% if r.payment_status == s %}selected{% endif %}>{{ s }}</option>
                                         {% endfor %}
                                     </select>
