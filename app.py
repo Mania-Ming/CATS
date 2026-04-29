@@ -25,7 +25,9 @@ app = Flask(
     static_folder=os.path.join(_root, "static"),
     static_url_path="/static",
 )
-app.secret_key = os.environ.get("SECRET_KEY", "cat_adoption_secret_2026")
+app.secret_key = os.environ.get("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY environment variable is not set")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
@@ -149,6 +151,15 @@ def notify_payment_status(to_email, user_name, cat_name, payment_status):
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _safe_float(value):
+    """Safely convert a form value to float, returning None on failure."""
+    try:
+        v = str(value).strip()
+        return float(v) if v else None
+    except (ValueError, TypeError):
+        return None
 
 
 def parse_dt(val):
@@ -531,12 +542,12 @@ def login():
             return redirect(url_for("dashboard"))
         except Exception as e:
             err = str(e)
-            print("LOGIN ERROR:", err)
+            log.warning("login failed for %s: %s", email, err)
             if "Invalid login credentials" in err:
                 return render_template("login.html", error="Invalid email or password")
             if "Email not confirmed" in err:
                 return render_template("login.html", error="Please verify your email first")
-            return render_template("login.html", error=err)
+            return render_template("login.html", error="Login failed. Please try again.")
     return render_template("login.html")
 
 
@@ -705,8 +716,8 @@ def update_status(req_id):
         if ar:
             try:
                 notify_adoption_status(ar.get("email", ""), ar.get("full_name", "Adopter"), "", new_status)
-            except Exception:
-                pass
+            except Exception as notify_err:
+                log.warning("notify_adoption_status failed: %s", notify_err)
         flash(f"Request updated to {new_status}.", "success")
     except Exception as e:
         log.error("update_status(%s) failed: %s", req_id, e)
@@ -901,7 +912,7 @@ def admin_cats_add():
         "coat_colors":        request.form.get("coat_colors", "").strip() or None,
         "temperament":        request.form.get("temperament", "").strip() or None,
         "about":              request.form.get("about", "").strip() or None,
-        "adoption_fee":       float(request.form.get("adoption_fee")) if request.form.get("adoption_fee", "").strip() else None,
+        "adoption_fee":       _safe_float(request.form.get("adoption_fee", "")),
         "vaccination_status": request.form.get("vaccination_status", "").strip() or None,
         "health_status":      request.form.get("health_status", "").strip() or None,
         "spayed_neutered":    request.form.get("spayed_neutered") == "yes",
@@ -936,7 +947,7 @@ def admin_cats_edit(cat_id):
         "coat_colors":        request.form.get("coat_colors", "").strip() or None,
         "temperament":        request.form.get("temperament", "").strip() or None,
         "about":              request.form.get("about", "").strip() or None,
-        "adoption_fee":       float(request.form.get("adoption_fee")) if request.form.get("adoption_fee", "").strip() else None,
+        "adoption_fee":       _safe_float(request.form.get("adoption_fee", "")),
         "vaccination_status": request.form.get("vaccination_status", "").strip() or None,
         "health_status":      request.form.get("health_status", "").strip() or None,
         "spayed_neutered":    request.form.get("spayed_neutered") == "yes",
@@ -1220,7 +1231,7 @@ def upload_avatar():
         public_url = storage_client.storage.from_(AVATAR_BUCKET).get_public_url(storage_path)
 
         supabase.table("users").update({"avatar_url": public_url}).eq("id", session["user_id"]).execute()
-        log.warning("upload_avatar: saved %s/%s for user %s", AVATAR_BUCKET, storage_path, session["user_id"])
+        log.info("upload_avatar: saved avatar for user")
         return jsonify({"ok": True, "url": public_url})
     except Exception as e:
         err_detail = repr(e)
@@ -1244,7 +1255,7 @@ def api_cat_detail(cat_id):
     try:
         res = supabase.table("cats").select("*").eq("id", cat_id).single().execute()
         data = res.data or {}
-        log.warning("api_cat_detail(%s) returned keys: %s", cat_id, list(data.keys()))
+        log.debug("api_cat_detail(%s) returned %d keys", cat_id, len(data))
         return jsonify(data)
     except Exception as e:
         log.error("api_cat_detail(%s) failed: %r", cat_id, e)
@@ -1298,8 +1309,7 @@ def update_payment_method(request_id):
     try:
         data = request.get_json(force=True) or {}
         payment_method = data.get("payment_method", "").strip()
-        log.warning("update_payment_method: req=%s method=%s user=%s",
-                    request_id, payment_method, session.get("user_id"))
+        log.info("update_payment_method: req=%s", request_id)
         if payment_method not in ("GCash", "COD"):
             return jsonify({"error": "Invalid payment method. Must be GCash or COD."}), 400
         supabase.table("adoption_requests").update({
@@ -1396,8 +1406,8 @@ def upload_receipt(req_id):
                     row_for_notify.get("full_name", "Adopter"),
                     "", "For Verification"
                 )
-        except Exception:
-            pass
+        except Exception as notify_err:
+            log.warning("notify_payment_status failed: %s", notify_err)
 
         # ✅ Fetch updated data
         latest = fetch_request_row(req_id, user_id=session["user_id"])
@@ -1444,8 +1454,8 @@ def admin_update_payment(req_id):
             try:
                 notify_payment_status(row.get("email", ""), row.get("full_name", "Adopter"),
                                       "", new_payment_status)
-            except Exception:
-                pass
+            except Exception as notify_err:
+                log.warning("notify_payment_status failed: %s", notify_err)
         flash(f"Payment status updated to {new_payment_status}.", "success")
     except Exception as e:
         log.error("admin_update_payment(%s) failed: %s", req_id, e)
@@ -1503,8 +1513,8 @@ def admin_schedule_delivery(req_id):
     rider_name          = request.form.get("rider_name", "").strip()
     rider_contact       = request.form.get("rider_contact", "").strip()
 
-    log.warning("admin_schedule_delivery req=%s date=%r rider=%r contact=%r status=%r",
-                req_id, delivery_date, rider_name, rider_contact, delivery_status)
+    log.warning("admin_schedule_delivery req=%s date=%r status=%r",
+                req_id, delivery_date, delivery_status)
 
     if not delivery_date:
         flash("Delivery date is required.", "error")
@@ -1530,7 +1540,7 @@ def admin_schedule_delivery(req_id):
     if rider_contact:
         update_data["rider_contact"] = rider_contact
 
-    log.warning("admin_schedule_delivery payload=%s", update_data)
+    log.info("admin_schedule_delivery req=%s payload keys=%s", req_id, list(update_data.keys()))
 
     db = _admin_db()
     try:
