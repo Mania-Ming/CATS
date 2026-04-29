@@ -365,3 +365,30 @@ create policy "allow_messages_insert" on messages for insert to anon with check 
 create policy "allow_messages_select" on messages for select to anon using (true);
 create policy "allow_messages_update" on messages for update to anon using (true);
 
+
+-- ============================================================
+-- DELIVERY PHOTO URL COLUMN (run if missing)
+-- Fixes: "Could not find column 'delivery_photo_url'"
+-- ============================================================
+alter table adoption_requests add column if not exists delivery_photo_url text;
+
+-- ============================================================
+-- STORAGE: delivery-photos bucket
+-- Dashboard → Storage → New Bucket → Name: delivery-photos → Public ✓
+-- Then run these RLS policies:
+-- ============================================================
+create policy "delivery_photos_public_read"
+  on storage.objects for select
+  using ( bucket_id = 'delivery-photos' );
+
+create policy "delivery_photos_anon_insert"
+  on storage.objects for insert to anon
+  with check ( bucket_id = 'delivery-photos' );
+
+create policy "delivery_photos_anon_update"
+  on storage.objects for update to anon
+  using ( bucket_id = 'delivery-photos' );
+
+create policy "delivery_photos_anon_delete"
+  on storage.objects for delete to anon
+  using ( bucket_id = 'delivery-photos' );

@@ -172,20 +172,31 @@
             <p>Connecting loving families with cats in need of a forever home.</p>
         </div>
         <div class="footer-col">
-            <h4>Explore</h4>
+            <h4>Navigate</h4>
+            {% if logged_in %}
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('profile') }}">My Profile</a>
+            <a href="{{ url_for('history') }}">Adoption History</a>
+            {% else %}
             <a href="{{ url_for('browse') }}">Browse Cats</a>
             <a href="{{ url_for('register') }}">Create Account</a>
             <a href="{{ url_for('login') }}">Sign In</a>
+            {% endif %}
         </div>
         <div class="footer-col">
-            <h4>About</h4>
-            <a href="#">Our Mission</a>
-            <a href="#">How It Works</a>
-            <a href="#">Adoption Process</a>
+            <h4>Account</h4>
+            {% if logged_in %}
+            <a href="{{ url_for('profile') }}">My Profile</a>
+            <a href="{{ url_for('user_messages') }}">Messages</a>
+            <a href="{{ url_for('logout') }}">Sign Out</a>
+            {% else %}
+            <a href="{{ url_for('login') }}">Sign In</a>
+            <a href="{{ url_for('register') }}">Register</a>
+            {% endif %}
         </div>
         <div class="footer-col">
             <h4>Contact</h4>
-            <a href="#">support@catadoption.ph</a>
+            <a href="mailto:support@catadoption.ph">support@catadoption.ph</a>
             <a href="#">Manila, Philippines</a>
         </div>
     </div>

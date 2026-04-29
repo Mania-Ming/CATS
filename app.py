@@ -1180,16 +1180,20 @@ def api_user_unread_messages():
     if "user_id" not in session:
         return jsonify({"unread": 0})
     try:
+        user_id = session["user_id"]
+        unread = 0
+        # Count unread admin messages in conversations belonging to this user
         convo_rows = supabase.table("conversations").select("id") \
-            .eq("user_id", session["user_id"]).execute().data or []
-        if not convo_rows:
-            return jsonify({"unread": 0})
-        convo_ids = [r["id"] for r in convo_rows]
-        rows = supabase.table("messages").select("id") \
-            .eq("sender", "admin").eq("is_read", False) \
-            .in_("conversation_id", convo_ids).execute().data or []
-        return jsonify({"unread": len(rows)})
-    except Exception:
+            .eq("user_id", user_id).execute().data or []
+        if convo_rows:
+            convo_ids = [r["id"] for r in convo_rows]
+            rows = supabase.table("messages").select("id") \
+                .eq("sender", "admin").eq("is_read", False) \
+                .in_("conversation_id", convo_ids).execute().data or []
+            unread += len(rows)
+        return jsonify({"unread": unread})
+    except Exception as e:
+        log.error("api_user_unread_messages failed: %s", e)
         return jsonify({"unread": 0})
 
 
@@ -1647,12 +1651,14 @@ def admin_schedule_delivery(req_id):
 
 # ------------------------------------------------------------------ admin upload delivery photo --
 
+DELIVERY_PHOTO_BUCKET = "delivery-photos"
+
 @app.route("/admin/upload_delivery_photo/<int:req_id>", methods=["POST"])
 def admin_upload_delivery_photo(req_id):
     if not admin_required():
         return redirect(url_for("login"))
     file = request.files.get("delivery_photo")
-    if not file or not file.filename:
+    if not file or not file.filename.strip():
         flash("Please choose a photo.", "error")
         return redirect(url_for("admin_requests"))
     ext = file.filename.rsplit(".", 1)[-1].lower()
@@ -1660,25 +1666,32 @@ def admin_upload_delivery_photo(req_id):
         flash("Only JPG and PNG files are allowed.", "error")
         return redirect(url_for("admin_requests"))
     file_bytes = file.read()
+    if not file_bytes:
+        flash("Empty file — please choose a valid photo.", "error")
+        return redirect(url_for("admin_requests"))
     if len(file_bytes) > MAX_AVATAR_BYTES:
         flash("Photo exceeds 2 MB limit.", "error")
         return redirect(url_for("admin_requests"))
     try:
-        path = f"delivery_{req_id}.{ext}"
-        public_url = upload_public_file(COMPLETE_PHOTO_BUCKET, path, file_bytes, file.content_type)
+        path = f"delivery_{req_id}_{int(time.time())}.{ext}"
+        public_url = upload_public_file(DELIVERY_PHOTO_BUCKET, path, file_bytes, file.content_type)
         _admin_db().table("adoption_requests").update({
             "delivery_photo_url": public_url,
-            "delivery_status": "Delivered",
-            "status": "Completed",
+            "delivery_status":    "Delivered",
+            "status":             "Completed",
         }).eq("id", req_id).execute()
-        sync_delivery_record(req_id, {
-            "status": "Delivered",
-            "delivery_status": "Delivered",
-        })
+        sync_delivery_record(req_id, {"status": "Delivered", "delivery_status": "Delivered"})
+        log.warning("admin_upload_delivery_photo: req=%s url=%s", req_id, public_url)
         flash("Delivery photo uploaded and status set to Delivered.", "success")
     except Exception as e:
         log.error("admin_upload_delivery_photo(%s) failed: %s", req_id, e)
-        flash(f"Failed to upload photo: {e}", "error")
+        err = str(e).lower()
+        if "bucket" in err or "not found" in err:
+            flash("Storage bucket 'delivery-photos' not found. Create it in Supabase Storage.", "error")
+        elif "delivery_photo_url" in err or "column" in err:
+            flash("Column 'delivery_photo_url' missing. Run the latest supabase_setup.sql migration.", "error")
+        else:
+            flash(f"Failed to upload photo: {e}", "error")
     return redirect(url_for("admin_requests"))
 
 
