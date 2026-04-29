@@ -459,7 +459,7 @@
                                     {% endif %}
 
                                 {# ── Rider info ── #}
-                                    {% elif req.delivery_method == 'Pick-up' %}
+                                    {% elif req.delivery_method in ('Pickup', 'Pick-up') %}
                                     <div class="detail-item detail-item-wide">
                                         <div class="detail-icon"><i class="fas fa-map-marker-alt"></i></div>
                                         <div class="detail-copy">

@@ -651,14 +651,14 @@ def build_request_cards(ar_rows, admin=False, include_messages=True):
 
             # delivery_method: prefer adoption_requests, fall back to deliveries
             raw_delivery_method = row.get("delivery_method") or delivery.get("delivery_method") or delivery.get("method") or "Meet-up"
-            delivery_method = "Pick-up" if str(raw_delivery_method).strip().lower() in {"pickup", "pick-up"} else raw_delivery_method
+            delivery_method = raw_delivery_method
 
             # delivery_status: adoption_requests first, then deliveries
             delivery_status = (
                 row.get("delivery_status")
                 or delivery.get("delivery_status")
                 or delivery.get("status")
-                or ("Preparing" if delivery_method in ("Delivery", "Pick-up") else None)
+                or ("Preparing" if delivery_method in ("Delivery", "Pickup", "Pick-up") else None)
             )
 
             # estimated delivery date: adoption_requests columns first, then deliveries
