@@ -256,6 +256,14 @@ alter table adoption_requests add column if not exists rider_contact text;
 alter table adoption_requests add column if not exists delivery_photo_url text;
 
 -- ============================================================
+-- PICKUP COLUMNS (run if adoption_requests table already exists)
+-- ============================================================
+alter table adoption_requests add column if not exists pickup_date date;
+alter table adoption_requests add column if not exists pickup_time text;
+alter table adoption_requests add column if not exists pickup_location text;
+alter table adoption_requests add column if not exists pickup_notes text;
+
+-- ============================================================
 -- PAYMENT STATUS CONSTRAINT FIX
 -- Run in Supabase SQL Editor to align check_payment_status
 -- with the values used by the application.
