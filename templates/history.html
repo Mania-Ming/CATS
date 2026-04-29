@@ -282,18 +282,19 @@
 
         .upload-status { font-size:11px; min-height:14px; }
 
-        /* ── Footer full-width fix ── */
-        body { display: flex; flex-direction: column; min-height: 100vh; margin: 0; }
-        .app-layout { flex: 1; }
-        .main { flex: 1; padding-bottom: 60px; }
-        footer {
-            width: 100vw;
-            position: relative;
-            margin-top: 60px;
-            background: #0f172a;
-            color: white;
-            padding: 40px 20px;
+        /* ── Layout fix ── */
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .main-content { flex: 1; }
+        .site-footer { width: 100%; background: #0f172a; color: rgba(255,255,255,0.55); }
+        .footer-inner {
+            max-width: 1160px; margin: 0 auto;
+            padding: 48px 28px 32px;
+            display: grid;
+            grid-template-columns: 1.8fr 1fr 1fr 1fr;
+            gap: 40px;
         }
+        @media (max-width: 768px) { .footer-inner { grid-template-columns: 1fr 1fr; gap: 28px; padding: 36px 20px 24px; } }
+        @media (max-width: 480px) { .footer-inner { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -311,6 +312,7 @@
 <div class="app-layout">
     {% include '_sidebar.html' %}
 
+    <div class="main-wrapper">
     <div class="main-content">
         <div class="topbar">
             <div class="topbar-left">
@@ -716,11 +718,10 @@
             </div>
             {% endif %}
         </div><!-- /page-content -->
-    </div>
-</div>
+    </div><!-- /main-content -->
 
-<footer class="site-footer">
-    <div class="footer-inner">
+    <footer class="site-footer">
+        <div class="footer-inner">
         <div class="footer-brand">
             <h3>Cat Adoption</h3>
             <p>Connecting loving families with cats in need of a forever home.</p>
@@ -740,9 +741,12 @@
             <a href="#">support@catadoption.ph</a>
             <a href="#">Manila, Philippines</a>
         </div>
-    </div>
-    <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
-</footer>
+        </div>
+        <div class="footer-bottom">&copy; 2026 Cat Adoption System. All rights reserved.</div>
+    </footer>
+
+    </div><!-- /main-wrapper -->
+</div><!-- /app-layout (closed here, removed stray closing div below) -->
 
 <script>
 function toggleSection(header) {
