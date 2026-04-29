@@ -284,11 +284,10 @@
 
         /* ── Full-width footer fix ── */
         .history-footer {
-            /* Break out of .main-content's margin-left offset */
-            position: relative;
-            left: calc(-1 * var(--sidebar-w));
-            width: calc(100% + var(--sidebar-w));
+            margin-left: calc(-1 * var(--sidebar-w));
+            width: 100vw;
             margin-top: 40px;
+            position: static;
         }
         .history-footer .footer-bottom {
             max-width: none;
@@ -296,7 +295,7 @@
         }
         @media (max-width: 768px) {
             .history-footer {
-                left: 0;
+                margin-left: 0;
                 width: 100%;
             }
         }
