@@ -113,21 +113,48 @@ def send_status_email(to_email, user_name, subject, body_html):
         log.error("send_status_email to %s failed: %s", to_email, e)
 
 
-def notify_adoption_status(to_email, user_name, cat_name, adoption_status):
+def notify_adoption_status(to_email, user_name, cat_name, adoption_status, extra_html=""):
     messages = {
         "Approved":  ("Your Adoption Request is Approved! 🎉",
                       f"<p>Great news! Your adoption request for <strong>{cat_name}</strong> has been <strong>approved</strong>.</p><p>Please proceed with the payment to continue.</p>"),
         "Scheduled": ("Your Meet-up / Delivery is Scheduled 📅",
-                      f"<p>Your adoption of <strong>{cat_name}</strong> has been <strong>scheduled</strong>. Check your adoption history for details.</p>"),
+                      f"<p>Your adoption of <strong>{cat_name}</strong> has been <strong>scheduled</strong>.</p>{extra_html}"),
         "Completed": ("Adoption Completed! 🐱",
                       f"<p>Your adoption of <strong>{cat_name}</strong> is now <strong>complete</strong>. Welcome to the family!</p>"),
         "Rejected":  ("Adoption Request Update",
-                      f"<p>Unfortunately, your adoption request for <strong>{cat_name}</strong> was <strong>not approved</strong> at this time.</p>"),
+                      f"<p>Unfortunately, your adoption request for <strong>{cat_name}</strong> was <strong>not approved</strong> at this time.</p>{extra_html}"),
     }
     if adoption_status not in messages:
         return
     subject, body = messages[adoption_status]
     send_status_email(to_email, user_name, subject, body)
+
+
+def notify_delivery_scheduled(to_email, user_name, cat_name, delivery_date, time_start,
+                               time_end, rider_name, rider_contact, delivery_address, delivery_status):
+    def _row(label, value):
+        return f"<tr><td style='padding:4px 8px;color:#64748b;'>{label}</td><td style='padding:4px 8px;'><strong>{value or '—'}</strong></td></tr>"
+    table = f"""
+    <p>Your delivery for <strong>{cat_name}</strong> has been scheduled. Details below:</p>
+    <table style='border-collapse:collapse;width:100%;margin:12px 0;'>
+        {_row('Delivery Date', delivery_date)}
+        {_row('Time Window', f'{time_start} – {time_end}' if time_start else time_start)}
+        {_row('Rider', rider_name)}
+        {_row('Rider Contact', rider_contact)}
+        {_row('Delivery Address', delivery_address)}
+        {_row('Status', delivery_status)}
+    </table>
+    <p>Please be available at the address on the scheduled date.</p>
+    """
+    send_status_email(to_email, user_name, f"Delivery Scheduled for {cat_name} 🚚", table)
+
+
+def _get_cat_name(cat_id):
+    try:
+        res = _admin_db().table("cats").select("name").eq("id", cat_id).single().execute()
+        return (res.data or {}).get("name") or "your cat"
+    except Exception:
+        return "your cat"
 
 
 def notify_payment_status(to_email, user_name, cat_name, payment_status):
@@ -662,6 +689,16 @@ def admin_schedule(req_id):
             "meetup_location":  meetup_location or None,
             "meetup_map_link":  meetup_map_link or None,
         }).eq("id", req_id).execute()
+        try:
+            cat_name = _get_cat_name(row.get("cat_id"))
+            map_link = f"<br><a href='{meetup_map_link}'>View on Map</a>" if meetup_map_link else ""
+            extra = (f"<p><strong>Date:</strong> {schedule_date}<br>"
+                     f"<strong>Time:</strong> {schedule_time}<br>"
+                     f"<strong>Location:</strong> {meetup_location}{map_link}</p>")
+            notify_adoption_status(row.get("email", ""), row.get("full_name", "Adopter"),
+                                   cat_name, "Scheduled", extra_html=extra)
+        except Exception as ne:
+            log.warning("admin_schedule notify failed: %s", ne)
         flash("Meet-up scheduled.", "success")
     except Exception as e:
         log.error("admin_schedule(%s) failed: %s", req_id, e)
@@ -713,7 +750,11 @@ def update_status(req_id):
                 db.table("cats").update({"status": "available"}).eq("id", ar["cat_id"]).execute()
         if ar:
             try:
-                notify_adoption_status(ar.get("email", ""), ar.get("full_name", "Adopter"), "", new_status)
+                cat_name = _get_cat_name(ar.get("cat_id"))
+                reject_reason = request.form.get("reject_reason", "").strip()
+                extra = f"<p><em>Reason: {reject_reason}</em></p>" if reject_reason and new_status == "Rejected" else ""
+                notify_adoption_status(ar.get("email", ""), ar.get("full_name", "Adopter"),
+                                       cat_name, new_status, extra_html=extra)
             except Exception as notify_err:
                 log.warning("notify_adoption_status failed: %s", notify_err)
         flash(f"Request updated to {new_status}.", "success")
@@ -1399,10 +1440,11 @@ def upload_receipt(req_id):
         try:
             row_for_notify = fetch_request_row(req_id, user_id=session["user_id"])
             if row_for_notify:
+                cat_name = _get_cat_name(row_for_notify.get("cat_id"))
                 notify_payment_status(
                     row_for_notify.get("email", ""),
                     row_for_notify.get("full_name", "Adopter"),
-                    "", "For Verification"
+                    cat_name, "For Verification"
                 )
         except Exception as notify_err:
             log.warning("notify_payment_status failed: %s", notify_err)
@@ -1450,8 +1492,9 @@ def admin_update_payment(req_id):
         row = fetch_request_row(req_id, admin=True)
         if row:
             try:
+                cat_name = _get_cat_name(row.get("cat_id"))
                 notify_payment_status(row.get("email", ""), row.get("full_name", "Adopter"),
-                                      "", new_payment_status)
+                                      cat_name, new_payment_status)
             except Exception as notify_err:
                 log.warning("notify_payment_status failed: %s", notify_err)
         flash(f"Payment status updated to {new_payment_status}.", "success")
@@ -1489,6 +1532,18 @@ def admin_update_delivery(req_id):
             "rider_contact": rider_contact,
             "rider_phone": rider_contact,
         })
+        try:
+            row = fetch_request_row(req_id, admin=True)
+            if row:
+                cat_name = _get_cat_name(row.get("cat_id"))
+                notify_delivery_scheduled(
+                    row.get("email", ""), row.get("full_name", "Adopter"), cat_name,
+                    delivery_date, None, None, rider_name, rider_contact,
+                    row.get("delivery_address") or row.get("address", ""),
+                    delivery_status,
+                )
+        except Exception as ne:
+            log.warning("admin_update_delivery notify failed: %s", ne)
         flash(f"Delivery status updated to {delivery_status}.", "success")
     except Exception as e:
         log.error("admin_update_delivery(%s) failed: %s", req_id, e)
@@ -1561,6 +1616,21 @@ def admin_schedule_delivery(req_id):
         })
     except Exception as e:
         log.warning("admin_schedule_delivery sync_delivery_record failed (non-fatal): %s", e)
+
+    # Send delivery email notification
+    try:
+        row = fetch_request_row(req_id, admin=True)
+        if row:
+            cat_name = _get_cat_name(row.get("cat_id"))
+            notify_delivery_scheduled(
+                row.get("email", ""), row.get("full_name", "Adopter"), cat_name,
+                delivery_date, delivery_time_start, delivery_time_end,
+                rider_name, rider_contact,
+                delivery_address or row.get("address", ""),
+                delivery_status,
+            )
+    except Exception as ne:
+        log.warning("admin_schedule_delivery notify failed: %s", ne)
 
     flash("Delivery scheduled.", "success")
     return redirect(url_for("admin_requests"))
